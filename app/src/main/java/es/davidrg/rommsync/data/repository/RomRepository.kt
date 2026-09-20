@@ -233,6 +233,95 @@ class RomRepository(
 
     suspend fun isRomDownloaded(romId: Int): Boolean = romDao.isDownloaded(romId)
 
+    /**
+     * Mueve un ROM descargado a otra raíz de ROMs (p. ej. interna <-> SD).
+     *
+     * Estrategia copiar + verificar + borrar: entre volúmenes distintos
+     * (emulated/0 <-> emulated/1) `File.renameTo` falla, así que se copia el
+     * archivo (o la carpeta completa en ROMs multi-archivo), se comprueba el
+     * tamaño y solo entonces se elimina el origen. Si la copia falla a medias
+     * se limpia el destino parcial para no dejar basura.
+     *
+     * @return [MoveResult] con el estado (éxito, no descargado, archivo
+     *   desaparecido, error de E/S).
+     */
+    suspend fun moveDownloadedRom(romId: Int, targetRoot: String): MoveResult =
+        withContext(Dispatchers.IO) {
+            val entity = romDao.getDownloadedRom(romId) ?: return@withContext MoveResult.NotDownloaded
+            val source = File(entity.localPath)
+            if (!source.exists()) return@withContext MoveResult.SourceMissing
+
+            val targetDir = PathMapper.getPlatformDir(targetRoot, entity.platformSlug)
+            if (!targetDir.exists() && !targetDir.mkdirs()) {
+                return@withContext MoveResult.Error("No se pudo crear la carpeta destino: $targetDir")
+            }
+            val target = File(targetDir, source.name)
+
+            // Ya está en el destino: nada que copiar, solo refrescar la ruta.
+            if (target.canonicalPath == source.canonicalPath) {
+                romDao.updateLocalPath(romId, target.absolutePath)
+                return@withContext MoveResult.Success(target)
+            }
+
+            // Espacio suficiente en el volumen destino.
+            val size = if (source.isDirectory) {
+                source.walkBottomUp().filter { it.isFile }.map { it.length() }.fold(0L) { acc, l -> acc + l }
+            } else {
+                source.length()
+            }
+            val stat = android.os.StatFs(targetDir.absolutePath)
+            if (stat.availableBytes < size) {
+                val missing = size - stat.availableBytes
+                val mb = missing / 1_000_000.0
+                val gb = mb / 1000.0
+                val human = if (gb >= 1.0) String.format(java.util.Locale.US, "%.1f GB", gb)
+                    else String.format(java.util.Locale.US, "%.0f MB", mb)
+                return@withContext MoveResult.Error("Espacio insuficiente en el destino (faltan $human)")
+            }
+
+            // Copiar archivo o árbol completo.
+            try {
+                if (source.isDirectory) copyDir(source, target) else source.copyTo(target, overwrite = false)
+            } catch (e: Exception) {
+                // Copia fallida: limpiar el parcial destino y conservar el origen.
+                runCatching { target.deleteRecursively() }
+                return@withContext MoveResult.Error("Error al copiar: ${e.message ?: "E/S"}")
+            }
+
+            // Verificación: mismo número de ficheros y bytes totales.
+            fun treeStats(f: File): Pair<Int, Long> {
+                var files = 0
+                var bytes = 0L
+                f.walkBottomUp().forEach { if (it.isFile) { files++; bytes += it.length() } }
+                return files to bytes
+            }
+            val (srcFiles, srcBytes) = treeStats(source)
+            val (dstFiles, dstBytes) = treeStats(target)
+            if (srcFiles != dstFiles || srcBytes != dstBytes) {
+                runCatching { target.deleteRecursively() }
+                return@withContext MoveResult.Error("La copia no coincide con el original; se ha conservado el original")
+            }
+
+            // Copia íntegra: eliminar origen y actualizar la ruta registrada.
+            if (!source.deleteRecursively()) {
+                // Origen no borrado: revertir para no duplicar (el original manda).
+                runCatching { target.deleteRecursively() }
+                return@withContext MoveResult.Error("No se pudo eliminar el original tras copiar")
+            }
+            romDao.updateLocalPath(romId, target.absolutePath)
+            MoveResult.Success(target)
+        }
+
+    /** Copia un directorio completo preservando la estructura. */
+    private fun copyDir(source: File, target: File) {
+        target.mkdirs()
+        source.listFiles()?.forEach { entry ->
+            val dest = File(target, entry.name)
+            if (entry.isDirectory) copyDir(entry, dest) else entry.copyTo(dest, overwrite = false)
+        }
+    }
+
+
     // ── Escaneo de biblioteca local ─────────────────────────────────────
 
     /**
@@ -456,4 +545,19 @@ data class ScanResult(
     val error: String? = null,
 ) {
     val isSuccess: Boolean get() = error == null
+}
+
+/** Resultado de mover un ROM entre raíces de almacenamiento. */
+sealed class MoveResult {
+    /** Movido (o ya estaba) en [target]. */
+    data class Success(val target: java.io.File) : MoveResult()
+
+    /** El ROM no consta como descargado. */
+    data object NotDownloaded : MoveResult()
+
+    /** El fichero registrado ya no existe en disco. */
+    data object SourceMissing : MoveResult()
+
+    /** Fallo con mensaje para el usuario. */
+    data class Error(val message: String) : MoveResult()
 }

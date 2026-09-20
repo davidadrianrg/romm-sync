@@ -79,6 +79,10 @@ class LibraryViewModel(
     private val _error = MutableStateFlow<String?>(null)
     val error = _error.asStateFlow()
 
+    /** True mientras se mueve un ROM entre almacenamientos (bloquea la UI). */
+    private val _isMovingRom = MutableStateFlow(false)
+    val isMovingRom: StateFlow<Boolean> = _isMovingRom.asStateFlow()
+
     /** Current server-side search term (null = no search, browse all). */
     private var currentSearch: String? = null
 
@@ -195,6 +199,28 @@ class LibraryViewModel(
     }
 
     /**
+     * Mueve una ROM descargada entre almacenamientos (interna <-> SD).
+     * Copia + verifica + borra; el original se conserva si algo falla.
+     */
+    fun moveDownloadedRom(rom: Rom, targetRoot: String) {
+        viewModelScope.launch {
+            _isMovingRom.value = true
+            val result = romRepository.moveDownloadedRom(rom.id, targetRoot)
+            _isMovingRom.value = false
+            when (result) {
+                is es.davidrg.rommsync.data.repository.MoveResult.Success ->
+                    _events.emit(LibraryEvent.RomMoved(rom.name, result.target.absolutePath))
+                es.davidrg.rommsync.data.repository.MoveResult.NotDownloaded ->
+                    _events.emit(LibraryEvent.Error("${rom.name} no consta como descargado"))
+                es.davidrg.rommsync.data.repository.MoveResult.SourceMissing ->
+                    _events.emit(LibraryEvent.Error("No se encontró el archivo de ${rom.name} en disco"))
+                is es.davidrg.rommsync.data.repository.MoveResult.Error ->
+                    _events.emit(LibraryEvent.Error("Mover ${rom.name}: ${result.message}"))
+            }
+        }
+    }
+
+    /**
      * Batch download: enqueues every ROM in [roms] that is not already downloading.
      * Used by the "Descargar faltantes" action in the library toolbar.
      *
@@ -278,5 +304,7 @@ sealed class LibraryEvent {
     data class DownloadStarted(val romName: String) : LibraryEvent()
     data class BatchDownloadStarted(val count: Int) : LibraryEvent()
     data class DownloadDeleted(val romName: String) : LibraryEvent()
+    /** ROM movido entre almacenamientos con éxito; [targetPath] es la nueva ruta. */
+    data class RomMoved(val romName: String, val targetPath: String) : LibraryEvent()
     data class Error(val message: String) : LibraryEvent()
 }

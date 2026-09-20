@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.DownloadDone
@@ -193,6 +194,12 @@ fun LibraryScreen() {
                 is LibraryEvent.DownloadDeleted -> {
                     snackbarHostState.showSnackbar(
                         message = "Eliminado ${event.romName}",
+                        duration = SnackbarDuration.Short,
+                    )
+                }
+                is LibraryEvent.RomMoved -> {
+                    snackbarHostState.showSnackbar(
+                        message = "«${event.romName}» movido a ${event.targetPath}",
                         duration = SnackbarDuration.Short,
                     )
                 }
@@ -603,6 +610,14 @@ fun LibraryScreen() {
         )
         val syncConfig by viewModel.observeRomSyncConfig(rom.id)
             .collectAsState(initial = null)
+        val isMovingRom by viewModel.isMovingRom.collectAsState()
+        // Volumen actual del juego: true si su ruta local está bajo la ruta
+        // secundaria (SD).
+        val isOnSd = remember(syncConfig?.localPath, settings.secondaryRomsPath) {
+            val p = syncConfig?.localPath ?: ""
+            val sd = settings.secondaryRomsPath.trimEnd('/')
+            p.isNotBlank() && sd.isNotBlank() && (p == sd || p.startsWith("$sd/"))
+        }
         // Ruta de saves que hereda de la plataforma (la que se sobreescribe por juego)
         val platform = platforms.find { it.id == rom.platformId }
         val platformSavesPath = remember(platform, retroArchBasePath) {
@@ -643,6 +658,13 @@ fun LibraryScreen() {
                     selectedRom = null
                 },
                 onClose = { selectedRom = null },
+                showMoveOption = settings.dualRomsPathsEnabled,
+                isOnSd = isOnSd,
+                isMoving = isMovingRom,
+                onMove = { toSd ->
+                    val targetRoot = if (toSd) settings.secondaryRomsPath else settings.romsRootPath
+                    viewModel.moveDownloadedRom(rom, targetRoot)
+                },
             )
         }
     }
@@ -990,6 +1012,10 @@ private fun RomDetailSheet(
     onDownload: () -> Unit,
     onDelete: () -> Unit,
     onClose: () -> Unit,
+    showMoveOption: Boolean = false,
+    isOnSd: Boolean = false,
+    isMoving: Boolean = false,
+    onMove: (toSd: Boolean) -> Unit = {},
 ) {
     var expanded by remember { mutableStateOf(false) }
     var showFolderPicker by remember { mutableStateOf(false) }
@@ -1145,6 +1171,34 @@ private fun RomDetailSheet(
                             modifier = Modifier.size(20.dp),
                         )
                         Text("  Eliminar descarga")
+                    }
+                    // ── Mover entre almacenamientos (modo dos rutas) ─────
+                    // Solo para juegos descargados con el modo dual activo.
+                    if (showMoveOption) {
+                        OutlinedButton(
+                            onClick = {
+                                // Mover al otro volumen: si está en SD → interna,
+                                // si está en interna → SD.
+                                onMove(!isOnSd)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isMoving,
+                        ) {
+                            if (isMoving) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                            } else {
+                                Icon(
+                                    Icons.Filled.SwapHoriz,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                            Text(
+                                if (isMoving) "  Moviendo..."
+                                else if (isOnSd) "  Mover a memoria interna"
+                                else "  Mover a tarjeta SD"
+                            )
+                        }
                     }
                 }
             }

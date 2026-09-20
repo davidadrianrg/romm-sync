@@ -34,6 +34,9 @@ interface RomDao {
     @Query("UPDATE downloaded_roms SET excludedFromSync = :excluded WHERE romId = :romId")
     suspend fun updateExcludedFromSync(romId: Int, excluded: Boolean)
 
+    @Query("UPDATE downloaded_roms SET localPath = :localPath WHERE romId = :romId")
+    suspend fun updateLocalPath(romId: Int, localPath: String)
+
     @Query("DELETE FROM downloaded_roms WHERE romId = :romId")
     suspend fun deleteDownloadedRom(romId: Int)
 
