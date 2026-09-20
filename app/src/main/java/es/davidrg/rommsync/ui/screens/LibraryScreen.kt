@@ -225,6 +225,24 @@ fun LibraryScreen() {
     // State for the batch download confirmation dialog.
     var showBatchDialog by remember { mutableStateOf(false) }
 
+    // ── Modo dos rutas: destino pendiente de elección ────────────────
+    // ROM individual esperando que el usuario elija interna/SD.
+    var romPendingDestination by remember { mutableStateOf<Rom?>(null) }
+    // Destino elegido en el diálogo batch (null = interna; ruta = SD).
+    var batchSelectedRoot by remember { mutableStateOf<String?>(null) }
+
+    /** Encola la descarga de un juego (con destino explícito o el principal). */
+    val enqueueSingleDownload: (Rom, String?) -> Unit = { rom, rootPath ->
+        if (settings.isConfigured) {
+            container.downloadManager.enqueueDownload(
+                rom = rom,
+                serverUrl = settings.serverUrl,
+                romsRootPath = rootPath,
+            )
+            viewModel.onDownloadEnqueued(rom.name)
+        }
+    }
+
     // Densidad de la rejilla adaptada al tamaño de ventana: en portátiles
     // compactos (4" 16:9/4:3) buscamos ~3 columnas en horizontal y 2 en
     // vertical; en móviles normales subimos el tamaño mínimo de tarjeta.
@@ -511,12 +529,10 @@ fun LibraryScreen() {
                             romWithStatus = romStatus,
                             coverAspectRatio = coverAspectRatio,
                             onDownload = {
-                                if (settings.isConfigured) {
-                                    container.downloadManager.enqueueDownload(
-                                        rom = romStatus.rom,
-                                        serverUrl = settings.serverUrl,
-                                    )
-                                    viewModel.onDownloadEnqueued(romStatus.rom.name)
+                                if (settings.dualRomsPathsEnabled) {
+                                    romPendingDestination = romStatus.rom
+                                } else {
+                                    enqueueSingleDownload(romStatus.rom, null)
                                 }
                             },
                             onLongPress = { selectedRom = romStatus.rom },
@@ -581,12 +597,10 @@ fun LibraryScreen() {
                 onSavesPathOverrideChange = { path -> viewModel.setRomSavesPathOverride(rom.id, path) },
                 onExcludedFromSyncChange = { excluded -> viewModel.setRomExcludedFromSync(rom.id, excluded) },
                 onDownload = {
-                    if (settings.isConfigured) {
-                        container.downloadManager.enqueueDownload(
-                            rom = rom,
-                            serverUrl = settings.serverUrl,
-                        )
-                        viewModel.onDownloadEnqueued(rom.name)
+                    if (settings.dualRomsPathsEnabled) {
+                        romPendingDestination = rom
+                    } else {
+                        enqueueSingleDownload(rom, null)
                     }
                     selectedRom = null
                 },
@@ -614,9 +628,31 @@ fun LibraryScreen() {
             },
             title = { Text("Descargar faltantes") },
             text = {
-                Text(
-                    "¿Descargar ${missingRoms.size} ROMs faltantes para «$platformName»?",
-                )
+                Column {
+                    Text(
+                        "¿Descargar ${missingRoms.size} ROMs faltantes para «$platformName»?",
+                    )
+                    if (settings.dualRomsPathsEnabled) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            "Destino:",
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = batchSelectedRoot == null,
+                                onClick = { batchSelectedRoot = null },
+                                label = { Text("Interna") },
+                            )
+                            FilterChip(
+                                selected = batchSelectedRoot != null,
+                                onClick = { batchSelectedRoot = settings.secondaryRomsPath },
+                                label = { Text("Tarjeta SD") },
+                            )
+                        }
+                    }
+                }
             },
             confirmButton = {
                 TextButton(
@@ -624,6 +660,7 @@ fun LibraryScreen() {
                         viewModel.enqueueBatchDownload(
                             roms = missingRoms.map { it.rom },
                             serverUrl = settings.serverUrl,
+                            romsRootPath = batchSelectedRoot,
                         )
                         showBatchDialog = false
                     },
@@ -634,6 +671,59 @@ fun LibraryScreen() {
             dismissButton = {
                 TextButton(onClick = { showBatchDialog = false }) {
                     Text("Cancelar")
+                }
+            },
+        )
+    }
+
+    // ── Dual-path destination picker (single ROM) ─────────────────────────
+    romPendingDestination?.let { rom ->
+        AlertDialog(
+            onDismissRequest = { romPendingDestination = null },
+            icon = {
+                Icon(
+                    Icons.Filled.Folder,
+                    contentDescription = null,
+                    modifier = Modifier.size(28.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            },
+            title = { Text("¿Dónde descargar?") },
+            text = {
+                Column {
+                    Text(rom.name, style = MaterialTheme.typography.bodyMedium)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        settings.romsRootPath,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        settings.secondaryRomsPath,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        enqueueSingleDownload(rom, null)
+                        romPendingDestination = null
+                    },
+                ) {
+                    Text("Memoria interna")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        enqueueSingleDownload(rom, settings.secondaryRomsPath)
+                        romPendingDestination = null
+                    },
+                ) {
+                    Text("Tarjeta SD")
                 }
             },
         )

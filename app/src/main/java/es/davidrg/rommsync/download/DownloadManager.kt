@@ -35,6 +35,7 @@ class DownloadManager(private val context: Context) {
     fun enqueueDownload(
         rom: Rom,
         serverUrl: String,
+        romsRootPath: String? = null,
     ): String {
         val inputData = Data.Builder()
             .putInt(DownloadWorker.KEY_ROM_ID, rom.id)
@@ -44,6 +45,7 @@ class DownloadManager(private val context: Context) {
             .putString(DownloadWorker.KEY_PLATFORM_SLUG, rom.platformSlug)
             .putString(DownloadWorker.KEY_SERVER_URL, serverUrl)
             .putString(DownloadWorker.KEY_FILE_HASH, rom.files.firstOrNull()?.hash)
+            .putString(DownloadWorker.KEY_ROMS_ROOT_PATH, romsRootPath)
             .build()
 
         // "Solo WiFi": UNMETERED evita datos móviles; saves siempre CONNECTED
@@ -101,12 +103,17 @@ class DownloadManager(private val context: Context) {
     /**
      * Re-enqueues a failed download as a new work request.
      * The worker reads server config from SettingsDataStore, so only rom metadata is needed.
+     *
+     * @param romsRootPath destino original si se conoce (mantiene el parcial en
+     *   la misma ruta para poder reanudar); null = decide el worker con la
+     *   configuración actual.
      */
     fun retryDownload(
         romId: Int,
         romName: String,
         fileName: String,
         platformSlug: String,
+        romsRootPath: String? = null,
     ): String {
         // Cancel the old failed work first so it gets cleaned up
         cancelDownload(romId)
@@ -117,6 +124,7 @@ class DownloadManager(private val context: Context) {
             .putString(DownloadWorker.KEY_FILE_NAME, fileName)
             .putInt(DownloadWorker.KEY_PLATFORM_ID, 0)
             .putString(DownloadWorker.KEY_PLATFORM_SLUG, platformSlug)
+            .putString(DownloadWorker.KEY_ROMS_ROOT_PATH, romsRootPath)
             .build()
 
         // "Solo WiFi": UNMETERED evita datos móviles; saves siempre CONNECTED
@@ -162,12 +170,15 @@ class DownloadManager(private val context: Context) {
         val platformSlug = progressData.getString(DownloadWorker.KEY_PLATFORM_SLUG)
             ?: outputData.getString(DownloadWorker.KEY_PLATFORM_SLUG)
             ?: ""
+        val romsRootPath = progressData.getString(DownloadWorker.KEY_ROMS_ROOT_PATH)
+            ?: outputData.getString(DownloadWorker.KEY_ROMS_ROOT_PATH)
 
         return DownloadTask(
             romId = romId,
             romName = romName,
             fileName = fileName,
             platformSlug = platformSlug,
+            romsRootPath = romsRootPath,
             workId = id.toString(),
             progress = progressData.getInt(DownloadWorker.KEY_PROGRESS, 0),
             isIndeterminate = progressData.getBoolean(DownloadWorker.KEY_INDETERMINATE, false),

@@ -105,6 +105,7 @@ fun ConfigScreen() {
 
     // ── Folder picker dialog state ───────────────────────────────────────
     var showRomsPicker by remember { mutableStateOf(false) }
+    var showSecondaryRomsPicker by remember { mutableStateOf(false) }
     var showEsdePicker by remember { mutableStateOf(false) }
     var showRetroHraiPicker by remember { mutableStateOf(false) }
 
@@ -250,6 +251,58 @@ fun ConfigScreen() {
                     )
                     Spacer(modifier = Modifier.size(6.dp))
                     Text("Seleccionar carpeta")
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // ── Modo dos rutas: memoria interna + tarjeta SD ────────
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Dos rutas de ROMs",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            "Elige a dónde descargar cada juego: memoria interna o tarjeta SD",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Spacer(modifier = Modifier.size(12.dp))
+                    Switch(
+                        checked = settings.dualRomsPathsEnabled,
+                        onCheckedChange = { viewModel.setDualRomsPathsEnabled(it) },
+                    )
+                }
+
+                if (settings.dualRomsPathsEnabled) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = settings.secondaryRomsPath,
+                        onValueChange = { viewModel.setSecondaryRomsPath(it) },
+                        label = { Text("Segunda ruta (tarjeta SD)") },
+                        placeholder = { Text("/storage/emulated/1/ROMs") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    FilledTonalButton(
+                        onClick = { showSecondaryRomsPicker = true },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(
+                            Icons.Filled.Folder,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(modifier = Modifier.size(6.dp))
+                        Text("Seleccionar carpeta SD")
+                    }
                 }
             }
 
@@ -738,6 +791,18 @@ fun ConfigScreen() {
             onSelect = { path ->
                 viewModel.setEsdeDataPath(path)
                 showEsdePicker = false
+            },
+        )
+    }
+    if (showSecondaryRomsPicker) {
+        FolderPickerDialog(
+            initialPath = settings.secondaryRomsPath.ifBlank {
+                es.davidrg.rommsync.data.local.SettingsDataStore.DEFAULT_SECONDARY_ROMS_PATH
+            },
+            onDismiss = { showSecondaryRomsPicker = false },
+            onSelect = { path ->
+                viewModel.setSecondaryRomsPath(path)
+                showSecondaryRomsPicker = false
             },
         )
     }

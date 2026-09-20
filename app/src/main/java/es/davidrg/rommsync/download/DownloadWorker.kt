@@ -63,7 +63,11 @@ class DownloadWorker(
         // Read configuration directly from storage (API key lives in
         // EncryptedSharedPreferences — never passed through WorkManager Data).
         val dataStore = SettingsDataStore(applicationContext)
-        val romsRootPath = dataStore.getRomsRootPathBlocking()
+        // Destino: si el WorkRequest trae ruta explícita (modo dos rutas o
+        // retry que conserva su destino) se usa; si no, la raíz configurada.
+        val romsRootPath = inputData.getString(KEY_ROMS_ROOT_PATH)
+            ?.takeIf { it.isNotBlank() }
+            ?: dataStore.getRomsRootPathBlocking()
         val apiKey = dataStore.getApiKeyBlocking()
         val serverUrl = dataStore.getServerUrlBlocking().ifEmpty {
             inputData.getString(KEY_SERVER_URL) ?: return@withContext Result.failure()
@@ -356,6 +360,7 @@ class DownloadWorker(
             KEY_ROM_NAME to romName,
             KEY_FILE_NAME to fileName,
             KEY_PLATFORM_SLUG to platformSlug,
+            KEY_ROMS_ROOT_PATH to inputData.getString(KEY_ROMS_ROOT_PATH),
             KEY_DOWNLOADED_BYTES to downloadedBytes,
             KEY_TOTAL_BYTES to totalBytes,
             KEY_SPEED_BPS to speedBps,
@@ -653,6 +658,7 @@ class DownloadWorker(
         const val KEY_PLATFORM_ID = "platform_id"
         const val KEY_PLATFORM_SLUG = "platform_slug"
         const val KEY_SERVER_URL = "server_url"
+        const val KEY_ROMS_ROOT_PATH = "roms_root_path"
         const val KEY_PROGRESS = "progress"
         const val KEY_INDETERMINATE = "indeterminate"
         const val KEY_LOCAL_PATH = "local_path"

@@ -225,19 +225,20 @@ class RomRepository(
 
     /**
      * Escanea la biblioteca ya presente en disco y marca como descargados los
-     * ROMs cuyos ficheros existan en la ruta esperada
+     * ROMs cuyos ficheros existan en alguna de las rutas esperadas
      * (`{romsRootPath}/{platformSlug}/{fileName}`).
      *
      * Útil cuando el usuario ha copiado los juegos manualmente desde el PC en
      * vez de descargarlos desde RomM: recorre todas las plataformas, pagina sus
      * ROMs desde el servidor y comprueba la existencia del fichero local.
      *
-     * @param romsRootPath ruta raíz de ROMs configurada.
+     * @param romsRootPaths raíces de ROMs a escanear (principal y, si el modo
+     *   dos rutas está activo, la secundaria).
      * @param onProgress callback opcional con el nombre de la plataforma en curso.
      * @return [ScanResult] con el número de juegos detectados y comprobados.
      */
     suspend fun scanDownloadedLibrary(
-        romsRootPath: String,
+        romsRootPaths: List<String>,
         onProgress: (platformName: String) -> Unit = {},
     ): ScanResult = withContext(Dispatchers.IO) {
         val platforms = platformDao.getAllPlatformsBlocking()
@@ -245,6 +246,7 @@ class RomRepository(
             return@withContext ScanResult(error = "No hay plataformas. Sincroniza el servidor primero.")
         }
 
+        val roots = romsRootPaths.map { it.trimEnd('/') }.filter { it.isNotBlank() }.distinct()
         val alreadyDownloaded = romDao.getAllDownloadedRoms().map { it.romId }.toMutableSet()
         var detected = 0
         var scanned = 0
@@ -252,9 +254,9 @@ class RomRepository(
         try {
             for (platform in platforms) {
                 onProgress(platform.name)
-                // Si la carpeta de la plataforma no existe, saltamos su escaneo.
-                val platformDir = PathMapper.getPlatformDir(romsRootPath, platform.slug)
-                if (!platformDir.isDirectory) continue
+                // Si la carpeta de la plataforma no existe en ninguna raíz, saltamos su escaneo.
+                val hasPlatformDir = roots.any { PathMapper.getPlatformDir(it, platform.slug).isDirectory }
+                if (!hasPlatformDir) continue
 
                 var offset = 0
                 while (true) {
@@ -265,7 +267,7 @@ class RomRepository(
                     for (rom in roms) {
                         scanned++
                         if (rom.id in alreadyDownloaded) continue
-                        val localFile = findRomFileOnDisk(romsRootPath, rom) ?: continue
+                        val localFile = findRomFileOnDisk(roots, rom) ?: continue
                         romDao.insertDownloadedRom(
                             DownloadedRomEntity(
                                 romId = rom.id,
@@ -301,6 +303,14 @@ class RomRepository(
      * 3. Nombre sin extensión: rom.fileNameNoExt + cualquier extensión válida
      * 4. Nombre base del fichero local coincide con fileNameNoExt (sin tags ni ext)
      */
+    private fun findRomFileOnDisk(roots: List<String>, rom: Rom): File? {
+        for (root in roots) {
+            val found = findRomFileOnDisk(root, rom)
+            if (found != null) return found
+        }
+        return null
+    }
+
     private fun findRomFileOnDisk(romsRootPath: String, rom: Rom): File? {
         val platformDir = PathMapper.getPlatformDir(romsRootPath, rom.platformSlug)
         if (!platformDir.isDirectory) return null

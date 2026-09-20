@@ -8,6 +8,8 @@ data class DownloadTask(
     val romName: String,
     val fileName: String,
     val platformSlug: String,
+    /** Ruta raíz destino de esta descarga (null = la principal configurada). */
+    val romsRootPath: String? = null,
     val workId: String,
     val progress: Int = 0,
     val isIndeterminate: Boolean = false,

@@ -36,7 +36,9 @@ class DownloadQueueViewModel(
     }
 
     /**
-     * Re-enqueues a failed download as a new work request.
+     * Re-enqueues a failed download as a new work request, keeping the
+     * original destination root (so a partial file on the SD card resumes
+     * there instead of restarting on internal storage).
      */
     fun retryDownload(task: DownloadTask) {
         downloadManager.retryDownload(
@@ -44,6 +46,7 @@ class DownloadQueueViewModel(
             romName = task.romName,
             fileName = task.fileName,
             platformSlug = task.platformSlug,
+            romsRootPath = task.romsRootPath,
         )
     }
 }

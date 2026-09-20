@@ -197,8 +197,10 @@ class LibraryViewModel(
     /**
      * Batch download: enqueues every ROM in [roms] that is not already downloading.
      * Used by the "Descargar faltantes" action in the library toolbar.
+     *
+     * @param romsRootPath raíz destino (modo dos rutas); null = la principal.
      */
-    fun enqueueBatchDownload(roms: List<Rom>, serverUrl: String) {
+    fun enqueueBatchDownload(roms: List<Rom>, serverUrl: String, romsRootPath: String? = null) {
         val manager = downloadManager ?: run {
             viewModelScope.launch { _events.emit(LibraryEvent.Error("DownloadManager no disponible")) }
             return
@@ -211,7 +213,9 @@ class LibraryViewModel(
             return
         }
         viewModelScope.launch {
-            toEnqueue.forEach { rom -> manager.enqueueDownload(rom = rom, serverUrl = serverUrl) }
+            toEnqueue.forEach { rom ->
+                manager.enqueueDownload(rom = rom, serverUrl = serverUrl, romsRootPath = romsRootPath)
+            }
             _events.emit(LibraryEvent.BatchDownloadStarted(toEnqueue.size))
         }
     }

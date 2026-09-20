@@ -103,9 +103,13 @@ class ConfigViewModel(
         viewModelScope.launch {
             _scanState.value = LibraryScanState.Scanning(null)
             repo.configureApi(serverUrl, apiKey)
-            val romsRootPath = settingsRepository.settings.first().romsRootPath
+            val config = settingsRepository.settings.first()
+            val romsRootPaths = buildList {
+                add(config.romsRootPath)
+                if (config.dualRomsPathsEnabled) add(config.secondaryRomsPath)
+            }
             val result = repo.scanDownloadedLibrary(
-                romsRootPath = romsRootPath,
+                romsRootPaths = romsRootPaths,
                 onProgress = { platformName ->
                     _scanState.value = LibraryScanState.Scanning(platformName)
                 },
@@ -132,6 +136,14 @@ class ConfigViewModel(
 
     fun setRomsRootPath(path: String) {
         viewModelScope.launch { settingsRepository.setRomsRootPath(path) }
+    }
+
+    fun setSecondaryRomsPath(path: String) {
+        viewModelScope.launch { settingsRepository.setSecondaryRomsPath(path) }
+    }
+
+    fun setDualRomsPathsEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setDualRomsPathsEnabled(enabled) }
     }
 
     fun setMaxConcurrentDownloads(max: Int) {

@@ -39,6 +39,8 @@ class SettingsDataStore(private val context: Context) {
         // ── DataStore keys (non-sensitive settings) ────────────────────
         val SERVER_URL = stringPreferencesKey("server_url")
         val ROMS_ROOT_PATH = stringPreferencesKey("roms_root_path")
+        val SECONDARY_ROMS_PATH = stringPreferencesKey("secondary_roms_path")
+        val DUAL_ROMS_PATHS_ENABLED = booleanPreferencesKey("dual_roms_paths_enabled")
         val MAX_CONCURRENT_DOWNLOADS = intPreferencesKey("max_concurrent_downloads")
         val WIFI_ONLY_DOWNLOADS = booleanPreferencesKey("wifi_only_downloads")
         val RETROARCH_BASE_PATH = stringPreferencesKey("retroarch_base_path")
@@ -69,6 +71,7 @@ class SettingsDataStore(private val context: Context) {
         private const val SECURE_KEY_API_KEY = "api_key"
 
         const val DEFAULT_ROMS_PATH = "/storage/emulated/0/ROMs"
+        const val DEFAULT_SECONDARY_ROMS_PATH = "/storage/emulated/1/ROMs"
         const val DEFAULT_MAX_DOWNLOADS = 2
         const val DEFAULT_RETROARCH_PATH = "/storage/emulated/0/RetroArch"
         const val DEFAULT_ESDE_DATA_DIR = "/storage/emulated/0/ES-DE"
@@ -125,6 +128,12 @@ class SettingsDataStore(private val context: Context) {
     val serverUrl: Flow<String> = context.dataStore.data.map { it[SERVER_URL] ?: "" }
     val apiKey: Flow<String> = _apiKeyFlow
     val romsRootPath: Flow<String> = context.dataStore.data.map { it[ROMS_ROOT_PATH] ?: DEFAULT_ROMS_PATH }
+    val secondaryRomsPath: Flow<String> = context.dataStore.data.map {
+        it[SECONDARY_ROMS_PATH] ?: DEFAULT_SECONDARY_ROMS_PATH
+    }
+    val dualRomsPathsEnabled: Flow<Boolean> = context.dataStore.data.map {
+        it[DUAL_ROMS_PATHS_ENABLED] ?: false
+    }
     val maxConcurrentDownloads: Flow<Int> = context.dataStore.data.map {
         it[MAX_CONCURRENT_DOWNLOADS] ?: DEFAULT_MAX_DOWNLOADS
     }
@@ -178,6 +187,8 @@ class SettingsDataStore(private val context: Context) {
             romsRootPath = prefs[ROMS_ROOT_PATH] ?: DEFAULT_ROMS_PATH,
             maxConcurrentDownloads = prefs[MAX_CONCURRENT_DOWNLOADS] ?: DEFAULT_MAX_DOWNLOADS,
             wifiOnlyDownloads = prefs[WIFI_ONLY_DOWNLOADS] ?: false,
+            dualRomsPathsEnabled = prefs[DUAL_ROMS_PATHS_ENABLED] ?: false,
+            secondaryRomsPath = prefs[SECONDARY_ROMS_PATH] ?: DEFAULT_SECONDARY_ROMS_PATH,
         )
     }
 
@@ -198,6 +209,14 @@ class SettingsDataStore(private val context: Context) {
 
     suspend fun setRomsRootPath(path: String) {
         context.dataStore.edit { it[ROMS_ROOT_PATH] = path }
+    }
+
+    suspend fun setSecondaryRomsPath(path: String) {
+        context.dataStore.edit { it[SECONDARY_ROMS_PATH] = path.trimEnd('/') }
+    }
+
+    suspend fun setDualRomsPathsEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[DUAL_ROMS_PATHS_ENABLED] = enabled }
     }
 
     suspend fun setMaxConcurrentDownloads(max: Int) {
@@ -277,6 +296,27 @@ class SettingsDataStore(private val context: Context) {
         return runCatching {
             runBlocking { context.dataStore.data.first()[ROMS_ROOT_PATH] ?: DEFAULT_ROMS_PATH }
         }.getOrDefault(DEFAULT_ROMS_PATH)
+    }
+
+    /**
+     * Synchronous read of the secondary ROMs path (SD card) for WorkManager.
+     */
+    fun getSecondaryRomsPathBlocking(): String {
+        return runCatching {
+            runBlocking {
+                context.dataStore.data.first()[SECONDARY_ROMS_PATH] ?: DEFAULT_SECONDARY_ROMS_PATH
+            }
+        }.getOrDefault(DEFAULT_SECONDARY_ROMS_PATH)
+    }
+
+    /**
+     * Synchronous read of the dual ROMs paths toggle. When true, downloads
+     * ask the user which of the two configured roots to use.
+     */
+    fun getDualRomsPathsEnabledBlocking(): Boolean {
+        return runCatching {
+            runBlocking { context.dataStore.data.first()[DUAL_ROMS_PATHS_ENABLED] ?: false }
+        }.getOrDefault(false)
     }
 
     /**
@@ -366,6 +406,10 @@ data class ServerConfig(
     val maxConcurrentDownloads: Int,
     /** Descargar ROMs solo por WiFi (saves se sincronizan por cualquier red). */
     val wifiOnlyDownloads: Boolean = false,
+    /** Modo dos rutas de ROMs (memoria interna + tarjeta SD). */
+    val dualRomsPathsEnabled: Boolean = false,
+    /** Segunda ruta de ROMs (normalmente la tarjeta SD). Solo usa si dualRomsPathsEnabled. */
+    val secondaryRomsPath: String = "",
 ) {
     val isConfigured: Boolean get() = serverUrl.isNotEmpty() && apiKey.isNotEmpty()
 }
