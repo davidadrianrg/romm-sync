@@ -56,6 +56,9 @@ interface PlatformDao {
     @Query("UPDATE platforms SET measuredAspectRatio = :ratio WHERE id = :id")
     suspend fun updateMeasuredAspectRatio(id: Int, ratio: Float?)
 
+    @Query("UPDATE platforms SET downloadStorage = :storage WHERE id = :id")
+    suspend fun updateDownloadStorage(id: Int, storage: String?)
+
     @Query("SELECT COUNT(*) FROM platforms")
     suspend fun count(): Int
 

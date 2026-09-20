@@ -97,6 +97,15 @@ class PlatformsViewModel(
         }
     }
 
+    fun updatePlatformDownloadStorage(
+        platformId: Int,
+        storage: es.davidrg.rommsync.domain.model.PlatformDownloadStorage,
+    ) {
+        viewModelScope.launch {
+            romRepository.updatePlatformDownloadStorage(platformId, storage)
+        }
+    }
+
     fun setAllVisible(visible: Boolean) {
         viewModelScope.launch {
             platforms.value.forEach { platform ->

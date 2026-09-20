@@ -22,4 +22,10 @@ data class PlatformEntity(
      * prioridad sobre [aspectRatio] (el valor del servidor no es fiable).
      */
     val measuredAspectRatio: Float? = null,
+    /**
+     * Destino de descarga por defecto para esta plataforma (modo dos rutas).
+     * Null = preguntar al usuario en cada descarga.
+     * "internal" = memoria interna, "sd" = tarjeta SD.
+     */
+    val downloadStorage: String? = null,
 )

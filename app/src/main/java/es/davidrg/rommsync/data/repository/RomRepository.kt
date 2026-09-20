@@ -111,6 +111,18 @@ class RomRepository(
         platformDao.updateSavesPathOverride(id, path)
     }
 
+    /** Fija el destino de descarga por defecto de una plataforma (modo dos rutas). */
+    suspend fun updatePlatformDownloadStorage(id: Int, storage: es.davidrg.rommsync.domain.model.PlatformDownloadStorage?) {
+        platformDao.updateDownloadStorage(
+            id,
+            when (storage) {
+                es.davidrg.rommsync.domain.model.PlatformDownloadStorage.INTERNAL -> "internal"
+                es.davidrg.rommsync.domain.model.PlatformDownloadStorage.SD -> "sd"
+                null, es.davidrg.rommsync.domain.model.PlatformDownloadStorage.ASK -> null
+            },
+        )
+    }
+
     /** Persiste el aspect ratio medido a partir de covers reales de la plataforma. */
     suspend fun updatePlatformMeasuredAspectRatio(id: Int, ratio: Float?) {
         platformDao.updateMeasuredAspectRatio(id, ratio)
@@ -377,6 +389,7 @@ class RomRepository(
         savesPathOverride = savesPathOverride,
         aspectRatio = aspectRatio,
         measuredAspectRatio = measuredAspectRatio,
+        downloadStorage = es.davidrg.rommsync.domain.model.PlatformDownloadStorage.fromRaw(downloadStorage),
     )
 
     private fun RomDto.toDomain(): Rom {

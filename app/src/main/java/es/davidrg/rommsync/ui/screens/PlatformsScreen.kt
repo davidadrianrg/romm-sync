@@ -362,9 +362,14 @@ fun PlatformsScreen() {
                         syncEnabled = saveSyncEnabled,
                         esdeEnabled = esdeExportEnabled,
                         retroHraiEnabled = retroHraiExportEnabled,
+                        dualPathsEnabled = settings.dualRomsPathsEnabled,
+                        secondaryRomsPath = settings.secondaryRomsPath,
                         onToggle = { viewModel.togglePlatformVisibility(it) },
                         onEmulatorChange = { id, emu -> viewModel.updatePlatformEmulator(id, emu) },
                         onSavesPathChange = { id, path -> viewModel.updatePlatformSavesPath(id, path) },
+                        onDownloadStorageChange = { id, storage ->
+                            viewModel.updatePlatformDownloadStorage(id, storage)
+                        },
                     )
                 }
             }
@@ -380,9 +385,12 @@ private fun PlatformCard(
     syncEnabled: Boolean,
     esdeEnabled: Boolean,
     retroHraiEnabled: Boolean,
+    dualPathsEnabled: Boolean,
+    secondaryRomsPath: String,
     onToggle: (Platform) -> Unit,
     onEmulatorChange: (Int, String?) -> Unit,
     onSavesPathChange: (Int, String?) -> Unit,
+    onDownloadStorageChange: (Int, es.davidrg.rommsync.domain.model.PlatformDownloadStorage) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val availableEmulators = remember(platform.slug) {
@@ -457,10 +465,10 @@ private fun PlatformCard(
                         )
                     }
                 }
-                // Botón de expandir configuración (sync y export): sin
-                // sentido si todas las funciones configurables están
-                // desactivadas.
-                if (syncEnabled || esdeEnabled || retroHraiEnabled) {
+                // Botón de expandir configuración (sync, export y destino de
+                // descarga): sin sentido si todas las funciones configurables
+                // están desactivadas.
+                if (syncEnabled || esdeEnabled || retroHraiEnabled || dualPathsEnabled) {
                     IconButton(onClick = { expanded = !expanded }) {
                         Icon(
                             if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
@@ -484,6 +492,50 @@ private fun PlatformCard(
             // Panel expandible con config de sync
             if (expanded) {
                 Spacer(modifier = Modifier.height(12.dp))
+
+                // ── Destino de descarga por defecto (modo dos rutas) ────
+                if (dualPathsEnabled) {
+                    Text(
+                        "Descargas",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Dónde descargar los juegos de esta plataforma por defecto",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        es.davidrg.rommsync.domain.model.PlatformDownloadStorage.entries.forEach { storage ->
+                            FilterChip(
+                                selected = platform.downloadStorage == storage,
+                                onClick = { onDownloadStorageChange(platform.id, storage) },
+                                label = { Text(storage.label) },
+                            )
+                        }
+                    }
+                    // Ruta efectiva según la selección (feedback visual)
+                    val effectivePath = when (platform.downloadStorage) {
+                        es.davidrg.rommsync.domain.model.PlatformDownloadStorage.INTERNAL ->
+                            "Ruta interna"
+                        es.davidrg.rommsync.domain.model.PlatformDownloadStorage.SD ->
+                            secondaryRomsPath
+                        else -> "Se preguntará al descargar"
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        effectivePath,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
                 if (syncEnabled) {
                 Text(
                     "Configuración de sync",

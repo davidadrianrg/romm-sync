@@ -225,11 +225,33 @@ fun LibraryScreen() {
     // State for the batch download confirmation dialog.
     var showBatchDialog by remember { mutableStateOf(false) }
 
+    /**
+     * Destino inicial de los chips del diálogo batch: el default de la
+     * plataforma seleccionada (si tiene) o "Interna" como antes.
+     */
+    val batchDefaultRoot: String? = remember(selectedPlatformId, settings.dualRomsPathsEnabled) {
+        if (!settings.dualRomsPathsEnabled) return@remember null
+        val platform = platforms.find { it.id == selectedPlatformId }
+        when (platform?.downloadStorage) {
+            es.davidrg.rommsync.domain.model.PlatformDownloadStorage.INTERNAL -> null
+            es.davidrg.rommsync.domain.model.PlatformDownloadStorage.SD -> settings.secondaryRomsPath
+            else -> null
+        }
+    }
+
     // ── Modo dos rutas: destino pendiente de elección ────────────────
     // ROM individual esperando que el usuario elija interna/SD.
     var romPendingDestination by remember { mutableStateOf<Rom?>(null) }
     // Destino elegido en el diálogo batch (null = interna; ruta = SD).
     var batchSelectedRoot by remember { mutableStateOf<String?>(null) }
+
+    // Al abrir el diálogo batch, arranca con el destino por defecto de la
+    // plataforma (o Interna si la plataforma está en "Preguntar").
+    LaunchedEffect(showBatchDialog) {
+        if (showBatchDialog) {
+            batchSelectedRoot = batchDefaultRoot
+        }
+    }
 
     /** Encola la descarga de un juego (con destino explícito o el principal). */
     val enqueueSingleDownload: (Rom, String?) -> Unit = { rom, rootPath ->
@@ -240,6 +262,28 @@ fun LibraryScreen() {
                 romsRootPath = rootPath,
             )
             viewModel.onDownloadEnqueued(rom.name)
+        }
+    }
+
+    /**
+     * Inicia la descarga de un juego resolviendo el destino: si el modo dos
+     * rutas está activo y la plataforma tiene un destino por defecto
+     * (Interna/SD), descarga directo ahí; si no (Preguntar), abre el diálogo.
+     */
+    val startDownload: (Rom) -> Unit = { rom ->
+        if (settings.isConfigured) {
+            if (settings.dualRomsPathsEnabled) {
+                val platform = platforms.find { it.id == rom.platformId }
+                when (platform?.downloadStorage) {
+                    es.davidrg.rommsync.domain.model.PlatformDownloadStorage.INTERNAL ->
+                        enqueueSingleDownload(rom, settings.romsRootPath)
+                    es.davidrg.rommsync.domain.model.PlatformDownloadStorage.SD ->
+                        enqueueSingleDownload(rom, settings.secondaryRomsPath)
+                    else -> romPendingDestination = rom
+                }
+            } else {
+                enqueueSingleDownload(rom, null)
+            }
         }
     }
 
@@ -528,13 +572,7 @@ fun LibraryScreen() {
                         RomCard(
                             romWithStatus = romStatus,
                             coverAspectRatio = coverAspectRatio,
-                            onDownload = {
-                                if (settings.dualRomsPathsEnabled) {
-                                    romPendingDestination = romStatus.rom
-                                } else {
-                                    enqueueSingleDownload(romStatus.rom, null)
-                                }
-                            },
+                            onDownload = { startDownload(romStatus.rom) },
                             onLongPress = { selectedRom = romStatus.rom },
                         )
                     }
@@ -597,11 +635,7 @@ fun LibraryScreen() {
                 onSavesPathOverrideChange = { path -> viewModel.setRomSavesPathOverride(rom.id, path) },
                 onExcludedFromSyncChange = { excluded -> viewModel.setRomExcludedFromSync(rom.id, excluded) },
                 onDownload = {
-                    if (settings.dualRomsPathsEnabled) {
-                        romPendingDestination = rom
-                    } else {
-                        enqueueSingleDownload(rom, null)
-                    }
+                    startDownload(rom)
                     selectedRom = null
                 },
                 onDelete = {

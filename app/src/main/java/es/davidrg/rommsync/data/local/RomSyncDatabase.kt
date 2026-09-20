@@ -16,7 +16,7 @@ import es.davidrg.rommsync.data.local.entity.PlatformEntity
         PlatformEntity::class,
         DownloadedRomEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 abstract class RomSyncDatabase : RoomDatabase() {
@@ -69,6 +69,16 @@ abstract class RomSyncDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Migration 6 → 7: añade el destino de descarga por defecto por
+         * plataforma (modo dos rutas). Null = preguntar en cada descarga.
+         */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE platforms ADD COLUMN downloadStorage TEXT DEFAULT NULL")
+            }
+        }
+
         @Volatile
         private var INSTANCE: RomSyncDatabase? = null
 
@@ -79,7 +89,7 @@ abstract class RomSyncDatabase : RoomDatabase() {
                     RomSyncDatabase::class.java,
                     "romsync.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                     .fallbackToDestructiveMigrationOnDowngrade()
                     .build()
                     .also { INSTANCE = it }
