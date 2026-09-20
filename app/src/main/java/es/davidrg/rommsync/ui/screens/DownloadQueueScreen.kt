@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -92,7 +93,9 @@ fun DownloadQueueScreen() {
                         }
                     }
                 },
-                modifier = Modifier.height(if (compact) 48.dp else 64.dp),
+                // Altura mínima (no fija): el título de dos líneas + botones de
+                // acción necesitan crecer sin recortarse en pantallas compactas.
+                modifier = Modifier.heightIn(min = if (compact) 48.dp else 64.dp),
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                 ),

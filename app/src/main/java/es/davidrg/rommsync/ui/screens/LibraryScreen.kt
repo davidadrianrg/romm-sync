@@ -54,6 +54,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -103,6 +104,7 @@ import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import es.davidrg.rommsync.RomMSyncApplication
 import es.davidrg.rommsync.domain.model.DownloadStatus
+import es.davidrg.rommsync.domain.model.formatBytesForUi
 import es.davidrg.rommsync.domain.model.Platform
 import es.davidrg.rommsync.domain.model.Rom
 import es.davidrg.rommsync.domain.model.RomWithStatus
@@ -611,6 +613,7 @@ fun LibraryScreen() {
         val syncConfig by viewModel.observeRomSyncConfig(rom.id)
             .collectAsState(initial = null)
         val isMovingRom by viewModel.isMovingRom.collectAsState()
+        val movingProgress by viewModel.movingProgress.collectAsState()
         // Volumen actual del juego: true si su ruta local está bajo la ruta
         // secundaria (SD).
         val isOnSd = remember(syncConfig?.localPath, settings.secondaryRomsPath) {
@@ -661,6 +664,7 @@ fun LibraryScreen() {
                 showMoveOption = settings.dualRomsPathsEnabled,
                 isOnSd = isOnSd,
                 isMoving = isMovingRom,
+                moveProgress = movingProgress?.second,
                 onMove = { toSd ->
                     val targetRoot = if (toSd) settings.secondaryRomsPath else settings.romsRootPath
                     viewModel.moveDownloadedRom(rom, targetRoot)
@@ -1015,6 +1019,7 @@ private fun RomDetailSheet(
     showMoveOption: Boolean = false,
     isOnSd: Boolean = false,
     isMoving: Boolean = false,
+    moveProgress: Pair<Long, Long>? = null,
     onMove: (toSd: Boolean) -> Unit = {},
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -1176,11 +1181,7 @@ private fun RomDetailSheet(
                     // Solo para juegos descargados con el modo dual activo.
                     if (showMoveOption) {
                         OutlinedButton(
-                            onClick = {
-                                // Mover al otro volumen: si está en SD → interna,
-                                // si está en interna → SD.
-                                onMove(!isOnSd)
-                            },
+                            onClick = { onMove(!isOnSd) },
                             modifier = Modifier.fillMaxWidth(),
                             enabled = !isMoving,
                         ) {
@@ -1194,10 +1195,40 @@ private fun RomDetailSheet(
                                 )
                             }
                             Text(
-                                if (isMoving) "  Moviendo..."
+                                if (isMoving) "  Moviendo…"
                                 else if (isOnSd) "  Mover a memoria interna"
                                 else "  Mover a tarjeta SD"
                             )
+                        }
+                        // Barra de progreso de la copia (bytes + %)
+                        if (isMoving && moveProgress != null && moveProgress.second > 0L) {
+                            val (copied, total) = moveProgress
+                            val pct = (copied * 100f / total).coerceIn(0f, 100f)
+                            Spacer(modifier = Modifier.size(8.dp))
+                            LinearProgressIndicator(
+                                progress = { pct / 100f },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(3.dp)),
+                            )
+                            Spacer(modifier = Modifier.size(4.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    "${formatBytesForUi(copied)} / ${formatBytesForUi(total)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    "${pct.toInt()}%",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
                 }

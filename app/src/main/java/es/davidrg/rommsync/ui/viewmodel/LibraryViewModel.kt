@@ -83,6 +83,10 @@ class LibraryViewModel(
     private val _isMovingRom = MutableStateFlow(false)
     val isMovingRom: StateFlow<Boolean> = _isMovingRom.asStateFlow()
 
+    /** Progreso del move en curso: nombre del juego a (copiados, total) bytes. */
+    private val _movingProgress = MutableStateFlow<Pair<String, Pair<Long, Long>>?>(null)
+    val movingProgress: StateFlow<Pair<String, Pair<Long, Long>>?> = _movingProgress.asStateFlow()
+
     /** Current server-side search term (null = no search, browse all). */
     private var currentSearch: String? = null
 
@@ -201,12 +205,21 @@ class LibraryViewModel(
     /**
      * Mueve una ROM descargada entre almacenamientos (interna <-> SD).
      * Copia + verifica + borra; el original se conserva si algo falla.
+     * El progreso de la copia se expone en [movingProgress].
      */
     fun moveDownloadedRom(rom: Rom, targetRoot: String) {
         viewModelScope.launch {
             _isMovingRom.value = true
-            val result = romRepository.moveDownloadedRom(rom.id, targetRoot)
+            _movingProgress.value = rom.name to (0L to 0L)
+            val result = romRepository.moveDownloadedRom(
+                romId = rom.id,
+                targetRoot = targetRoot,
+                onProgress = { copied, total ->
+                    _movingProgress.value = rom.name to (copied to total)
+                },
+            )
             _isMovingRom.value = false
+            _movingProgress.value = null
             when (result) {
                 is es.davidrg.rommsync.data.repository.MoveResult.Success ->
                     _events.emit(LibraryEvent.RomMoved(rom.name, result.target.absolutePath))

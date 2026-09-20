@@ -245,7 +245,11 @@ class RomRepository(
      * @return [MoveResult] con el estado (éxito, no descargado, archivo
      *   desaparecido, error de E/S).
      */
-    suspend fun moveDownloadedRom(romId: Int, targetRoot: String): MoveResult =
+    suspend fun moveDownloadedRom(
+        romId: Int,
+        targetRoot: String,
+        onProgress: (copiedBytes: Long, totalBytes: Long) -> Unit = { _, _ -> },
+    ): MoveResult =
         withContext(Dispatchers.IO) {
             val entity = romDao.getDownloadedRom(romId) ?: return@withContext MoveResult.NotDownloaded
             val source = File(entity.localPath)
@@ -279,13 +283,16 @@ class RomRepository(
                 return@withContext MoveResult.Error("Espacio insuficiente en el destino (faltan $human)")
             }
 
-            // Copiar archivo o árbol completo.
+            // Copiar archivo o árbol completo con progreso (buffer 64KB;
+            // el copyTo por defecto usa 8KB y eterniza los ROMs de varios GB).
             try {
-                if (source.isDirectory) copyDir(source, target) else source.copyTo(target, overwrite = false)
+                copyWithProgress(source, target, size, onProgress)
             } catch (e: Exception) {
                 // Copia fallida: limpiar el parcial destino y conservar el origen.
                 runCatching { target.deleteRecursively() }
                 return@withContext MoveResult.Error("Error al copiar: ${e.message ?: "E/S"}")
+            } finally {
+                onProgress(size, size)
             }
 
             // Verificación: mismo número de ficheros y bytes totales.
@@ -312,12 +319,45 @@ class RomRepository(
             MoveResult.Success(target)
         }
 
-    /** Copia un directorio completo preservando la estructura. */
-    private fun copyDir(source: File, target: File) {
-        target.mkdirs()
-        source.listFiles()?.forEach { entry ->
-            val dest = File(target, entry.name)
-            if (entry.isDirectory) copyDir(entry, dest) else entry.copyTo(dest, overwrite = false)
+    /**
+     * Copia un fichero o un árbol completo reportando el progreso acumulado
+     * (bytesCopiados, totalBytes). Buffer de 64KB; informa como mucho cada
+     * 1% o 500ms para no saturar el hilo de UI con recomposiciones.
+     */
+    private fun copyWithProgress(
+        source: File,
+        target: File,
+        totalBytes: Long,
+        onProgress: (Long, Long) -> Unit,
+        counter: java.util.concurrent.atomic.AtomicLong = java.util.concurrent.atomic.AtomicLong(0),
+    ) {
+        if (source.isDirectory) {
+            target.mkdirs()
+            source.listFiles()?.forEach { entry ->
+                copyWithProgress(entry, File(target, entry.name), totalBytes, onProgress, counter)
+            }
+            return
+        }
+        var lastReport = 0L
+        val lastPct = java.util.concurrent.atomic.AtomicLong(-1)
+        source.inputStream().use { input ->
+            target.outputStream().use { output ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    output.write(buffer, 0, read)
+                    val copied = counter.addAndGet(read.toLong())
+                    val now = System.currentTimeMillis()
+                    val pct = if (totalBytes > 0) copied * 100 / totalBytes else 100L
+                    // Reportar cada 1% o cada 500ms (primera iteración incluida).
+                    if (pct != lastPct.get() || now - lastReport >= 500) {
+                        lastPct.set(pct)
+                        lastReport = now
+                        onProgress(copied, totalBytes)
+                    }
+                }
+            }
         }
     }
 
