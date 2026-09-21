@@ -40,7 +40,9 @@ import java.util.zip.ZipInputStream
  *    the worker re-downloads from scratch.
  * 2. **mod_zip stream** (Content-Length = -1): RomM dynamically zips multi-file
  *    ROMs on the fly. The worker switches to indeterminate progress and extracts
- *    the zip stream directly into the platform folder.
+ *    the zip stream directly into the platform folder. No hash verification is
+ *    possible in this mode (mod_zip exposes no per-entry CRCs and the single
+ *    target file never exists on disk), so it is skipped.
  *
  * Concurrency (the user's "maxConcurrentDownloads" setting, 1-5) is enforced by
  * a process-wide [Semaphore] kept in the [companion object]. See
@@ -237,6 +239,12 @@ class DownloadWorker(
             }
         }
 
+        // Cierto si el contenido llegó como stream zip (mod_zip) extraído
+        // directamente a la carpeta de la plataforma (ROM multi-archivo). En
+        // ese modo NO existe targetFile en disco y mod_zip no expone CRCs por
+        // entrada, así que la verificación de hash posterior debe saltarse.
+        var wasZipStream = false
+
         return try {
             when {
                 response.code() == 416 -> {
@@ -247,6 +255,7 @@ class DownloadWorker(
                     // mod_zip: Content-Length = -1, stream comprimido al vuelo
                     reportProgress(0, true, romId, romName, fileName, platformSlug)
                     extractZipStream(response.body()!!, romsRootPath, platformSlug)
+                    wasZipStream = true
                 }
                 else -> {
                     val body = response.body() ?: throw IOException("Respuesta sin cuerpo (HTTP ${response.code()})")
@@ -268,7 +277,14 @@ class DownloadWorker(
             // desalineados y transferencias corruptas antes de que el usuario
             // descubra el ROM roto dentro del emulador.
             var verificationFailure: Result? = null
-            if (expectedHash != null) {
+            // La verificación de integridad SOLO aplica a descargas de fichero
+            // único (streamToDisk escribió targetFile). En modo zip-stream el
+            // contenido se extrajo como varios ficheros y targetFile —el ".zip"
+            // teórico— nunca existió en disco: hashearlo lanzaría
+            // FileNotFoundException y marcaría como fallida una descarga que en
+            // realidad se extrajo correctamente (bug de los ROMs multi-archivo:
+            // PS1 multidisco, cue+bin, Switch con traducción…).
+            if (expectedHash != null && !wasZipStream) {
                 val hashAlgo = detectHashAlgorithm(expectedHash)
                 if (hashAlgo != null) {
                     reportProgress(
