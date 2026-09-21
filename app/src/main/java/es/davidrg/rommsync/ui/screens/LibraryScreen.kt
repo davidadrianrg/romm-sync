@@ -75,7 +75,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.Dialog
+import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -1495,6 +1495,7 @@ private fun DetailRow(label: String, value: String) {
  * cierre por botón o toque fuera. Las imágenes se cargan a resolución completa
  * desde el servidor de RomM (con la caché de disco de Coil).
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ScreenshotViewerDialog(
     screenshots: List<String>,
