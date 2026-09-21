@@ -6,7 +6,11 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +40,7 @@ import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.outlined.DeleteOutline
@@ -52,6 +57,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -69,6 +75,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.Dialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -95,6 +102,9 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -1112,6 +1122,66 @@ private fun RomDetailSheet(
 
         Spacer(modifier = Modifier.size(16.dp))
 
+        // ── Multimedia: capturas y tráiler ──────────────────────────
+        val hasMedia = rom.screenshots.isNotEmpty() || rom.youtubeVideoId != null
+        if (hasMedia) {
+            Text(
+                text = "Multimedia",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+            if (rom.screenshots.isNotEmpty()) {
+                var selectedShot by remember { mutableStateOf<Int?>(null) }
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(rom.screenshots.size) { index ->
+                        AsyncImage(
+                            model = rom.screenshots[index],
+                            contentDescription = "Captura ${index + 1}",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(width = 128.dp, height = 72.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable { selectedShot = index },
+                        )
+                    }
+                }
+                if (selectedShot != null) {
+                    ScreenshotViewerDialog(
+                        screenshots = rom.screenshots,
+                        initialIndex = selectedShot!!,
+                        onDismiss = { selectedShot = null },
+                    )
+                }
+                if (rom.screenshots.size > 1) {
+                    Text(
+                        text = "Toca una captura para verla a pantalla completa",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+            }
+            rom.youtubeVideoId?.takeIf { it.isNotBlank() }?.let { videoId ->
+                if (rom.screenshots.isNotEmpty()) Spacer(modifier = Modifier.size(10.dp))
+                val context = LocalContext.current
+                FilledTonalButton(
+                    onClick = {
+                        openTrailer(context, videoId)
+                    },
+                ) {
+                    Icon(
+                        Icons.Filled.PlayCircle,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Text("  Ver tráiler")
+                }
+            }
+            Spacer(modifier = Modifier.size(16.dp))
+        }
+
         // Metadata rows
         DetailRow("Archivo", rom.fileName)
         DetailRow("Tamaño", formatFileSize(rom.fileSizeBytes))
@@ -1419,6 +1489,76 @@ private fun DetailRow(label: String, value: String) {
     }
 }
 
+/**
+ * Visor de capturas a pantalla completa: pager horizontal con zoom por doble
+ * toque (pinch-zoom quedará para una iteración futura), contador "n / total",
+ * cierre por botón o toque fuera. Las imágenes se cargan a resolución completa
+ * desde el servidor de RomM (con la caché de disco de Coil).
+ */
+@Composable
+private fun ScreenshotViewerDialog(
+    screenshots: List<String>,
+    initialIndex: Int,
+    onDismiss: () -> Unit,
+) {
+    val pagerState = rememberPagerState(initialPage = initialIndex) { screenshots.size }
+    Dialog(onDismissRequest = onDismiss) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.95f)),
+        ) {
+            HorizontalPager(state = pagerState) { page ->
+                var zoomed by remember(page) { mutableStateOf(false) }
+                AsyncImage(
+                    model = screenshots[page],
+                    contentDescription = "Captura ${page + 1}",
+                    contentScale = if (zoomed) ContentScale.FillBounds else ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .combinedClickable(
+                            onClick = { zoomed = !zoomed },
+                            onLongClick = { zoomed = !zoomed },
+                        ),
+                )
+            }
+            // Contador de página
+            Text(
+                text = "${pagerState.currentPage + 1} / ${screenshots.size}",
+                color = Color.White,
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 24.dp),
+            )
+            // Botón cerrar
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier.align(Alignment.TopEnd),
+            ) {
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = "Cerrar",
+                    tint = Color.White,
+                )
+            }
+        }
+    }
+}
+
+/** Abre el tráiler del juego en YouTube (app o navegador). */
+private fun openTrailer(context: Context, videoId: String) {
+    val appIntent = Intent(Intent.ACTION_VIEW, Uri.parse("vnd.youtube:$videoId"))
+    val webIntent = Intent(
+        Intent.ACTION_VIEW,
+        Uri.parse("https://www.youtube.com/watch?v=$videoId"),
+    )
+    runCatching {
+        context.startActivity(appIntent)
+    }.onFailure {
+        runCatching { context.startActivity(webIntent) }
+    }
+}
 /** Chip compacto para metadatos tipo idioma/género. */
 @Composable
 private fun AssistChipLike(text: String) {

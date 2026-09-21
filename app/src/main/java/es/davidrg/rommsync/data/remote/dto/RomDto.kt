@@ -54,6 +54,7 @@ data class RomDto(
     @Json(name = "merged_screenshots") val mergedScreenshots: List<String> = emptyList(),
     @Json(name = "path_video") val pathVideo: String? = null,
     @Json(name = "path_manual") val pathManual: String? = null,
+    @Json(name = "youtube_video_id") val youtubeVideoId: String? = null,
     @Json(name = "igdb_metadata") val igdbMetadata: IgdbMetadataDto? = null,
 )
 

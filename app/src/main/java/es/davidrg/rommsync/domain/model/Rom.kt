@@ -27,6 +27,8 @@ data class Rom(
     val screenshots: List<String> = emptyList(),
     val videoPath: String? = null,
     val manualPath: String? = null,
+    /** ID de vídeo de YouTube del tráiler (metadatos IGDB), si existe. */
+    val youtubeVideoId: String? = null,
     val igdbMetadata: IgdbMetadata? = null,
 )
 

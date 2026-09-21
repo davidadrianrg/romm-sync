@@ -546,6 +546,7 @@ class RomRepository(
             screenshots = mergedScreenshots.map { baseCoverUrl + it.removePrefix("/") },
             videoPath = pathVideo?.let { baseCoverUrl + it.removePrefix("/") },
             manualPath = pathManual?.let { baseCoverUrl + it.removePrefix("/") },
+            youtubeVideoId = youtubeVideoId,
             igdbMetadata = igdbMetadata?.toDomain(),
         )
     }
