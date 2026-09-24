@@ -28,6 +28,7 @@ object RomHeaderIdReader {
     private const val PSP_SCAN_BYTES = 1024 * 1024      // 1 MB
     private const val SWITCH_SCAN_BYTES = 512 * 1024    // 512 KB (tabla PFS0 + inicio NCA)
     private const val PS2_SCAN_BYTES = 2 * 1024 * 1024  // 2 MB
+    private const val N3DS_SCAN_BYTES = 2 * 1024 * 1024 // 2 MB (CIA: TMD + primer NCCH)
 
     /**
      * Punto de entrada: extrae el ID del juego leyendo el header binario
@@ -42,12 +43,16 @@ object RomHeaderIdReader {
                 "gc", "gamecube", "ngc" -> readGameCubeId(file)
                 "wii" -> readWiiId(file)
                 "switch", "nx", "ryujinx", "switch-emulators" -> readSwitchTitleId(file)
+                in N3DS_SLUGS -> readN3dsTitleId(file)
                 else -> null
             }
         } catch (_: Exception) {
             null
         }
     }
+
+    /** Slugs de plataforma que corresponden a Nintendo 3DS. */
+    private val N3DS_SLUGS = setOf("3ds", "n3ds", "nintendo-3ds", "nintendo_3ds")
 
     // ── PSP ──────────────────────────────────────────────────────────────
 
@@ -217,6 +222,45 @@ object RomHeaderIdReader {
     private fun formatTitleId(titleId: Long): String =
         "%016X".format(titleId)
 
+    // ── Nintendo 3DS ────────────────────────────────────────────────────
+
+    /**
+     * Title-ID de 3DS desde el header NCCH de un .3ds/.cci o del fichero
+     * .app (content) de un .cia descomprimido.
+     *
+     * Layout NCCH: magic "NCCH" en offset 0x100; el title-id está en offset
+     * 0x108 como little-endian u64. Para juegos retail el high u32 es
+     * 0x00040000 (title-type eShop/retail). El low u32 identifica el juego.
+     *
+     * Nota: un .cia empaqueta los contenidos con un header TMD delante; el
+     * primer NCCH no está en offset fijo. Se escanea el prefijo buscando el
+     * magic "NCCH" y validando el prefijo 0x00040000 del title-id leído.
+     */
+    private fun readN3dsTitleId(file: File): String? {
+        if (isCompressed(file)) return null
+        val prefix = readPrefix(file, N3DS_SCAN_BYTES) ?: return null
+        var i = indexOf(prefix, byteArrayOf(0x4E, 0x43, 0x43, 0x48)) // "NCCH"
+        while (i >= 0 && i + 16 <= prefix.size) {
+            // Title-id: 8 bytes después del magic (0x108 absoluto cuando el
+            // NCCH está en 0x100, como en .3ds/.cci). LE u64.
+            val titleId = readLeULong(prefix, i + 8) ?: return null
+            if ((titleId shr 32) == 0x00040000L) {
+                return "%016X".format(titleId)
+            }
+            i = indexOf(prefix, byteArrayOf(0x4E, 0x43, 0x43, 0x48), i + 1)
+        }
+        return null
+    }
+
+    private fun readLeULong(bytes: ByteArray, offset: Int): Long? {
+        if (offset + 8 > bytes.size) return null
+        var v = 0L
+        for (i in 7 downTo 0) {
+            v = (v shl 8) or (bytes[offset + i].toLong() and 0xFF)
+        }
+        return v
+    }
+
     private fun readBeLong(prefix: ByteArray, offset: Int): Long? {
         if (offset + 8 > prefix.size) return null
         var v = 0L
@@ -238,9 +282,14 @@ object RomHeaderIdReader {
     }
 
     /** Búsqueda ingenua de [needle] en [haystack]. Devuelve -1 si no está. */
-    private fun indexOf(haystack: ByteArray, needle: ByteArray): Int {
+    private fun indexOf(haystack: ByteArray, needle: ByteArray): Int =
+        indexOf(haystack, needle, 0)
+
+    /** Igual que [indexOf] empezando en [fromIndex] (para buscar más matches). */
+    private fun indexOf(haystack: ByteArray, needle: ByteArray, fromIndex: Int): Int {
         if (needle.isEmpty() || haystack.size < needle.size) return -1
-        outer@ for (i in 0..haystack.size - needle.size) {
+        outer@ for (i in fromIndex..haystack.size - needle.size) {
+            if (i < 0) continue
             for (j in needle.indices) {
                 if (haystack[i + j] != needle[j]) continue@outer
             }

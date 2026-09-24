@@ -28,6 +28,25 @@ class MelonDsSaveHandler : SaveHandler {
     ): List<LocalSave> = withContext(Dispatchers.IO) {
         val results = mutableListOf<LocalSave>()
         val romBaseName = romFileName.substringBeforeLast('.')
+
+        // 1. Saves junto a la ROM (layout por defecto de melonDS Android: el
+        //    .sav vive en la misma carpeta que el .nds que el usuario cargó).
+        romLocalPath?.let { path ->
+            val romFile = File(path)
+            if (romFile.isFile) {
+                romFile.parentFile?.listFiles()?.filter { file ->
+                    file.isFile &&
+                        file.nameWithoutExtension.equals(romBaseName, ignoreCase = true) &&
+                        SAVE_EXTENSIONS.any { ext -> file.name.endsWith(ext, ignoreCase = true) }
+                }?.forEach { file ->
+                    if (results.none { it.file.absolutePath == file.absolutePath }) {
+                        results.add(file.toLocalSave(romId))
+                    }
+                }
+            }
+        }
+
+        // 2. Directorio de saves configurado (savesBasePath).
         val savesDir = File(savesBasePath)
 
         if (savesDir.isDirectory) {
@@ -36,7 +55,9 @@ class MelonDsSaveHandler : SaveHandler {
                     file.nameWithoutExtension.equals(romBaseName, ignoreCase = true) &&
                     SAVE_EXTENSIONS.any { ext -> file.name.endsWith(ext, ignoreCase = true) }
             }?.forEach { file ->
-                results.add(file.toLocalSave(romId))
+                if (results.none { it.file.absolutePath == file.absolutePath }) {
+                    results.add(file.toLocalSave(romId))
+                }
             }
         }
 

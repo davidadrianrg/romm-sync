@@ -1,5 +1,6 @@
 package es.davidrg.rommsync.data.sync.platform
 
+import es.davidrg.rommsync.util.RomHeaderIdReader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -37,7 +38,10 @@ class N3dsSaveHandler : SaveHandler {
         romLocalPath: String?,
     ): List<LocalSave> = withContext(Dispatchers.IO) {
         val results = mutableListOf<LocalSave>()
-        val titleId = extractTitleId(romFileName) ?: return@withContext results
+        // Title-id: primero desde el header NCCH del ROM local (fiable), luego
+        // desde el nombre del fichero (patrón "[0004000000030200]").
+        val titleId = (romLocalPath?.let { RomHeaderIdReader.readGameId(File(it), platformSlug) }
+            ?: extractTitleId(romFileName)) ?: return@withContext results
         val high = titleId.take(8)
         val low = titleId.takeLast(8)
 
@@ -68,7 +72,8 @@ class N3dsSaveHandler : SaveHandler {
         romId: Int, romFileName: String, platformSlug: String,
         savesBasePath: String, romLocalPath: String?,
     ): String? = withContext(Dispatchers.IO) {
-        val titleId = extractTitleId(romFileName) ?: return@withContext null
+        val titleId = (romLocalPath?.let { RomHeaderIdReader.readGameId(File(it), platformSlug) }
+            ?: extractTitleId(romFileName)) ?: return@withContext null
         val dataDir = findDataDir(savesBasePath, titleId.take(8), titleId.takeLast(8))
             ?: return@withContext null
         folderFingerprint(dataDir)

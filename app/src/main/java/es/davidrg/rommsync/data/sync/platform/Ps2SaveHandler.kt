@@ -198,5 +198,15 @@ class Ps2SaveHandler : SaveHandler {
 
     companion object {
         const val DEFAULT_SAVES_PATH = "/storage/emulated/0/Android/data/xyz.aethersx2.android/files/memcards"
+
+        /**
+         * ARMSX2 (fork nativo ARM64 de PCSX2). Mismo layout de folder memory
+         * cards que AetherSX2 (directorios ".ps2" bajo files/memcards),
+         * distinto package: `com.armsx2` (configurable en build; este es el
+         * stable). Ojo: el asistente de primera ejecución propone una carpeta
+         * custom fuera de Android/data — si el usuario la usó, la ruta base
+         * debe apuntar ahí (configurable por plataforma).
+         */
+        const val ARMSX2_SAVES_PATH = "/storage/emulated/0/Android/data/com.armsx2/files/memcards"
     }
 }

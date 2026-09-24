@@ -15,6 +15,7 @@ object SaveHandlerRegistry {
     private val melonDsHandler = MelonDsSaveHandler()
     private val ppssppHandler = PpssppSaveHandler()
     private val ps2Handler = Ps2SaveHandler()
+    private val ps3Handler = Ps3SaveHandler()
     private val dolphinHandler = DolphinSaveHandler()
     private val switchHandler = SwitchSaveHandler()
     private val n3dsHandler = N3dsSaveHandler()
@@ -29,6 +30,8 @@ object SaveHandlerRegistry {
         MELONDS("melonds", "melonDS"),
         PPSSPP("ppsspp", "PPSSPP"),
         AETHERSX2("aethersx2", "AetherSX2/NetherSX2"),
+        ARMSX2("armsx2", "ARMSX2"),
+        ARMSX3("armsx3", "ARMSX3 (PS3)"),
         DOLPHIN("dolphin", "Dolphin"),
         EDEN("eden", "Eden"),
         AZAHAR("azahar", "Azahar"),
@@ -44,7 +47,8 @@ object SaveHandlerRegistry {
         return when (platformSlug.lowercase()) {
             "nds", "ds" -> listOf(EmulatorId.MELONDS, EmulatorId.RETROARCH)
             "psp" -> listOf(EmulatorId.PPSSPP, EmulatorId.RETROARCH)
-            "ps2" -> listOf(EmulatorId.AETHERSX2, EmulatorId.RETROARCH)
+            "ps2" -> listOf(EmulatorId.ARMSX2, EmulatorId.AETHERSX2, EmulatorId.RETROARCH)
+            "ps3" -> listOf(EmulatorId.ARMSX3, EmulatorId.RETROARCH)
             "gc", "gamecube", "ngc" -> listOf(EmulatorId.DOLPHIN, EmulatorId.RETROARCH)
             "wii" -> listOf(EmulatorId.DOLPHIN, EmulatorId.RETROARCH)
             in N3DS_SLUGS -> listOf(EmulatorId.AZAHAR, EmulatorId.RETROARCH)
@@ -62,7 +66,8 @@ object SaveHandlerRegistry {
         return when (platformSlug.lowercase()) {
             "nds", "ds" -> EmulatorId.MELONDS
             "psp" -> EmulatorId.PPSSPP
-            "ps2" -> EmulatorId.AETHERSX2
+            "ps2" -> EmulatorId.ARMSX2
+            "ps3" -> EmulatorId.ARMSX3
             "gc", "gamecube", "ngc", "wii" -> EmulatorId.DOLPHIN
             in N3DS_SLUGS -> EmulatorId.AZAHAR
             in WIIU_SLUGS -> EmulatorId.CEMU
@@ -82,6 +87,8 @@ object SaveHandlerRegistry {
             EmulatorId.MELONDS.id -> melonDsHandler
             EmulatorId.PPSSPP.id -> ppssppHandler
             EmulatorId.AETHERSX2.id -> ps2Handler
+            EmulatorId.ARMSX2.id -> ps2Handler
+            EmulatorId.ARMSX3.id -> ps3Handler
             EmulatorId.DOLPHIN.id -> dolphinHandler
             EmulatorId.EDEN.id -> switchHandler
             EmulatorId.AZAHAR.id -> n3dsHandler
@@ -104,6 +111,8 @@ object SaveHandlerRegistry {
             EmulatorId.MELONDS.id -> MelonDsSaveHandler.DEFAULT_SAVES_PATH
             EmulatorId.PPSSPP.id -> PpssppSaveHandler.DEFAULT_SAVES_PATH
             EmulatorId.AETHERSX2.id -> Ps2SaveHandler.DEFAULT_SAVES_PATH
+            EmulatorId.ARMSX2.id -> Ps2SaveHandler.ARMSX2_SAVES_PATH
+            EmulatorId.ARMSX3.id -> Ps3SaveHandler.DEFAULT_SAVES_PATH
             EmulatorId.DOLPHIN.id -> if (platformSlug.lowercase() in DolphinSaveHandler.GC_SLUGS) {
                 DolphinSaveHandler.DEFAULT_GC_SAVES_PATH
             } else {

@@ -124,24 +124,39 @@ class SwitchSaveHandler : SaveHandler {
     }
 
     /**
-     * Busca la carpeta de saves para un title-id en la estructura NAND.
-     * Estructura: {basePath}/{userId}/{profileId}/{titleId}/
-     * Recorre user-ids y profile-ids para encontrar el titulo.
+     * Busca la carpeta de saves para un title-id en el árbol NAND de Eden.
+     *
+     * Estructura canónica: {basePath}/{userId}/{profileId}/{titleId}/, donde
+     * basePath = nand/user/save. Pero el usuario puede configurar la ruta base
+     * como `nand` (sin /user/save) o una carpeta custom de Eden (fuera de
+     * Android/data), por lo que en vez de asumir exactamente 2 niveles de
+     * profundidad se hace una búsqueda acotada (hasta 6 niveles) de cualquier
+     * directorio cuyo nombre SEA el title-id.
      */
     private fun findSaveDir(basePath: String, titleId: String): File? {
         val saveRoot = File(basePath)
         if (!saveRoot.isDirectory) return null
+        findTitleDir(saveRoot, titleId, depth = 0)?.let { return it }
 
-        // Recorrer cada user-id -> profile-id -> buscar title-id
-        saveRoot.listFiles()?.filter { it.isDirectory }?.forEach { userDir ->
-            userDir.listFiles()?.filter { it.isDirectory }?.forEach { profileDir ->
-                val titleDir = profileDir.listFiles()?.firstOrNull { dir ->
-                    dir.isDirectory && dir.name.equals(titleId, ignoreCase = true)
-                }
-                if (titleDir != null) return titleDir
-            }
+        // Fallback: el title-id puede existir a mayor profundidad en árboles
+        // custom (p. ej. {base}/nand/user/save/{u}/{p}/{title}). Un único
+        // walkTopDown sería O(tree) siempre; el BFS acotado cubre lo habitual
+        // barato y este walk solo se paga si no apareció antes.
+        return saveRoot.walkTopDown()
+            .filter { it.isDirectory && it.name.equals(titleId, ignoreCase = true) }
+            .firstOrNull()
+    }
+
+    private fun findTitleDir(dir: File, titleId: String, depth: Int): File? {
+        if (depth > 6) return null
+        val children = dir.listFiles() ?: return null
+        // Match directo en este nivel
+        children.firstOrNull { it.isDirectory && it.name.equals(titleId, ignoreCase = true) }
+            ?.let { return it }
+        // Descender solo por directorios con nombre hex (user/profile ids)
+        children.filter { it.isDirectory && it.name.matches(HEX16) }.forEach { sub ->
+            findTitleDir(sub, titleId, depth + 1)?.let { return it }
         }
-
         return null
     }
 
@@ -160,5 +175,6 @@ class SwitchSaveHandler : SaveHandler {
         const val DEFAULT_SAVES_PATH = "/storage/emulated/0/Android/data/dev.eden.eden_emulator/files/nand/user/save"
         private const val DEFAULT_USER_ID = "0000000000000000"
         private const val DEFAULT_PROFILE_ID = "0000000000000001"
+        private val HEX16 = Regex("^[0-9A-Fa-f]{16}$")
     }
 }
