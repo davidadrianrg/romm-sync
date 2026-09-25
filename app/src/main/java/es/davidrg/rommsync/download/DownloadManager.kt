@@ -3,6 +3,7 @@ package es.davidrg.rommsync.download
 import android.content.Context
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
+import androidx.work.ExistingWorkPolicy
 import androidx.work.Data
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
@@ -67,7 +68,13 @@ class DownloadManager(private val context: Context) {
             .addTag(workTagForRom(rom.id))
             .build()
 
-        workManager.enqueue(request)
+        // UniqueWork + KEEP: encolar dos veces el mismo ROM (doble tap,
+        // "Descargar faltantes" repetido, re-entrar en la pantalla) nunca
+        // duplica la descarga — si ya hay trabajo vivo para ese ROM se ignora.
+        // Antes cada tap creaba un worker nuevo: dos workers escribiendo el
+        // mismo fichero se pisaban el parcial mutuamente y la cola parecía
+        // "reiniciarse todas las descargas".
+        workManager.enqueueUniqueWork(workTagForRom(rom.id), ExistingWorkPolicy.KEEP, request)
         return request.id.toString()
     }
 
@@ -146,7 +153,8 @@ class DownloadManager(private val context: Context) {
             .addTag(workTagForRom(romId))
             .build()
 
-        workManager.enqueue(request)
+        // REPLACE: sustituye cualquier resto del work anterior de ese ROM.
+        workManager.enqueueUniqueWork(workTagForRom(romId), ExistingWorkPolicy.REPLACE, request)
         return request.id.toString()
     }
 

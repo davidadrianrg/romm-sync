@@ -564,7 +564,9 @@ class DownloadWorker(
         try {
             input = body.byteStream()
             output = java.io.FileOutputStream(targetFile, offset > 0L)
-            val buffer = ByteArray(64 * 1024)
+            // 256 KB: ROMs de varios GB con lecturas SD lentas; 64 KB obligaba
+            // a syscalls excesivas y limitaba el throughput en transfers largos.
+            val buffer = ByteArray(256 * 1024)
             var bytesDownloaded = 0L
             var lastReportedProgress = -1
             var lastReportTime = System.currentTimeMillis()
@@ -580,8 +582,9 @@ class DownloadWorker(
                 val now = System.currentTimeMillis()
                 if (totalBytes > 0L) {
                     val progress = (((offset + bytesDownloaded) * 100 / totalBytes)).toInt()
-                    // Reportar como muy cada 2% o cada 800ms (para velocidad estable)
-                    if (progress - lastReportedProgress >= 2 || now - lastReportTime >= 800) {
+                    // Reportar cada 1% o cada 500ms: barra fluida y velocidad
+                    // estable sin saturar WorkManager de updates.
+                    if (progress - lastReportedProgress >= 1 || now - lastReportTime >= 500) {
                         if (now - lastReportTime > 0) {
                             speedBps = (bytesDownloaded - lastReportBytes) * 1000 / (now - lastReportTime)
                         }
@@ -604,6 +607,11 @@ class DownloadWorker(
                 totalBytes = totalBytes,
                 speedBps = speedBps,
             )
+            // Forzar escritura a disco antes de declarar éxito: sin fsync una
+            // caída de proceso tras el 100% puede dejar un fichero truncado
+            // que el hash posterior detectaría como corrupto (o peor, pasar
+            // inadvertido hasta abrirlo en el emulador).
+            output.fd.sync()
         } catch (e: Exception) {
             // Se conserva SIEMPRE el parcial para reanudar en el próximo intento
             throw e

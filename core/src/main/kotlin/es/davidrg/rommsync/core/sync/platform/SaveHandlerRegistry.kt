@@ -47,7 +47,7 @@ object SaveHandlerRegistry {
         return when (platformSlug.lowercase()) {
             "nds", "ds" -> listOf(EmulatorId.MELONDS, EmulatorId.RETROARCH)
             "psp" -> listOf(EmulatorId.PPSSPP, EmulatorId.RETROARCH)
-            "ps2" -> listOf(EmulatorId.ARMSX2, EmulatorId.AETHERSX2, EmulatorId.RETROARCH)
+            "ps2" -> listOf(EmulatorId.AETHERSX2, EmulatorId.ARMSX2, EmulatorId.RETROARCH)
             "ps3" -> listOf(EmulatorId.ARMSX3, EmulatorId.RETROARCH)
             "gc", "gamecube", "ngc" -> listOf(EmulatorId.DOLPHIN, EmulatorId.RETROARCH)
             "wii" -> listOf(EmulatorId.DOLPHIN, EmulatorId.RETROARCH)
@@ -66,7 +66,7 @@ object SaveHandlerRegistry {
         return when (platformSlug.lowercase()) {
             "nds", "ds" -> EmulatorId.MELONDS
             "psp" -> EmulatorId.PPSSPP
-            "ps2" -> EmulatorId.ARMSX2
+            "ps2" -> EmulatorId.AETHERSX2
             "ps3" -> EmulatorId.ARMSX3
             "gc", "gamecube", "ngc", "wii" -> EmulatorId.DOLPHIN
             in N3DS_SLUGS -> EmulatorId.AZAHAR
