@@ -65,7 +65,10 @@ jobs:
 
       - name: jlink minimal runtime
         run: |
-          /tmp/jdk-${{ matrix.arch }}/bin/jlink \
+          # Cross-jlink: se ejecuta el jlink del JDK del host (x86_64) pero con
+          # los jmods del JDK del arch objetivo -> runtime para aarch64/x86_64.
+          "$JAVA_HOME/bin/jlink" \
+            --module-path "/tmp/jdk-${{ matrix.arch }}/jmods" \
             --add-modules "$MODULES" \
             --strip-debug --no-man-pages --no-header-files \
             --compress=2 \
@@ -82,8 +85,9 @@ jobs:
       - name: Assemble AppDir
         run: |
           VERSION="${{ steps.version.outputs.tag }}"
+          JAR="$(ls desktop/build/compose/jars/romm-sync-linux-*-release.jar | head -1)"
           mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/256x256/apps
-          cp desktop/build/compose/binaries/main-release/app/RomM-Sync-linux-x64/RomM-Sync-*.jar AppDir/usr/bin/romm-sync.jar
+          cp "$JAR" AppDir/usr/bin/romm-sync.jar
           # Launcher: usa el runtime jlinkeado del arch objetivo
           cat > AppDir/AppRun <<'EOF'
           #!/bin/sh
