@@ -1,12 +1,13 @@
 <div align="center">
 
-# 🎮 RomM Sync — Cliente Android
+# 🎮 RomM Sync — Android & Linux
 
-**Descarga y sincroniza tu biblioteca de [RomM](https://github.com/rommapp/romm) en cualquier dispositivo Android.**
+**Descarga y sincroniza tu biblioteca de [RomM](https://github.com/rommapp/romm) en Android y Linux.**
 
-Cliente Android nativo (Kotlin + Jetpack Compose) para servidores RomM: explora tu biblioteca, descarga ROMs directamente a la estructura de carpetas de tu frontend favorito y mantiene las partidas guardadas sincronizadas entre todos tus dispositivos — portátil Android, Steam Deck, PC.
+Cliente multiplataforma para servidores RomM: explora tu biblioteca, descarga ROMs directamente a la estructura de carpetas de tu frontend favorito y mantiene las partidas guardadas sincronizadas entre todos tus dispositivos — portátil Android, Steam Deck, PC.
 
-**Optimizado para consolas portátiles Android** (Anbernic, Retroid Pocket, Miyoo companion...) con pantalla táctil: UI oscura, botones grandes y navegación pensada para dedos, no para ratón.
+- **Android** (Kotlin + Jetpack Compose): APK nativo, optimizado para consolas portátiles (Anbernic, Retroid Pocket...) con pantalla táctil: UI oscura, botones grandes y navegación pensada para dedos.
+- **Linux** (Compose Desktop): AppImage autocontenido para **x86_64** (SteamOS, Steam Deck, PCs) y **aarch64** (Raspberry Pi 5, handhelds ARM) con runtime Java incluido — nada que instalar.
 
 </div>
 
@@ -14,15 +15,29 @@ Cliente Android nativo (Kotlin + Jetpack Compose) para servidores RomM: explora 
 
 ## 📥 Instalación
 
-### Opción A — Desde la app (recomendado)
+### Opción A — Android (recomendado)
 
-1. Descarga e instala el último APK desde [GitHub Releases](https://github.com/davidadrianrg/romm-sync/releases/latest).
+1. Descarga `RomM-Sync-vX.Y.Z-android.apk` desde [GitHub Releases](https://github.com/davidadrianrg/romm-sync/releases/latest).
 2. Configura tu servidor (ver abajo).
 3. En **Configuración → Actualizaciones**, pulsa *Buscar actualizaciones* cada vez que quieras comprobar si hay versión nueva. La app descarga el APK y lanza el instalador de Android — sin salir de la aplicación.
 
 > ⚠️ La primera vez, Android pedirá conceder a RomM Sync el permiso **«Instalar apps desconocidas»**. Es el permiso estándar para auto-actualizarse cualquier app fuera de Play Store.
 
-### Opción B — Compilar desde código
+### Opción B — Linux (AppImage)
+
+1. Descarga el AppImage de tu arquitectura desde [GitHub Releases](https://github.com/davidadrianrg/romm-sync/releases/latest):
+   - `RomM-Sync-vX.Y.Z-linux-x86_64.AppImage` — SteamOS, Steam Deck, la mayoría de PCs
+   - `RomM-Sync-vX.Y.Z-linux-aarch64.AppImage` — Raspberry Pi 5, handhelds ARM
+2. Dale permisos de ejecución y ejecútalo:
+   ```bash
+   chmod +x RomM-Sync-v*-linux-*.AppImage
+   ./RomM-Sync-v*-linux-x86_64.AppImage
+   ```
+3. La primera vez pide URL del servidor, API Key y carpeta de ROMs; se guarda para la siguiente.
+
+> El AppImage lleva el runtime Java jlinkeado dentro (~70 MB): no necesitas instalar Java ni nada más.
+
+### Opción C — Compilar desde código
 
 ```bash
 git clone https://github.com/davidadrianrg/romm-sync.git
@@ -31,7 +46,7 @@ cd romm-sync
 # APK → app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Requisitos: JDK 17 y Android SDK (API 35). Para firmar tu propio release, crea `keystore.properties` en la raíz (está en `.gitignore`):
+Requisitos: JDK 17 y Android SDK (API 35). Para el desktop: solo JDK 17 (`./gradlew :desktop:packageReleaseUberJarForCurrentOS`). Para firmar tu propio release, crea `keystore.properties` en la raíz (está en `.gitignore`):
 
 ```properties
 storeFile=/ruta/a/tu.keystore
@@ -94,33 +109,45 @@ Sin telemetría, sin analytics, sin cuentas: tus datos van de tu dispositivo a *
 
 ## 🏗️ Arquitectura (para contribuir)
 
+Monorepo con tres módulos Gradle que comparten todo el código de negocio:
+
 ```
-app/src/main/java/es/davidrg/rommsync/
-├── data/
-│   ├── AppContainer.kt        # DI manual (sin Hilt)
-│   ├── local/                 # Room + DataStore (config persistente)
-│   ├── remote/                # Retrofit + OkHttp (API RomM)
-│   ├── repository/            # Puente remote ↔ cache
-│   ├── sync/                  # Device Sync Protocol + handlers por emulador
-│   │   └── platform/          # Strategy: RetroArch, melonDS, PPSSPP...
-│   ├── metadata/              # Exportación gamelist.xml / media
-│   └── update/                # Auto-actualización desde GitHub Releases
-├── domain/model/              # Platform, Rom, DownloadTask
-├── download/                  # WorkManager + descarga con reanudación
-├── ui/                        # Compose Material3 (screens/viewmodel/components)
-└── util/                      # Permisos, lectura de cabeceras ROM
+core/src/main/kotlin/es/davidrg/rommsync/core/   # JVM puro — compartido Android + Desktop
+├── remote/              # Retrofit + OkHttp (API RomM, Device Sync Protocol)
+├── sync/platform/       # Handlers de saves por emulador (RetroArch, melonDS, PS2, PS3, 3DS...)
+├── download/            # PathMapper (estructura de carpetas por plataforma)
+└── util/                # RootShell, lectura de cabeceras ROM...
+
+app/src/main/java/es/davidrg/rommsync/           # Android
+├── data/local/          # Room + DataStore (config persistente)
+├── data/repository/     # Puente remote ↔ cache
+├── data/metadata/       # Exportación gamelist.xml / media
+├── data/update/         # Auto-actualización desde GitHub Releases
+├── download/            # WorkManager + descarga con reanudación
+├── ui/                  # Compose Material3 (screens/viewmodel/components)
+└── util/                # Permisos Android
+
+desktop/src/main/kotlin/es/davidrg/rommsync/desktop/  # Linux (Compose Desktop)
+├── Main.kt / AppContent.kt   # UI (conexión, biblioteca, descargas, sync)
+├── DesktopSyncCoordinator.kt # Ciclo de sync sin Room/WorkManager
+├── DownloadEngine.kt         # Descarga stream→disco (fichero único + zip-stream)
+└── DesktopConfig.kt          # java.util.prefs (config persistente)
 ```
 
-- **Stack**: Kotlin · Jetpack Compose (Material 3) · Retrofit/OkHttp · Room · WorkManager · DataStore · Coil · Moshi
+- **Stack común**: Kotlin · Retrofit/OkHttp · Moshi · Coroutines
+- **Android**: Jetpack Compose (Material 3) · Room · WorkManager · DataStore · Coil
+- **Desktop**: Compose Desktop · AppImage (jlink runtime incluido)
 - **Idioma del código**: inglés en identificadores/logs; español en textos de UI.
-- **Tests**: `./gradlew test` (unit tests en `app/src/test`).
+- **Tests**: `./gradlew test` (unit tests en `core/src/test` y `app/src/test`).
 
 ## 🔁 CI/CD
 
 Cada push a `master`:
 
-1. **CI** (`.github/workflows/ci.yml`): tests + build debug.
-2. **Release** (`.github/workflows/build-release.yml`): build firmado (R8) → GitHub Release. El tag y el `versionName` del APK coinciden **exactamente** con `versionName` de `app/build.gradle.kts` (p. ej. `0.4.2` → `v0.4.2`); búmpalo ahí para publicar una versión nueva. El `versionCode` interno usa el `run_number` del workflow, que siempre crece (Android lo exige para actualizar sin desinstalar). Repetir una versión reemplaza su release.
+1. **APK** (`.github/workflows/build-release.yml`): build firmado (R8) → GitHub Release como `RomM-Sync-vX.Y.Z-android.apk`.
+2. **AppImage** (`.github/workflows/build-appimage.yml`): build para **x86_64** y **aarch64** → `RomM-Sync-vX.Y.Z-linux-<arch>.AppImage`, adjuntos a la misma release que el APK.
+
+El tag y el `versionName` coinciden **exactamente** con `versionName` de `app/build.gradle.kts` (p. ej. `0.4.2` → `v0.4.2`); búmpalo ahí para publicar una versión nueva. El `versionCode` interno usa el `run_number` del workflow, que siempre crece (Android lo exige para actualizar sin desinstalar). Repetir una versión reemplaza su release.
 
 El APK de release se firma con una clave fija (secrets `SIGNING_KEYSTORE_BASE64` y derivados) para que las actualizaciones se instalen sobre la versión anterior sin desinstalar. **Guarda copia del keystore**: si se pierde, los usuarios tendrían que desinstalar para actualizar.
 

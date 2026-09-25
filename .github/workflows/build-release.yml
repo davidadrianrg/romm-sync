@@ -106,11 +106,19 @@ jobs:
       - name: Build Release APK
         run: ./gradlew assembleRelease
 
+      # Gradle siempre genera app-release.apk; lo renombramos al mismo patrón
+      # que los AppImage de Linux (RomM-Sync-vX.Y.Z-<plataforma>.ext).
+      - name: Rename APK to release pattern
+        run: |
+          mv app/build/outputs/apk/release/app-release.apk \
+             "app/build/outputs/apk/release/RomM-Sync-v${{ steps.version.outputs.version }}-android.apk"
+          ls -la app/build/outputs/apk/release/
+
       - name: Upload Release APK as artifact
         uses: actions/upload-artifact@v7
         with:
           name: romm-sync-release
-          path: app/build/outputs/apk/release/app-release.apk
+          path: app/build/outputs/apk/release/RomM-Sync-v${{ steps.version.outputs.version }}-android.apk
 
       # ── Create / update a release with the APK ────────────────────────
       - name: Create Release
@@ -119,11 +127,20 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           name: ${{ steps.version.outputs.tag }}
           body: |
-            **RomM Sync Android** – APK generado automáticamente
+            **RomM Sync** – build multiplataforma generado automáticamente
 
             **Commit:** [`${{ github.sha }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
 
-            **Build type:** Release (R8 minified + resource shrinking)
+            ### 📦 Descargas
 
-            **Para actualizar:** Configuración → Actualizaciones → *Buscar actualizaciones*, o descarga el APK adjunto y ábrelo — se instala encima sin perder datos.
-          files: app/build/outputs/apk/release/app-release.apk
+            | Archivo | Plataforma |
+            |---|---|
+            | `RomM-Sync-v${{ steps.version.outputs.version }}-android.apk` | Android (R8 minificado) |
+            | `RomM-Sync-v${{ steps.version.outputs.version }}-linux-x86_64.AppImage` | Linux x86_64 (SteamOS, Steam Deck, la mayoría de PCs) |
+            | `RomM-Sync-v${{ steps.version.outputs.version }}-linux-aarch64.AppImage` | Linux ARM64 (Raspberry Pi 5, ARM handhelds) |
+
+            ### 🔄 Cómo actualizar
+
+            - **Android:** Configuración → Actualizaciones → *Buscar actualizaciones*, o descarga el APK adjunto y ábrelo — se instala encima sin perder datos.
+            - **Linux:** descarga el AppImage de tu arquitectura, dale permisos de ejecución (`chmod +x`) y ejecútalo. Reemplaza el archivo anterior.
+          files: app/build/outputs/apk/release/RomM-Sync-v${{ steps.version.outputs.version }}-android.apk
