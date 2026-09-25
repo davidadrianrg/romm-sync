@@ -585,8 +585,17 @@ class DownloadWorker(
                     // Reportar cada 1% o cada 500ms: barra fluida y velocidad
                     // estable sin saturar WorkManager de updates.
                     if (progress - lastReportedProgress >= 1 || now - lastReportTime >= 500) {
-                        if (now - lastReportTime > 0) {
-                            speedBps = (bytesDownloaded - lastReportBytes) * 1000 / (now - lastReportTime)
+                        val windowMs = now - lastReportTime
+                        if (windowMs > 0) {
+                            // Velocidad instantánea de la ventana + suavizado
+                            // exponencial (EMA): TCP entrega por ráfagas y el
+                            // kernel escribe a la SD en ciclos de writeback,
+                            // así que una ventana de 500ms oscila entre picos
+                            // y valles que no reflejan la media real. La EMA
+                            // (~2s de memoria) muestra la velocidad efectiva.
+                            val instantBps = (bytesDownloaded - lastReportBytes) * 1000 / windowMs
+                            speedBps = if (speedBps == 0L) instantBps
+                                       else (speedBps * 2 + instantBps) / 3
                         }
                         lastReportedProgress = progress
                         lastReportTime = now
