@@ -84,6 +84,9 @@ ksp {
 }
 
 dependencies {
+    // Módulo compartido (handlers de saves, API RomM, PathMapper, RomHeaderIdReader)
+    implementation(project(":core"))
+
     // AndroidX Core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

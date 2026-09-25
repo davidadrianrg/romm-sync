@@ -4,15 +4,15 @@ import es.davidrg.rommsync.data.local.dao.PlatformDao
 import es.davidrg.rommsync.data.local.dao.RomDao
 import es.davidrg.rommsync.data.local.entity.DownloadedRomEntity
 import es.davidrg.rommsync.data.local.entity.PlatformEntity
-import es.davidrg.rommsync.data.remote.NetworkModule
-import es.davidrg.rommsync.data.remote.RomMApiService
-import es.davidrg.rommsync.data.remote.dto.RomDto
+import es.davidrg.rommsync.core.remote.NetworkModule
+import es.davidrg.rommsync.core.remote.RomMApiService
+import es.davidrg.rommsync.core.remote.dto.RomDto
 import es.davidrg.rommsync.domain.model.ApiResult
 import es.davidrg.rommsync.domain.model.ErrorKind
 import es.davidrg.rommsync.domain.model.Platform
 import es.davidrg.rommsync.domain.model.Rom
 import es.davidrg.rommsync.domain.model.RomFile
-import es.davidrg.rommsync.download.PathMapper
+import es.davidrg.rommsync.core.download.PathMapper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -562,7 +562,7 @@ class RomRepository(
         }
     }
 
-    private fun es.davidrg.rommsync.data.remote.dto.IgdbMetadataDto.toDomain() =
+    private fun es.davidrg.rommsync.core.remote.dto.IgdbMetadataDto.toDomain() =
         es.davidrg.rommsync.domain.model.IgdbMetadata(
             totalRating = totalRating?.toDoubleOrNull(),
             firstReleaseDate = firstReleaseDate,

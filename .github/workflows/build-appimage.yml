@@ -1,0 +1,123 @@
+# Builds the desktop AppImage (x86_64 + aarch64) on every push to master and
+# attaches it to the same GitHub Release as the APK workflow.
+#
+# Strategy: single ubuntu-latest runner using Temurin JDKs for both arches.
+# Compose Desktop `packageDistributionForCurrentOS` builds a self-contained
+# JRE image via jlink for the host arch, so we cross-compile the Kotlin/JVM
+# fat jar once (arch-independent) and then bundle it with a jlinked JRE of
+# each target arch + AppImage tooling.
+name: Build & Release AppImage
+
+on:
+  push:
+    branches: [master]
+
+concurrency:
+  group: appimage-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            jdk: "https://api.adoptium.net/v3/binary/latest/17/ga/linux/x64/jdk/hotspot/normal/eclipse"
+          - arch: aarch64
+            jdk: "https://api.adoptium.net/v3/binary/latest/17/ga/linux/aarch64/jdk/hotspot/normal/eclipse"
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up JDK 17 (build)
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # La fat jar de :desktop es arch-independent: se compila UNA vez por job
+      # (la matrix la repite, pero simplifica el workflow).
+      - name: Build desktop fat jar
+        run: ./gradlew :desktop:packageReleaseUberJarForCurrentOS
+
+      - name: Compute version
+        id: version
+        run: |
+          VERSION="$(grep -oP 'versionName = "\K[0-9]+\.[0-9]+\.[0-9]+' app/build.gradle.kts | head -1)"
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+
+      # Descargar el JDK del arch objetivo y jlinkear un runtime mínimo
+      - name: Download target-arch JDK
+        run: |
+          curl -sL "${{ matrix.jdk }}" -o /tmp/jdk-${{ matrix.arch }}.tar.gz
+          mkdir -p /tmp/jdk-${{ matrix.arch }}
+          tar -xzf /tmp/jdk-${{ matrix.arch }}.tar.gz -C /tmp/jdk-${{ matrix.arch }} --strip-components=1
+
+      - name: jlink minimal runtime
+        run: |
+          /tmp/jdk-${{ matrix.arch }}/bin/jlink \
+            --add-modules "$MODULES" \
+            --strip-debug --no-man-pages --no-header-files \
+            --compress zip-6 \
+            --output /tmp/runtime-${{ matrix.arch }}
+        env:
+          MODULES: java.base,java.naming,java.sql,java.management,java.desktop,jdk.crypto.ec,java.logging,java.xml,jdk.unsupported
+
+      - name: Install AppImage tools
+        run: |
+          sudo apt-get update && sudo apt-get install -y libfuse2 desktop-file-utils
+          curl -sL https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -o /tmp/appimagetool
+          chmod +x /tmp/appimagetool
+
+      - name: Assemble AppDir
+        run: |
+          VERSION="${{ steps.version.outputs.tag }}"
+          mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/256x256/apps
+          cp desktop/build/compose/binaries/main-release/app/RomM-Sync-linux-x64/RomM-Sync-*.jar AppDir/usr/bin/romm-sync.jar
+          # Launcher: usa el runtime jlinkeado del arch objetivo
+          cat > AppDir/AppRun <<'EOF'
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "$0")")"
+          exec "$HERE/usr/bin/runtime/bin/java" -jar "$HERE/usr/bin/romm-sync.jar" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+          cat > AppDir/romm-sync.desktop <<'EOF'
+          [Desktop Entry]
+          Type=Application
+          Name=RomM Sync
+          Comment=Sincroniza ROMs y saves con tu servidor RomM
+          Exec=romm-sync
+          Icon=romm-sync
+          Categories=Game;Utility;
+          EOF
+          cp desktop/packaging/romm-sync.png AppDir/usr/share/icons/hicolor/256x256/apps/romm-sync.png
+
+      - name: Build AppImage (${{ matrix.arch }})
+        run: |
+          VERSION="${{ steps.version.outputs.tag }}"
+          cp -r /tmp/runtime-${{ matrix.arch }} AppDir/usr/bin/runtime
+          ARCH="${{ matrix.arch }}"
+          export ARCH
+          /tmp/appimagetool AppDir "RomM-Sync-${VERSION}-linux-${{ matrix.arch }}.AppImage"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: appimage-${{ matrix.arch }}
+          path: RomM-Sync-*-linux-${{ matrix.arch }}.AppImage
+
+      - name: Attach to release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          files: RomM-Sync-*-linux-${{ matrix.arch }}.AppImage

@@ -16,6 +16,7 @@ securityCrypto = "1.1.0-alpha06"
 
 # Compose
 composeBom = "2024.12.01"
+composeDesktop = "1.7.3"
 
 # Networking
 retrofit = "2.11.0"
@@ -76,9 +77,13 @@ coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coi
 
 # Coroutines
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
+kotlinx-coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "coroutines" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+compose-desktop = { id = "org.jetbrains.compose", version.ref = "composeDesktop" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

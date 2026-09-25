@@ -15,8 +15,9 @@ import androidx.work.workDataOf
 import es.davidrg.rommsync.data.local.RomSyncDatabase
 import es.davidrg.rommsync.data.local.SettingsDataStore
 import es.davidrg.rommsync.data.local.entity.DownloadedRomEntity
-import es.davidrg.rommsync.data.remote.NetworkModule
-import es.davidrg.rommsync.data.remote.RomMApiService
+import es.davidrg.rommsync.core.remote.NetworkModule
+import es.davidrg.rommsync.core.remote.RomMApiService
+import es.davidrg.rommsync.core.download.PathMapper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit

@@ -635,9 +635,9 @@ fun LibraryScreen() {
         val platform = platforms.find { it.id == rom.platformId }
         val platformSavesPath = remember(platform, retroArchBasePath) {
             platform?.savesPathOverride?.takeIf { it.isNotBlank() }
-                ?: es.davidrg.rommsync.data.sync.platform.SaveHandlerRegistry.getDefaultSavesPath(
+                ?: es.davidrg.rommsync.core.sync.platform.SaveHandlerRegistry.getDefaultSavesPath(
                     emulatorId = platform?.emulatorId
-                        ?: es.davidrg.rommsync.data.sync.platform.SaveHandlerRegistry
+                        ?: es.davidrg.rommsync.core.sync.platform.SaveHandlerRegistry
                             .getDefaultEmulator(rom.platformSlug).id,
                     platformSlug = rom.platformSlug,
                     retroArchBase = retroArchBasePath,

@@ -1,9 +1,6 @@
-package es.davidrg.rommsync.data.sync
+package es.davidrg.rommsync.desktop
 
-import android.os.Build
-import android.util.Log
-import es.davidrg.rommsync.data.local.SettingsDataStore
-import es.davidrg.rommsync.data.local.dao.RomDao
+import java.net.InetAddress
 import es.davidrg.rommsync.core.remote.NetworkModule
 import es.davidrg.rommsync.core.remote.RomMApiService
 import es.davidrg.rommsync.core.remote.dto.ClientSaveState
@@ -33,18 +30,16 @@ import java.util.TimeZone
  * 4. Ejecuta las operaciones.
  * 5. Cierra la sesión.
  */
-class SyncCoordinator(
-    private val settingsDataStore: SettingsDataStore,
-    private val romDao: RomDao,
-    private val platformDao: es.davidrg.rommsync.data.local.dao.PlatformDao,
+class DesktopSyncCoordinator(
+    private val config: DesktopConfig,
+    private val library: DesktopLibrary,
     private val cacheDir: File,
-    private val syncedHashStore: SyncedHashStore? = null,
 ) {
 
     suspend fun runSync(): SyncResult = withContext(Dispatchers.IO) {
-        val serverUrl = settingsDataStore.getServerUrlBlocking()
-        val apiKey = settingsDataStore.getApiKeyBlocking()
-        val retroArchBase = settingsDataStore.getRetroArchBasePathBlocking()
+        val serverUrl = config.serverUrl
+        val apiKey = config.apiKey
+        val retroArchBase = ""
 
         if (serverUrl.isEmpty() || apiKey.isEmpty()) {
             return@withContext SyncResult(error = "Servidor no configurado")
@@ -57,7 +52,7 @@ class SyncCoordinator(
             ?: return@withContext SyncResult(error = "No se pudo registrar el dispositivo. Comprueba permisos y conexión.")
 
         // 2. Escanear saves locales de ROMs descargados
-        val allDownloadedRoms = romDao.getAllDownloadedRomsBlocking()
+        val allDownloadedRoms = library.roms()
         if (allDownloadedRoms.isEmpty()) {
             return@withContext SyncResult(message = "No hay ROMs descargados para sincronizar")
         }
@@ -67,7 +62,7 @@ class SyncCoordinator(
             return@withContext SyncResult(message = "Todos los ROMs están excluidos de la sincronización")
         }
 
-        val platformConfigs = platformDao.getAllPlatformsBlocking().associateBy { it.slug }
+        val platformConfigs = library.roms().map { it.platformSlug }.distinct().associateWith { library.platform(it) }
         val localSavesMap = mutableMapOf<Int, List<LocalSave>>()
         val handlerByRom = mutableMapOf<Int, SaveHandler>()
 
@@ -81,22 +76,7 @@ class SyncCoordinator(
 
             val effectiveBasePath = resolveSavesBasePath(rom, config, retroArchBase)
 
-            // ── Atajo por fingerprint: si los saves no cambiaron desde el
-            // último sync, saltarse el zipeo+hash completo de este ROM. ──
-            val cachedFp = syncedHashStore?.getFingerprint(rom.romId)
-            if (cachedFp != null) {
-                val currentFp = handler.savesFingerprint(
-                    romId = rom.romId,
-                    romFileName = rom.fileName,
-                    platformSlug = rom.platformSlug,
-                    savesBasePath = effectiveBasePath,
-                    romLocalPath = rom.localPath,
-                )
-                if (currentFp != null && currentFp == cachedFp) {
-                    Log.d(TAG, "Skipping unchanged saves for '${rom.name}' (fingerprint hit)")
-                    continue
-                }
-            }
+            // ── Atajo por fingerprint: desactivado en desktop (sin hash store) ──
 
             val saves = handler.findSaves(
                 romId = rom.romId,
@@ -134,7 +114,7 @@ class SyncCoordinator(
         val negotiateResponse = try {
             api.negotiateSync(negotiateRequest)
         } catch (e: Exception) {
-            Log.w(TAG, "Negotiate failed", e)
+            println("Error: " + e.message)
             return@withContext SyncResult(error = "Error en negociación: ${e.message}")
         }
 
@@ -154,7 +134,7 @@ class SyncCoordinator(
                         val ok = executeUpload(api, save, op.romId, deviceId, handler)
                         if (ok) {
                             completed++
-                            syncedHashStore?.setSyncedHash(op.romId, save.fileName, save.sha1)
+
                         } else {
                             failed++
                             failedRomIds.add(op.romId)
@@ -202,7 +182,7 @@ class SyncCoordinator(
                             completed++
                             // Tras un download exitoso, el hash local es el del servidor
                             op.serverContentHash?.let { hash ->
-                                syncedHashStore?.setSyncedHash(op.romId, op.fileName, hash)
+
                             }
                         } else {
                             failed++
@@ -233,13 +213,13 @@ class SyncCoordinator(
                 }
                 "conflict" -> {
                     conflicts.add(op)
-                    Log.w(TAG, "Conflicto sin resolver: ${op.fileName} para rom ${op.romId}: ${op.reason}")
+                    println("Conflicto sin resolver: ${op.fileName} para rom ${op.romId}: ${op.reason}")
                 }
                 "no_op" -> {
                     // Ya sincronizado: registrar hash local para que el preview sepa
                     val save = localSavesMap[op.romId]?.find { it.fileName == op.fileName }
                     if (save != null) {
-                        syncedHashStore?.setSyncedHash(op.romId, save.fileName, save.sha1)
+
                     }
                 }
             }
@@ -255,25 +235,7 @@ class SyncCoordinator(
                 ),
             )
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to complete session", e)
-        }
-
-        // 6. Sellar fingerprints de los ROMs cuyo sync terminó sin fallos:
-        // en el próximo ciclo, si el save no cambió, se saltará el zipeo.
-        for (rom in downloadedRoms) {
-            if (failed == 0 || rom.romId !in failedRomIds) {
-                val handler = handlerByRom[rom.romId] ?: continue
-                val config = platformConfigs[rom.platformSlug]
-                val effectiveBasePath = resolveSavesBasePath(rom, config, retroArchBase)
-                val fp = handler.savesFingerprint(
-                    romId = rom.romId,
-                    romFileName = rom.fileName,
-                    platformSlug = rom.platformSlug,
-                    savesBasePath = effectiveBasePath,
-                    romLocalPath = rom.localPath,
-                )
-                if (fp != null) syncedHashStore?.setFingerprint(rom.romId, fp)
-            }
+            println("Error: " + e.message)
         }
 
         SyncResult(
@@ -309,9 +271,9 @@ class SyncCoordinator(
         fileName: String,
         resolution: String,
     ): SyncResult = withContext(Dispatchers.IO) {
-        val serverUrl = settingsDataStore.getServerUrlBlocking()
-        val apiKey = settingsDataStore.getApiKeyBlocking()
-        val retroArchBase = settingsDataStore.getRetroArchBasePathBlocking()
+        val serverUrl = config.serverUrl
+        val apiKey = config.apiKey
+        val retroArchBase = ""
 
         if (serverUrl.isEmpty() || apiKey.isEmpty()) {
             return@withContext SyncResult(error = "Servidor no configurado")
@@ -321,10 +283,10 @@ class SyncCoordinator(
         val deviceId = ensureDeviceRegistered(api)
             ?: return@withContext SyncResult(error = "No se pudo registrar el dispositivo")
 
-        val rom = romDao.getAllDownloadedRomsBlocking().find { it.romId == romId }
+        val rom = library.roms().find { it.romId == romId }
             ?: return@withContext SyncResult(error = "ROM $romId no está descargado en este dispositivo")
 
-        val config = platformDao.getAllPlatformsBlocking().find { it.slug == rom.platformSlug }
+        val config = library.platform(rom.platformSlug)
         val handler = SaveHandlerRegistry.getHandler(
             platformSlug = rom.platformSlug,
             emulatorId = config?.emulatorId,
@@ -345,7 +307,7 @@ class SyncCoordinator(
 
                 val ok = executeUpload(api, save, rom.romId, deviceId, handler)
                 if (ok) {
-                    syncedHashStore?.setSyncedHash(rom.romId, save.fileName, save.sha1)
+
                     SyncResult(uploaded = 1, message = "Versión local subida: $fileName")
                 } else {
                     SyncResult(error = "Fallo al subir $fileName")
@@ -395,7 +357,7 @@ class SyncCoordinator(
                 )
                 if (ok) {
                     op.serverContentHash?.let { hash ->
-                        syncedHashStore?.setSyncedHash(rom.romId, fileName, hash)
+
                     }
                     try {
                         api.completeSession(
@@ -413,8 +375,8 @@ class SyncCoordinator(
     }
 
     private fun resolveSavesBasePath(
-        rom: es.davidrg.rommsync.data.local.entity.DownloadedRomEntity,
-        config: es.davidrg.rommsync.data.local.entity.PlatformEntity?,
+        rom: DesktopLibrary.RomEntry,
+        config: DesktopLibrary.PlatformEntry?,
         retroArchBase: String,
     ): String {
         rom.savesPathOverride?.takeIf { it.isNotBlank() }?.let { return it }
@@ -428,24 +390,24 @@ class SyncCoordinator(
     }
 
     private suspend fun ensureDeviceRegistered(api: RomMApiService): String? {
-        val cached = settingsDataStore.getSyncDeviceIdStringBlocking()
+        val cached = config.deviceId
         if (!cached.isNullOrBlank()) return cached
 
         return try {
             val response = api.registerDevice(
                 DeviceRegistrationRequest(
-                    name = "${Build.MANUFACTURER} ${Build.MODEL}",
-                    platform = "android",
-                    hostname = Build.DEVICE,
+                    name = "RomM Sync Desktop",
+                    platform = "linux",
+                    hostname = runCatching { InetAddress.getLocalHost().hostName }.getOrDefault("desktop"),
                 ),
             )
-            settingsDataStore.setSyncDeviceIdString(response.deviceId)
+            config.deviceId = response.deviceId
             response.deviceId
         } catch (e: retrofit2.HttpException) {
-            Log.e(TAG, "Device registration HTTP ${e.code()}: ${e.message()}", e)
+            println("Error: " + e.message)
             null
         } catch (e: Exception) {
-            Log.e(TAG, "Device registration failed", e)
+            println("Error: " + e.message)
             null
         }
     }
@@ -469,7 +431,7 @@ class SyncCoordinator(
             )
             true
         } catch (e: Exception) {
-            Log.w(TAG, "Upload failed for ${save.fileName}", e)
+            println("Error: " + e.message)
             false
         }
     }
@@ -478,7 +440,7 @@ class SyncCoordinator(
         api: RomMApiService,
         saveId: Int,
         deviceId: String,
-        rom: es.davidrg.rommsync.data.local.entity.DownloadedRomEntity,
+        rom: DesktopLibrary.RomEntry,
         fileName: String,
         savesBasePath: String,
         handler: SaveHandler,
@@ -502,7 +464,7 @@ class SyncCoordinator(
             tempFile.delete()
             ok
         } catch (e: Exception) {
-            Log.w(TAG, "Download failed for $fileName (rom ${rom.romId})", e)
+            println("Error: " + e.message)
             false
         }
     }
@@ -515,7 +477,7 @@ class SyncCoordinator(
         return if (parts.isEmpty()) "Todo sincronizado" else parts.joinToString(", ")
     }
     companion object {
-        private const val TAG = "SyncCoordinator"
+        
 
         private fun formatIso8601(millis: Long): String {
             val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)

@@ -22,3 +22,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "RomM Sync"
 include(":app")
+include(":core")
+include(":desktop")

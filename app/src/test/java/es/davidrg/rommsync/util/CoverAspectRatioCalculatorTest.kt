@@ -1,4 +1,4 @@
-package es.davidrg.rommsync.util
+package es.davidrg.rommsync.core.util
 
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test

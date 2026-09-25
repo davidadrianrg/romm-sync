@@ -13,7 +13,7 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import es.davidrg.rommsync.data.local.RomSyncDatabase
 import es.davidrg.rommsync.data.local.SettingsDataStore
-import es.davidrg.rommsync.data.remote.NetworkModule
+import es.davidrg.rommsync.core.remote.NetworkModule
 import es.davidrg.rommsync.domain.model.Rom
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -286,7 +286,7 @@ class MetadataExportWorker(
      * que requiere coroutine context distinto).
      */
     private fun mapRomDtoToDomain(
-        dto: es.davidrg.rommsync.data.remote.dto.RomDto,
+        dto: es.davidrg.rommsync.core.remote.dto.RomDto,
         serverUrl: String,
     ): Rom {
         val base = serverUrl.trimEnd('/') + "/"

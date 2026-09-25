@@ -14,7 +14,7 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import es.davidrg.rommsync.data.sync.SyncedHashStore
-import es.davidrg.rommsync.data.sync.platform.SaveHandlerRegistry
+import es.davidrg.rommsync.core.sync.platform.SaveHandlerRegistry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted

@@ -394,14 +394,14 @@ private fun PlatformCard(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val availableEmulators = remember(platform.slug) {
-        es.davidrg.rommsync.data.sync.platform.SaveHandlerRegistry.getAvailableEmulators(platform.slug)
+        es.davidrg.rommsync.core.sync.platform.SaveHandlerRegistry.getAvailableEmulators(platform.slug)
     }
     val defaultEmulator = remember(platform.slug) {
-        es.davidrg.rommsync.data.sync.platform.SaveHandlerRegistry.getDefaultEmulator(platform.slug)
+        es.davidrg.rommsync.core.sync.platform.SaveHandlerRegistry.getDefaultEmulator(platform.slug)
     }
     val currentEmulator = platform.emulatorId ?: defaultEmulator.id
     val defaultSavesPath = remember(currentEmulator, platform.slug, retroArchBasePath) {
-        es.davidrg.rommsync.data.sync.platform.SaveHandlerRegistry.getDefaultSavesPath(
+        es.davidrg.rommsync.core.sync.platform.SaveHandlerRegistry.getDefaultSavesPath(
             emulatorId = currentEmulator,
             platformSlug = platform.slug,
             retroArchBase = retroArchBasePath,
