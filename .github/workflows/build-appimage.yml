@@ -105,8 +105,8 @@ jobs:
           Categories=Game;Utility;
           EOF
           cp desktop/packaging/romm-sync.png AppDir/usr/share/icons/hicolor/256x256/apps/romm-sync.png
-          # appimagetool busca el icono en la raíz del AppDir
           cp desktop/packaging/romm-sync.png AppDir/romm-sync.png
+          # appimagetool busca el icono en la raíz del AppDir
 
       - name: Build AppImage (${{ matrix.arch }})
         run: |
