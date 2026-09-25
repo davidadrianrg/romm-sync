@@ -68,7 +68,7 @@ jobs:
           /tmp/jdk-${{ matrix.arch }}/bin/jlink \
             --add-modules "$MODULES" \
             --strip-debug --no-man-pages --no-header-files \
-            --compress zip-6 \
+            --compress=2 \
             --output /tmp/runtime-${{ matrix.arch }}
         env:
           MODULES: java.base,java.naming,java.sql,java.management,java.desktop,jdk.crypto.ec,java.logging,java.xml,jdk.unsupported
