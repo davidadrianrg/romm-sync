@@ -13,6 +13,7 @@ data class DownloadTask(
     val workId: String,
     val progress: Int = 0,
     val isIndeterminate: Boolean = false,
+    val progressText: String? = null,
     val isRunning: Boolean = false,
     val isCompleted: Boolean = false,
     val isFailed: Boolean = false,

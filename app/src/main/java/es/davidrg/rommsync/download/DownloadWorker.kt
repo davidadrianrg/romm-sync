@@ -245,6 +245,12 @@ class DownloadWorker(
         // ese modo NO existe targetFile en disco y mod_zip no expone CRCs por
         // entrada, así que la verificación de hash posterior debe saltarse.
         var wasZipStream = false
+        // Digest incremental: se alimenta con los mismos bytes que se escriben
+        // a disco durante streamToDisk, así el hash final está listo al llegar
+        // al 100% sin reeler el fichero desde la microSD (en una ROM de 4 GB a
+        // ~30 MB/s de lectura esa relectura eran 1-2 min "colgados" al 100%).
+        var incrementalDigest: java.security.MessageDigest? = null
+        var incrementalBytes = 0L
 
         return try {
             when {
@@ -267,8 +273,19 @@ class DownloadWorker(
                     if (isPartialResponse) {
                         Log.i(TAG, "Resuming '$romName' at $partialBytes bytes ($contentLength remaining)")
                     }
+                    // Solo se puede hashear incrementalmente una descarga
+                    // completa desde cero (200). En resume (206) el digest no
+                    // vio los primeros bytes: se cae a la verificación clásica.
+                    if (expectedHash != null && !isPartialResponse) {
+                        val algo = detectHashAlgorithm(expectedHash)
+                        if (algo != null) {
+                            incrementalDigest = java.security.MessageDigest.getInstance(algo)
+                            incrementalBytes = 0L
+                        }
+                    }
                     streamToDisk(body, targetFile, totalBytes, offset,
-                        romId, romName, fileName, platformSlug)
+                        romId, romName, fileName, platformSlug,
+                        digest = incrementalDigest)
                 }
             }
 
@@ -288,15 +305,22 @@ class DownloadWorker(
             if (expectedHash != null && !wasZipStream) {
                 val hashAlgo = detectHashAlgorithm(expectedHash)
                 if (hashAlgo != null) {
-                    reportProgress(
-                        progress = 100, indeterminate = true,
-                        romId = romId, romName = romName,
-                        fileName = fileName, platformSlug = platformSlug,
-                        downloadedBytes = targetFile.length(), totalBytes = 0L,
-                        progressText = "Verificando integridad…",
-                    )
-                    val localHash = withContext(Dispatchers.IO) {
-                        computeFileHash(targetFile, hashAlgo)
+                    // Con digest incremental el hash ya está calculado (se
+                    // alimentó durante la descarga): cero relectura. Sin él
+                    // (resume 206), se calcula releyendo el fichero.
+                    val localHash = if (incrementalDigest != null) {
+                        incrementalDigest!!.digest().joinToString("") { "%02x".format(it) }
+                    } else {
+                        reportProgress(
+                            progress = 100, indeterminate = true,
+                            romId = romId, romName = romName,
+                            fileName = fileName, platformSlug = platformSlug,
+                            downloadedBytes = targetFile.length(), totalBytes = 0L,
+                            progressText = "Verificando integridad…",
+                        )
+                        withContext(Dispatchers.IO) {
+                            computeFileHash(targetFile, hashAlgo)
+                        }
                     }
                     if (!localHash.equals(expectedHash, ignoreCase = true)) {
                         Log.e(TAG, "Hash mismatch for '$romName': expected=$expectedHash got=$localHash — deleting corrupt file")
@@ -373,6 +397,7 @@ class DownloadWorker(
         setProgress(workDataOf(
             KEY_PROGRESS to progress,
             KEY_INDETERMINATE to indeterminate,
+            KEY_PROGRESS_TEXT to progressText,
             KEY_ROM_ID to romId,
             KEY_ROM_NAME to romName,
             KEY_FILE_NAME to fileName,
@@ -558,6 +583,7 @@ class DownloadWorker(
         romName: String,
         fileName: String,
         platformSlug: String,
+        digest: java.security.MessageDigest? = null,
     ) {
         var input: java.io.InputStream? = null
         var output: java.io.FileOutputStream? = null
@@ -577,6 +603,7 @@ class DownloadWorker(
                 val read = input.read(buffer)
                 if (read < 0) break
                 output.write(buffer, 0, read)
+                if (digest != null) digest.update(buffer, 0, read)
                 bytesDownloaded = bytesDownloaded + read.toLong()
 
                 val now = System.currentTimeMillis()
@@ -695,6 +722,7 @@ class DownloadWorker(
         const val KEY_ROMS_ROOT_PATH = "roms_root_path"
         const val KEY_PROGRESS = "progress"
         const val KEY_INDETERMINATE = "indeterminate"
+        const val KEY_PROGRESS_TEXT = "progress_text"
         const val KEY_LOCAL_PATH = "local_path"
         const val KEY_ERROR_MESSAGE = "error_message"
         const val KEY_DOWNLOADED_BYTES = "downloaded_bytes"

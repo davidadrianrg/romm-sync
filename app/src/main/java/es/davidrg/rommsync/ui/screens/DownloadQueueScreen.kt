@@ -210,7 +210,7 @@ private fun DownloadCard(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            "Empaquetando (mod_zip)…",
+                            task.progressText ?: "Empaquetando (mod_zip)…",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

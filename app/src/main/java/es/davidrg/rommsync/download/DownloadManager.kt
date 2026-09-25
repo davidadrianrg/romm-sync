@@ -190,6 +190,7 @@ class DownloadManager(private val context: Context) {
             workId = id.toString(),
             progress = progressData.getInt(DownloadWorker.KEY_PROGRESS, 0),
             isIndeterminate = progressData.getBoolean(DownloadWorker.KEY_INDETERMINATE, false),
+            progressText = progressData.getString(DownloadWorker.KEY_PROGRESS_TEXT),
             isRunning = state == WorkInfo.State.RUNNING,
             isCompleted = state == WorkInfo.State.SUCCEEDED,
             isFailed = state == WorkInfo.State.FAILED,
