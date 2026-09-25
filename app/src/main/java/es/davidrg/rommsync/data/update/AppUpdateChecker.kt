@@ -101,7 +101,7 @@ class AppUpdateChecker(
 
     companion object {
         const val OWNER = "davidadrianrg"
-        const val REPO = "romm-sync-android"
+        const val REPO = "romm-sync"
         private const val USER_AGENT = "RomM-Sync-Android-Updater"
 
         /** Lightweight client: short timeouts, no retries needed for a JSON GET. */

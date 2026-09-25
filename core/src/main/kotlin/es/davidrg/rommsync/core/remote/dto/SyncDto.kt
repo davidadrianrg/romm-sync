@@ -10,7 +10,7 @@ import com.squareup.moshi.JsonClass
 data class DeviceRegistrationRequest(
     @Json(name = "name") val name: String? = null,
     @Json(name = "platform") val platform: String? = "android",
-    @Json(name = "client") val client: String? = "romm-sync-android",
+    @Json(name = "client") val client: String? = "romm-sync",
     @Json(name = "client_version") val clientVersion: String? = null,
     @Json(name = "hostname") val hostname: String? = null,
     @Json(name = "mac_address") val macAddress: String? = null,

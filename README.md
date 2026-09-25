@@ -16,7 +16,7 @@ Cliente Android nativo (Kotlin + Jetpack Compose) para servidores RomM: explora 
 
 ### Opción A — Desde la app (recomendado)
 
-1. Descarga e instala el último APK desde [GitHub Releases](https://github.com/davidadrianrg/romm-sync-android/releases/latest).
+1. Descarga e instala el último APK desde [GitHub Releases](https://github.com/davidadrianrg/romm-sync/releases/latest).
 2. Configura tu servidor (ver abajo).
 3. En **Configuración → Actualizaciones**, pulsa *Buscar actualizaciones* cada vez que quieras comprobar si hay versión nueva. La app descarga el APK y lanza el instalador de Android — sin salir de la aplicación.
 
@@ -25,8 +25,8 @@ Cliente Android nativo (Kotlin + Jetpack Compose) para servidores RomM: explora 
 ### Opción B — Compilar desde código
 
 ```bash
-git clone https://github.com/davidadrianrg/romm-sync-android.git
-cd romm-sync-android
+git clone https://github.com/davidadrianrg/romm-sync.git
+cd romm-sync
 ./gradlew assembleDebug
 # APK → app/build/outputs/apk/debug/app-debug.apk
 ```
@@ -130,7 +130,7 @@ El APK de release se firma con una clave fija (secrets `SIGNING_KEYSTORE_BASE64`
 2. `./gradlew test` en verde.
 3. PR a `master` — CI debe pasar.
 
-Errores, ideas y PRs bienvenidos en [Issues](https://github.com/davidadrianrg/romm-sync-android/issues).
+Errores, ideas y PRs bienvenidos en [Issues](https://github.com/davidadrianrg/romm-sync/issues).
 
 ## 📄 Licencia
 
