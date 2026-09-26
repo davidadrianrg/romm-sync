@@ -63,9 +63,16 @@ enum class DownloadStatus {
 
 /**
  * UI-friendly ROM with local download status merged.
+ *
+ * @param discCount nº de discos/variantes agrupados en esta card (1 = juego
+ *   de un solo disco; >1 = multi-disc o variantes con mismo IGDB).
+ * @param groupRomIds IDs de todas las ROMs del grupo (la card representa un
+ *   juego; descargar/borrar/filtrar actúa sobre el grupo completo).
  */
 data class RomWithStatus(
     val rom: Rom,
     val status: DownloadStatus,
     val progress: Int = 0, // 0-100
+    val discCount: Int = 1,
+    val groupRomIds: List<Int> = listOf(rom.id),
 )

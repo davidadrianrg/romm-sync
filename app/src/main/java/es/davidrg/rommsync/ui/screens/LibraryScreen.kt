@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.outlined.Album
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.DownloadDone
@@ -275,11 +276,18 @@ fun LibraryScreen() {
     /** Encola la descarga de un juego (con destino explícito o el principal). */
     val enqueueSingleDownload: (Rom, String?) -> Unit = { rom, rootPath ->
         if (settings.isConfigured) {
-            container.downloadManager.enqueueDownload(
-                rom = rom,
-                serverUrl = settings.serverUrl,
-                romsRootPath = rootPath,
-            )
+            // Grupo completo del juego: multi-disc llega de la API como varias
+            // ROMs (mismo igdbId) y deben descargarse todas juntas.
+            val group = romsWithStatus.firstOrNull { it.rom.id == rom.id }?.groupRomIds ?: listOf(rom.id)
+            val groupRoms = romsWithStatus.map { it.rom }.filter { it.id in group }
+            val romsToEnqueue = groupRoms.ifEmpty { listOf(rom) }
+            romsToEnqueue.forEach { r ->
+                container.downloadManager.enqueueDownload(
+                    rom = r,
+                    serverUrl = settings.serverUrl,
+                    romsRootPath = rootPath,
+                )
+            }
             viewModel.onDownloadEnqueued(rom.name)
         }
     }
@@ -616,7 +624,10 @@ fun LibraryScreen() {
     // ── Bottom sheet: game details ─────────────────────────────────────
     if (selectedRom != null) {
         val rom = selectedRom!!
-        val isDownloaded = romsWithStatus.any { it.rom.id == rom.id && it.status == DownloadStatus.DOWNLOADED }
+        val romStatus = romsWithStatus.firstOrNull { it.rom.id == rom.id }
+        val isDownloaded = romStatus != null && romStatus.status == DownloadStatus.DOWNLOADED
+        val isDownloading = romStatus != null && romStatus.status == DownloadStatus.DOWNLOADING
+        val syncGroupIds = romStatus?.groupRomIds ?: listOf(rom.id)
         val retroArchBasePath by container.settingsRepository.retroArchBasePath.collectAsState(
             initial = es.davidrg.rommsync.data.local.SettingsDataStore.DEFAULT_RETROARCH_PATH,
         )
@@ -655,7 +666,8 @@ fun LibraryScreen() {
             RomDetailSheet(
                 rom = rom,
                 isDownloaded = isDownloaded,
-                isDownloading = romsWithStatus.any { it.rom.id == rom.id && it.status == DownloadStatus.DOWNLOADING },
+                isDownloading = isDownloading,
+                discCount = romStatus?.discCount ?: 1,
                 syncEnabled = saveSyncEnabled,
                 savesPathOverride = syncConfig?.savesPathOverride,
                 excludedFromSync = syncConfig?.excludedFromSync ?: false,
@@ -813,15 +825,22 @@ fun LibraryScreen() {
             },
             title = { Text("Eliminar descarga") },
             text = {
+                val discs = romsWithStatus.firstOrNull { it.rom.id == rom.id }?.discCount ?: 1
                 Text(
-                    "¿Eliminar «${rom.name}» de este dispositivo? " +
-                        "Se borrará el archivo del disco y volverá a marcarse como no descargado.",
+                    if (discs > 1) {
+                        "¿Eliminar «${rom.name}» (${discs} discos) de este dispositivo? " +
+                            "Se borrarán todos los archivos del disco y volverará a marcarse como no descargado."
+                    } else {
+                        "¿Eliminar «${rom.name}» de este dispositivo? " +
+                            "Se borrará el archivo del disco y volverá a marcarse como no descargado."
+                    },
                 )
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.deleteDownloadedRom(rom)
+                        val groupIds = romsWithStatus.firstOrNull { it.rom.id == rom.id }?.groupRomIds ?: listOf(rom.id)
+                        viewModel.deleteDownloadedRom(rom, groupIds)
                         romToDelete = null
                     },
                     colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
@@ -953,6 +972,35 @@ private fun RomCard(
             }
         }
 
+        // Badge multi-disc: nº de discos agrupados en esta card (esquina
+        // superior izquierda). Los juegos de un disco no muestran nada.
+        if (romWithStatus.discCount > 1) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(6.dp)
+                    .background(
+                        MaterialTheme.colorScheme.scrim.copy(alpha = 0.7f),
+                        RoundedCornerShape(10.dp),
+                    )
+                    .padding(horizontal = 7.dp, vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                Icon(
+                    Icons.Outlined.Album,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(13.dp),
+                )
+                Text(
+                    "${romWithStatus.discCount}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White,
+                )
+            }
+        }
+
         // Botón de descarga (solo si no descargado)
         if (romWithStatus.status == DownloadStatus.NOT_DOWNLOADED) {
             Box(
@@ -1017,6 +1065,7 @@ private fun RomDetailSheet(
     rom: Rom,
     isDownloaded: Boolean,
     isDownloading: Boolean,
+    discCount: Int = 1,
     syncEnabled: Boolean,
     savesPathOverride: String?,
     excludedFromSync: Boolean,

@@ -104,7 +104,7 @@ class DownloadWorker(
         // Start foreground service notification (safe for Android 14+)
         createNotificationChannel()
         try {
-            val foreInfo = createForegroundInfo(romName, 0, indeterminate = true)
+            val foreInfo = createForegroundInfo(romId, romName, 0, indeterminate = true)
             setForeground(foreInfo)
         } catch (e: Exception) {
             Log.w(TAG, "Could not start foreground service (notification permission denied?)", e)
@@ -410,7 +410,7 @@ class DownloadWorker(
 
         // Update foreground notification with progress
         try {
-            val foreInfo = createForegroundInfo(romName, progress, indeterminate, downloadedBytes, totalBytes, speedBps)
+            val foreInfo = createForegroundInfo(romId, romName, progress, indeterminate, downloadedBytes, totalBytes, speedBps)
             setForeground(foreInfo)
         } catch (e: Exception) {
             // Notification permission may have been revoked mid-download
@@ -422,6 +422,7 @@ class DownloadWorker(
      * progress, downloaded/total MB and transfer speed.
      */
     private fun createForegroundInfo(
+        romId: Int,
         romName: String,
         progress: Int,
         indeterminate: Boolean,
@@ -459,14 +460,22 @@ class DownloadWorker(
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             // Android 14+ requires explicit foreground service type
             ForegroundInfo(
-                NOTIFICATION_ID,
+                notificationIdFor(romId),
                 notification,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
             )
         } else {
-            ForegroundInfo(NOTIFICATION_ID, notification)
+            ForegroundInfo(notificationIdFor(romId), notification)
         }
     }
+
+    /**
+     * ID de notificación único por ROM: descargas paralelas de juegos
+     * distintos muestran CADA UNA su notificación con su progreso. Antes el
+     * ID era fijo (1001) y todos los workers se pisaban la misma notificación
+     * — con 2-3 juegos a la vez solo se veía el último en reportar.
+     */
+    private fun notificationIdFor(romId: Int): Int = NOTIFICATION_ID_BASE + romId
 
     /** 1536 B → "1.5 KB"; 5 GB ROMs → "4.7 GB" */
     private fun formatBytes(bytes: Long): String {
@@ -774,6 +783,8 @@ class DownloadWorker(
 
         private const val TAG = "DownloadWorker"
         private const val NOTIFICATION_CHANNEL_ID = "downloads"
-        private const val NOTIFICATION_ID = 1001
+
+        /** Base para IDs de notificación por-ROM (base + romId). */
+        private const val NOTIFICATION_ID_BASE = 100_000
     }
 }

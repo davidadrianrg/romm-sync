@@ -140,17 +140,44 @@ class LibraryViewModel(
                 initialValue = emptySet(),
             )
 
+    /**
+     * ROMs de la plataforma tal como los devuelve la API de RomM: cada disco
+     * de un multi-disc es una ROM separada (mismo igdbId). Se agrupan aquí
+     * para que la UI muestre UNA card por juego, igual que la web de RomM —
+     * antes cada disco salía como juego repetido.
+     */
     val romsWithStatus: StateFlow<List<RomWithStatus>> = combine(
         _roms, downloadedIds, activeDownloads,
     ) { roms, downloaded, downloading ->
-        roms.map { rom ->
-            val status = when {
-                rom.id in downloading -> DownloadStatus.DOWNLOADING
-                rom.id in downloaded -> DownloadStatus.DOWNLOADED
-                else -> DownloadStatus.NOT_DOWNLOADED
+        roms
+            .groupBy { it.igdbId ?: it.id }
+            .map { (groupKey, groupRoms) ->
+                // Representante del grupo: el más completo (más ficheros =
+                // el grupo multi). Si hay varias variantes IGDB distintas
+                // (raro), cada una conserva su propia card.
+                val rep = groupRoms.maxByOrNull { it.files.size } ?: groupRoms.first()
+                val discCount = if (groupRoms.size > 1 || rep.isMulti) groupRoms.size.coerceAtLeast(2) else 1
+                val status = when {
+                    // Descargado solo si TODOS los discos del juego lo están
+                    groupRoms.all { it.id in downloaded } -> DownloadStatus.DOWNLOADED
+                    groupRoms.any { it.id in downloading } -> DownloadStatus.DOWNLOADING
+                    // Parcial (algunos discos): NOT_DOWNLOADED para poder
+                    // re-descargar; el worker ya deduplica por KEEP
+                    else -> DownloadStatus.NOT_DOWNLOADED
+                }
+                RomWithStatus(
+                    rom = rep,
+                    status = status,
+                    discCount = discCount,
+                    groupRomIds = groupRoms.map { it.id },
+                )
             }
-            RomWithStatus(rom = rom, status = status)
-        }
+            // El orden original de la lista se pierde al agrupar: se conserva
+            // el del primer elemento de cada grupo (orden de la API).
+            .let { grouped ->
+                val order = roms.map { it.igdbId ?: it.id }
+                grouped.sortedBy { order.indexOf(it.rom.igdbId ?: it.rom.id) }
+            }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -189,12 +216,15 @@ class LibraryViewModel(
     /**
      * Elimina una ROM descargada: borra el archivo del disco y la desmarca
      * como descargada. El estado de la UI se actualiza solo porque
-     * [downloadedIds] observa Room.
+     * [downloadedIds] observa Room. Acepta el grupo completo (multi-disc).
      */
-    fun deleteDownloadedRom(rom: Rom) {
+    fun deleteDownloadedRom(rom: Rom, groupRomIds: List<Int> = listOf(rom.id)) {
         viewModelScope.launch {
-            val ok = romRepository.deleteDownloadedRom(rom.id)
-            if (ok) {
+            var anyOk = false
+            groupRomIds.forEach { id ->
+                if (romRepository.deleteDownloadedRom(id)) anyOk = true
+            }
+            if (anyOk) {
                 _events.emit(LibraryEvent.DownloadDeleted(rom.name))
             } else {
                 _events.emit(LibraryEvent.Error("No se pudo borrar el archivo de ${rom.name}"))
