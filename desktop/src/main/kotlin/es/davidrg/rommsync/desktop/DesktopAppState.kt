@@ -10,6 +10,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
@@ -421,24 +422,72 @@ class DesktopAppState(private val scope: CoroutineScope) {
 
     // ── Actualizaciones (GitHub releases) ──────────────────────────────
 
-    private val _updateInfo = MutableStateFlow<String?>(null)
+    /** Estado del flujo de actualización para la UI de Ajustes. */
+    data class UpdateUiState(
+        val checking: Boolean = false,
+        val info: DesktopUpdater.UpdateInfo? = null,
+        val downloading: Boolean = false,
+        val downloadedBytes: Long = 0,
+        val totalBytes: Long = -1,
+        val installed: Boolean = false,
+        val restartAvailable: Boolean = false,
+        val message: String? = null,
+    )
 
-    val updateInfo: StateFlow<String?> = _updateInfo
-    private val _checkingUpdate = MutableStateFlow(false)
-    val checkingUpdate: StateFlow<Boolean> = _checkingUpdate
+    private val _updateState = MutableStateFlow(UpdateUiState())
+    val updateState: StateFlow<UpdateUiState> = _updateState
 
     fun checkUpdate() {
-        if (_checkingUpdate.value) return
-        _checkingUpdate.value = true
+        val s = _updateState.value
+        if (s.checking || s.downloading) return
+        _updateState.value = UpdateUiState(checking = true)
         scope.launch {
             try {
-                _updateInfo.value = DesktopUpdateChecker.check()
+                val info = withContext(Dispatchers.IO) { DesktopUpdater.check() }
+                _updateState.value = UpdateUiState(
+                    info = info,
+                    message = when {
+                        info == null -> "No se pudo comprobar (sin respuesta de GitHub)"
+                        info.available -> null // la UI muestra el botón de instalar
+                        else -> "Estás en la última versión (v${info.currentVersion})"
+                    },
+                )
             } catch (e: Exception) {
-                _updateInfo.value = "Error comprobando: ${e.message}"
-            } finally {
-                _checkingUpdate.value = false
-    }
+                _updateState.value = UpdateUiState(message = "Error comprobando: ${e.message}")
+            }
         }
+    }
+
+    /** Descarga el AppImage nuevo, lo instala in-place y ofrece reiniciar. */
+    fun installUpdate() {
+        val s = _updateState.value
+        val info = s.info
+        val url = info?.downloadUrl
+        if (info == null || url == null || s.downloading) return
+        _updateState.value = s.copy(downloading = true, downloadedBytes = 0, totalBytes = -1, message = null)
+        scope.launch {
+            try {
+                val msg = withContext(Dispatchers.IO) {
+                    DesktopUpdater.downloadAndInstall(info, url) { read, total ->
+                        _updateState.value = _updateState.value.copy(downloadedBytes = read, totalBytes = total)
+                    }
+                }
+                val ok = msg.startsWith("Actualizado")
+                _updateState.value = _updateState.value.copy(
+                    downloading = false,
+                    installed = ok,
+                    restartAvailable = ok && DesktopUpdater.currentAppImage() != null,
+                    message = msg,
+                )
+            } catch (e: Exception) {
+                _updateState.value = _updateState.value.copy(downloading = false, message = "Error instalando: ${e.message}")
+            }
+        }
+    }
+
+    /** Relanza la app (tras instalar una actualización del AppImage). */
+    fun restartApp() {
+        DesktopUpdater.relaunch()
     }
 
     private fun updateTask(romId: Int, transform: (DesktopTask) -> DesktopTask) {

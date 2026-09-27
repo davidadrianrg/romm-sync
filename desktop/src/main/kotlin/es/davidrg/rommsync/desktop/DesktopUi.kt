@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,6 +24,10 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
@@ -124,20 +130,34 @@ fun PlatformsScreen(state: DesktopAppState) {
             Text("Plataformas", style = MaterialTheme.typography.headlineSmall)
             Spacer(Modifier.weight(1f))
             val allOn = hidden.isEmpty()
-            OutlinedButton(onClick = { state.toggleAllPlatforms(allOn) }) {
+            // Paridad con Android (setAllVisible(!allVisible)): si todas están
+            // activas las desactiva, y viceversa. Antes se pasaba `allOn` tal
+            // cual, así que con todas activas el botón era un no-op.
+            OutlinedButton(onClick = { state.toggleAllPlatforms(!allOn) }) {
                 Text(if (allOn) "Desactivar todas" else "Activar todas")
             }
         }
         Spacer(Modifier.height(12.dp))
         if (loading) { CircularProgressIndicator() }
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(240.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            gridItems(platforms, key = { it.id }) { p ->
-                PlatformConfigCard(p, hidden.contains(p.slug), state)
+        // Contenedor con scrollbar lateral: sin él no hay feedback de posición
+        // ni arrastre de scroll en las plataformas que quedan fuera de pantalla.
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            val gridState = rememberLazyGridState()
+            LazyVerticalGrid(
+                state = gridState,
+                columns = GridCells.Adaptive(240.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                gridItems(platforms, key = { it.id }) { p ->
+                    PlatformConfigCard(p, hidden.contains(p.slug), state)
+                }
             }
+            VerticalScrollbar(
+                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+                adapter = rememberScrollbarAdapter(gridState),
+            )
         }
     }
 }
@@ -291,24 +311,31 @@ fun LibraryScreen(state: DesktopAppState) {
                     visibleCount = minOf(visibleCount + 60, games.size)
                 }
             }
-            LazyVerticalGrid(
-                state = gridState,
-                columns = GridCells.Adaptive(150.dp),
-                contentPadding = PaddingValues(vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                gridItems(games.take(visibleCount), key = { it.rep.id }) { card ->
-                    GameCardItem(card, state)
-                }
-                if (visibleCount < games.size) {
-                    item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(Modifier.size(22.dp))
+            // Grid con scrollbar lateral para navegar bibliotecas grandes.
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                LazyVerticalGrid(
+                    state = gridState,
+                    columns = GridCells.Adaptive(150.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    gridItems(games.take(visibleCount), key = { it.rep.id }) { card ->
+                        GameCardItem(card, state)
+                    }
+                    if (visibleCount < games.size) {
+                        item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                            Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(Modifier.size(22.dp))
+                            }
                         }
                     }
                 }
+                VerticalScrollbar(
+                    modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+                    adapter = rememberScrollbarAdapter(gridState),
+                )
             }
         }
     }
@@ -320,7 +347,7 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
     val groupIds = card.groupRoms.map { it.id }
     val downloading = tasks.any { it.romId in groupIds && (it.status == "running" || it.status == "queued") }
     val rep = card.rep
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = state::closeGame) { Text("← Volver") }
             Spacer(Modifier.width(8.dp))
@@ -446,12 +473,15 @@ private fun CoverPlaceholder() {
 
 @Composable
 private fun produceCover(url: String): androidx.compose.ui.graphics.ImageBitmap? {
-    // Carga async de la cover: descarga en IO y decodifica a ImageBitmap.
+    // Carga async: caché LRU en disco (CoverCache) + decodificación en IO.
     val bitmap by androidx.compose.runtime.produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, url) {
         kotlinx.coroutines.withContext(Dispatchers.IO) {
-            runCatching {
-                java.net.URL(url).openStream().use { input ->
-                    value = loadImageBitmap(input)
+            val cached = CoverCache.fetch(url)
+            if (cached != null) {
+                runCatching {
+                    java.io.FileInputStream(cached).use { input ->
+                        value = loadImageBitmap(input)
+                    }
                 }
             }
         }
@@ -474,7 +504,9 @@ fun DownloadsScreen(state: DesktopAppState) {
         if (tasks.isEmpty()) {
             Text("Sin descargas aún. Encola juegos desde la Biblioteca.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
-            LazyColumn {
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                val listState = rememberLazyListState()
+                LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 items(tasks, key = { it.romId }) { t ->
                     Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                         Column(Modifier.padding(12.dp)) {
@@ -517,6 +549,11 @@ fun DownloadsScreen(state: DesktopAppState) {
                         }
                     }
                 }
+                }
+                VerticalScrollbar(
+                    modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+                    adapter = rememberScrollbarAdapter(listState),
+                )
             }
         }
     }
@@ -526,7 +563,7 @@ fun DownloadsScreen(state: DesktopAppState) {
 fun SavesScreen(state: DesktopAppState) {
     val syncing by state.syncing.collectAsState()
     val syncStatus by state.syncStatus.collectAsState()
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Text("Saves", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(12.dp))
         Text(
@@ -628,7 +665,7 @@ fun SettingsScreen(state: DesktopAppState) {
     val apiKey = remember { mutableStateOf(state.config.apiKey) }
     val romsRoot = remember { mutableStateOf(state.config.romsRoot) }
     val connected by state.connected.collectAsState()
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Text("Ajustes", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(12.dp))
         OutlinedTextField(serverUrl.value, { serverUrl.value = it }, label = { Text("URL del servidor") }, modifier = Modifier.fillMaxWidth().width(420.dp))
@@ -681,15 +718,47 @@ fun SettingsScreen(state: DesktopAppState) {
 
         // ── Actualizaciones ──
         Text("Actualizaciones", style = MaterialTheme.typography.titleMedium)
-        val checking by state.checkingUpdate.collectAsState()
-        val updateInfo by state.updateInfo.collectAsState()
+        val updState by state.updateState.collectAsState()
+        val upd = updState
         Row(verticalAlignment = Alignment.CenterVertically) {
-            OutlinedButton(onClick = state::checkUpdate, enabled = !checking) {
-                if (checking) { CircularProgressIndicator(Modifier.size(14.dp)); Spacer(Modifier.width(6.dp)) }
+            OutlinedButton(onClick = state::checkUpdate, enabled = !upd.checking && !upd.downloading) {
+                if (upd.checking) { CircularProgressIndicator(Modifier.size(14.dp)); Spacer(Modifier.width(6.dp)) }
                 Text("Buscar actualizaciones")
             }
+            // Con actualización disponible y asset de esta arquitectura: botón
+            // directo de descargar+instalar in-place (AppImage se reemplaza).
+            if (upd.info?.available == true && upd.info.downloadUrl != null && !upd.installed) {
+                Spacer(Modifier.width(10.dp))
+                Button(onClick = state::installUpdate, enabled = !upd.downloading) {
+                    if (upd.downloading) { CircularProgressIndicator(Modifier.size(14.dp)); Spacer(Modifier.width(6.dp)) }
+                    Text(if (upd.downloading) "Descargando…" else "Descargar e instalar v${upd.info.latestVersion}")
+                }
+            }
+            if (upd.restartAvailable) {
+                Spacer(Modifier.width(10.dp))
+                Button(onClick = state::restartApp) { Text("Reiniciar ahora") }
+            }
         }
-        updateInfo?.let {
+        if (upd.downloading && upd.totalBytes > 0) {
+            Spacer(Modifier.height(6.dp))
+            LinearProgressIndicator(
+                progress = { (upd.downloadedBytes.toFloat() / upd.totalBytes).coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth().width(420.dp),
+            )
+            Text(
+                "${upd.downloadedBytes.toSizeLabel()} / ${upd.totalBytes.toSizeLabel()}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (upd.info?.available == true && !upd.downloading) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Nueva versión disponible: v${upd.info.latestVersion} (tienes v${upd.info.currentVersion})",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        upd.message?.let {
             Spacer(Modifier.height(6.dp))
             Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
