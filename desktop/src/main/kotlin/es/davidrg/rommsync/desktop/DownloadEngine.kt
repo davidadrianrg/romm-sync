@@ -21,7 +21,13 @@ class DownloadEngine(
     private val library: DesktopLibrary? = null,
 ) {
 
-    suspend fun download(rom: RomDto): String = withContext(Dispatchers.IO) {
+    /** Progreso notificado durante la descarga. total=-1 → indeterminado (zip). */
+    data class Progress(val bytesRead: Long, val total: Long, val speedBps: Long)
+
+    suspend fun download(
+        rom: RomDto,
+        onProgress: (Progress) -> Unit = {},
+    ): String = withContext(Dispatchers.IO) {
         val fileName = rom.fileName
         val targetDir = PathMapper.getPlatformDir(romsRoot.absolutePath, rom.platformSlug ?: "unknown")
         targetDir.mkdirs()
@@ -36,6 +42,9 @@ class DownloadEngine(
         val isZipStream = body.contentLength() == -1L
         if (isZipStream) {
             val created = extractZipStream(body, targetDir)
+            // Progreso aproximado del zip: bytes leídos vía fuente espejo no
+            // disponible sin envolver el stream; el total es desconocido, así
+            // que se muestra indeterminado en la cola.
             library?.upsertRom(
                 DesktopLibrary.RomEntry(
                     romId = rom.id,
@@ -50,7 +59,11 @@ class DownloadEngine(
 
         // Fichero único
         val target = File(targetDir, fileName)
-        FileOutputStream(target).use { out -> body.byteStream().copyTo(out) }
+        val total = body.contentLength()
+        val counting = CountingInputStream(body.byteStream()) { read, speed ->
+            onProgress(Progress(read, total, speed))
+        }
+        FileOutputStream(target).use { out -> counting.copyTo(out) }
         library?.upsertRom(
             DesktopLibrary.RomEntry(
                 romId = rom.id,
@@ -89,5 +102,47 @@ class DownloadEngine(
             throw e
         }
         return createdFiles
+    }
+}
+
+/**
+ * InputStream que cuenta bytes leídos y notifica progreso con velocidad EMA
+ * (misma suavización que el DownloadWorker de Android para que el número no
+ * oscile con las ráfagas de TCP/writeback de disco).
+ */
+private class CountingInputStream(
+    private val delegate: java.io.InputStream,
+    private val onReport: (bytesRead: Long, speedBps: Long) -> Unit,
+) : java.io.FilterInputStream(delegate) {
+
+    private var count = 0L
+    private var emaBps = 0.0
+    private var lastReport = 0L
+    private var lastReportAt = System.currentTimeMillis()
+
+    override fun read(): Int {
+        val b = delegate.read()
+        if (b >= 0) tally(1)
+        return b
+    }
+
+    override fun read(b: ByteArray, off: Int, len: Int): Int {
+        val n = delegate.read(b, off, len)
+        if (n > 0) tally(n.toLong())
+        return n
+    }
+
+    private fun tally(n: Long) {
+        count += n
+        val now = System.currentTimeMillis()
+        val elapsed = now - lastReportAt
+        if (elapsed >= 500) {
+            val windowBps = (count - lastReport) * 1000.0 / elapsed
+            // EMA con alfa de la ventana: ~2s de memoria
+            emaBps = if (emaBps == 0.0) windowBps else emaBps * 0.75 + windowBps * 0.25
+            lastReport = count
+            lastReportAt = now
+            onReport(count, emaBps.toLong())
+        }
     }
 }
