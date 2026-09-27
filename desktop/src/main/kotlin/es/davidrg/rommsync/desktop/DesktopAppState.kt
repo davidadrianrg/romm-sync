@@ -106,6 +106,30 @@ class DesktopAppState(private val scope: CoroutineScope) {
         DesktopConfig.hiddenPlatforms = next.joinToString(",")
     }
 
+    /** Activa o desactiva TODAS las plataformas de golpe (botón global). */
+    fun toggleAllPlatforms(enable: Boolean) {
+        val next = if (enable) emptySet() else _platforms.value.map { it.slug }.toSet()
+        _hiddenPlatforms.value = next
+        DesktopConfig.hiddenPlatforms = next.joinToString(",")
+    }
+
+    // ── Config por plataforma: carpeta de ROMs y ruta de saves ─────────
+
+    /** Config persistida de una plataforma (emulator, saves, carpeta ROMs). */
+    fun platformConfig(slug: String) = library.platform(slug)
+
+    /** Fija la carpeta de ROMs relativa al root (vacío = slug por defecto). */
+    fun setPlatformFolder(slug: String, folder: String) {
+        val cur = library.platform(slug)
+        library.upsertPlatform(cur.copy(romsFolderOverride = folder.ifBlank { null }))
+    }
+
+    /** Fija la ruta base de saves (vacío = default del emulador). */
+    fun setPlatformSavesPath(slug: String, path: String) {
+        val cur = library.platform(slug)
+        library.upsertPlatform(cur.copy(savesPathOverride = path.ifBlank { null }))
+    }
+
     // ── Selector de plataforma en la barra de la biblioteca ─────────────
 
     private val _selectedPlatformSlug = MutableStateFlow<String?>(null)

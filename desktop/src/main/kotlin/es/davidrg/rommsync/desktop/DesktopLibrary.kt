@@ -41,6 +41,7 @@ class DesktopLibrary(private val file: File) {
         val slug: String,
         val emulatorId: String? = null,
         val savesPathOverride: String? = null,
+        val romsFolderOverride: String? = null,
     )
 
     fun roms(): List<RomEntry> {
@@ -73,13 +74,15 @@ class DesktopLibrary(private val file: File) {
     fun platform(slug: String): PlatformEntry {
         val emu = props.getProperty("platform.$slug.emulator")
         val saves = props.getProperty("platform.$slug.savesPath")?.takeIf { it.isNotBlank() }
-        return PlatformEntry(slug, emu?.takeIf { it.isNotBlank() }, saves)
+        val folder = props.getProperty("platform.$slug.romsFolder")?.takeIf { it.isNotBlank() }
+        return PlatformEntry(slug, emu?.takeIf { it.isNotBlank() }, saves, folder)
     }
 
     @Synchronized
     fun upsertPlatform(entry: PlatformEntry) {
         props["platform.${entry.slug}.emulator"] = entry.emulatorId ?: ""
         props["platform.${entry.slug}.savesPath"] = entry.savesPathOverride ?: ""
+        props["platform.${entry.slug}.romsFolder"] = entry.romsFolderOverride ?: ""
         persist()
     }
 

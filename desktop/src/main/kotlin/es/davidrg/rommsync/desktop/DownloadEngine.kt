@@ -29,8 +29,13 @@ class DownloadEngine(
         onProgress: (Progress) -> Unit = {},
     ): String = withContext(Dispatchers.IO) {
         val fileName = rom.fileName
-        val targetDir = PathMapper.getPlatformDir(romsRoot.absolutePath, rom.platformSlug ?: "unknown")
-        targetDir.mkdirs()
+        // Carpeta por plataforma (override del usuario) o slug por defecto
+        val folderOverride = library?.platform(rom.platformSlug ?: "")?.romsFolderOverride
+        val targetDir = if (!folderOverride.isNullOrBlank()) {
+            File(romsRoot, folderOverride).also { it.mkdirs() }
+        } else {
+            PathMapper.getPlatformDir(romsRoot.absolutePath, rom.platformSlug ?: "unknown").also { it.mkdirs() }
+        }
 
         val response = api.downloadRom(rom.id, fileName)
         if (!response.isSuccessful) {

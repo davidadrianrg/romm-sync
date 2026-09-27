@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -58,6 +59,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.loadImageBitmap
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import es.davidrg.rommsync.core.remote.dto.PlatformDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -115,46 +117,102 @@ fun DesktopApp(state: DesktopAppState) {
 @Composable
 fun PlatformsScreen(state: DesktopAppState) {
     val platforms by state.platforms.collectAsState()
-    val selected by state.selectedPlatformId.collectAsState()
+    val hidden by state.hiddenPlatforms.collectAsState()
     val loading by state.loadingPlatforms.collectAsState()
     Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Plataformas", style = MaterialTheme.typography.headlineSmall)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Plataformas", style = MaterialTheme.typography.headlineSmall)
+            Spacer(Modifier.weight(1f))
+            val allOn = hidden.isEmpty()
+            OutlinedButton(onClick = { state.toggleAllPlatforms(allOn) }) {
+                Text(if (allOn) "Desactivar todas" else "Activar todas")
+            }
+        }
         Spacer(Modifier.height(12.dp))
         if (loading) { CircularProgressIndicator() }
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(220.dp),
+            columns = GridCells.Adaptive(240.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             gridItems(platforms, key = { it.id }) { p ->
-                val hidden by remember { derivedStateOf { p.slug in state.hiddenPlatforms.value } }
-                Card(
-                    modifier = Modifier.fillMaxWidth().clickable {
-                        state.selectPlatform(p.id)
-                        state.navigate(Section.LIBRARY)
-                    },
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (selected == p.id) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
-                    ),
-                ) {
-                    Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(p.displayName ?: p.name, style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                "${p.romCount} ROMs",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Switch(
-                            checked = !hidden,
-                            onCheckedChange = { state.togglePlatform(p.slug) },
-                        )
-                    }
-                }
+                PlatformConfigCard(p, hidden.contains(p.slug), state)
             }
         }
     }
+}
+
+@Composable
+private fun PlatformConfigCard(p: PlatformDto, hidden: Boolean, state: DesktopAppState) {
+    var showConfig by remember { mutableStateOf(false) }
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = if (hidden) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface,
+        ),
+    ) {
+        Column(Modifier.padding(14.dp).fillMaxWidth()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        p.displayName ?: p.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (hidden) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        "${p.romCount} ROMs",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(checked = !hidden, onCheckedChange = { state.togglePlatform(p.slug) })
+            }
+            Spacer(Modifier.height(6.dp))
+            TextButton(onClick = { showConfig = true }) {
+                Text("Configuración", style = MaterialTheme.typography.labelMedium)
+            }
+        }
+        if (showConfig) {
+            PlatformConfigDialog(p, state) { showConfig = false }
+        }
+    }
+}
+
+@Composable
+private fun PlatformConfigDialog(p: PlatformDto, state: DesktopAppState, onDismiss: () -> Unit) {
+    val cfg = remember { state.platformConfig(p.slug) }
+    var folder by remember { mutableStateOf(cfg.romsFolderOverride ?: p.slug) }
+    var savesPath by remember { mutableStateOf(cfg.savesPathOverride ?: "") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                state.setPlatformFolder(p.slug, folder)
+                state.setPlatformSavesPath(p.slug, savesPath)
+                onDismiss()
+            }) { Text("Guardar") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+        title = { Text(p.displayName ?: p.name) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    folder,
+                    { folder = it },
+                    label = { Text("Carpeta de ROMs (relativa al root)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    savesPath,
+                    { savesPath = it },
+                    label = { Text("Ruta de saves (vacío = default emulador)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+    )
 }
 
 @Composable
