@@ -258,6 +258,105 @@ class DesktopSyncCoordinator(
     }
 
     /**
+     * Negociación sin efectos: lista qué subidas/bajadas haría un runSync y
+     * qué conflictos hay (botón "Comprobar cambios" de la pestaña Saves).
+     */
+    suspend fun scanPendingSaves(): PendingSavesReport = withContext(Dispatchers.IO) {
+        val serverUrl = config.serverUrl
+        val apiKey = config.apiKey
+        val retroArchBase = ""
+
+        if (serverUrl.isEmpty() || apiKey.isEmpty()) {
+            return@withContext PendingSavesReport(error = "Servidor no configurado")
+        }
+        val api = NetworkModule.createApiService(serverUrl, apiKey)
+        val deviceId = ensureDeviceRegistered(api)
+            ?: return@withContext PendingSavesReport(error = "No se pudo registrar el dispositivo")
+
+        val allDownloadedRoms = library.roms()
+        if (allDownloadedRoms.isEmpty()) {
+            return@withContext PendingSavesReport()
+        }
+        val downloadedRoms = allDownloadedRoms.filterNot { it.excludedFromSync }
+
+        val platformConfigs = downloadedRoms.map { it.platformSlug }.distinct().associateWith { library.platform(it) }
+        val localSavesMap = mutableMapOf<Int, List<LocalSave>>()
+
+        for (rom in downloadedRoms) {
+            val config = platformConfigs[rom.platformSlug]
+            val handler = SaveHandlerRegistry.getHandler(
+                platformSlug = rom.platformSlug,
+                emulatorId = config?.emulatorId,
+            )
+            val effectiveBasePath = resolveSavesBasePath(rom, config, retroArchBase)
+            val saves = handler.findSaves(
+                romId = rom.romId,
+                romFileName = rom.fileName,
+                platformSlug = rom.platformSlug,
+                savesBasePath = effectiveBasePath,
+                romLocalPath = rom.localPath,
+            )
+            if (saves.isNotEmpty()) localSavesMap[rom.romId] = saves
+        }
+
+        val clientSaves = mutableListOf<ClientSaveState>()
+        for ((romId, saves) in localSavesMap) {
+            for (save in saves) {
+                clientSaves.add(
+                    ClientSaveState(
+                        romId = romId,
+                        fileName = save.fileName,
+                        contentHash = save.sha1,
+                        updatedAt = formatIso8601(save.lastModified),
+                        fileSizeBytes = save.file.length().toInt(),
+                    ),
+                )
+            }
+        }
+
+        val negotiateResponse = try {
+            api.negotiateSync(NegotiateRequest(deviceId = deviceId, saves = clientSaves))
+        } catch (e: Exception) {
+            return@withContext PendingSavesReport(error = "Error en negociación: ${e.message}")
+        }
+
+        val romNameById = downloadedRoms.associate { it.romId to it.name }
+        PendingSavesReport(
+            uploads = negotiateResponse.operations
+                .filter { it.action == "upload" }
+                .map { PendingSaveItem(it.romId, romNameById[it.romId] ?: "rom ${it.romId}", it.fileName) },
+            downloads = negotiateResponse.operations
+                .filter { it.action == "download" }
+                .map { PendingSaveItem(it.romId, romNameById[it.romId] ?: "rom ${it.romId}", it.fileName) },
+            conflicts = negotiateResponse.operations
+                .filter { it.action == "conflict" }
+                .map {
+                    ConflictInfo(
+                        romId = it.romId,
+                        romName = romNameById[it.romId] ?: "rom ${it.romId}",
+                        fileName = it.fileName,
+                        serverUpdatedAt = it.serverUpdatedAt,
+                        reason = it.reason,
+                        saveId = it.saveId,
+                    )
+                },
+        )
+    }
+
+    data class PendingSaveItem(
+        val romId: Int,
+        val romName: String,
+        val fileName: String,
+    )
+
+    data class PendingSavesReport(
+        val uploads: List<PendingSaveItem> = emptyList(),
+        val downloads: List<PendingSaveItem> = emptyList(),
+        val conflicts: List<ConflictInfo> = emptyList(),
+        val error: String? = null,
+    )
+
+    /**
      * Resuelve un conflicto pendiente forzando la dirección elegida por el
      * usuario:
      * - "local": sube la versión local con overwrite (gana este dispositivo).

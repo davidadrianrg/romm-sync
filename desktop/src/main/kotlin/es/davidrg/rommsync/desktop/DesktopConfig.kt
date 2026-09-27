@@ -31,4 +31,22 @@ object DesktopConfig {
 
     private fun defaultRomsRoot(): String =
         File(System.getProperty("user.home", "."), "ROMs").absolutePath
+
+    /** Slugs de plataformas ocultas por el usuario (CSV). */
+    var hiddenPlatforms: String
+        get() = prefs.get("hidden_platforms", "")
+        set(v) = prefs.put("hidden_platforms", v)
+
+    /** Directorio de datos de ES-DE (donde vive gamelists/). */
+    var esdeDataDir: String
+        get() = prefs.get("esde_data_dir", File(System.getProperty("user.home", "."), "ES-DE").absolutePath)
+        set(v) = prefs.put("esde_data_dir", v)
+
+    /** Minutos entre sincronizaciones automáticas de saves (0 = desactivado). */
+    var autoSyncMinutes: Int
+        get() = prefs.getInt("auto_sync_minutes", 0)
+        set(v) = prefs.putInt("auto_sync_minutes", v)
+
+    /** Versión de la app desktop (para el comprobador de actualizaciones). */
+    const val appVersion: String = "0.6.1"
 }

@@ -92,10 +92,112 @@ class DesktopAppState(private val scope: CoroutineScope) {
     private val _downloadedVersion = MutableStateFlow(0)
     val downloadedVersion: StateFlow<Int> = _downloadedVersion
 
+    // ── Plataformas: visibilidad (activar/desactivar como Android) ──────
+
+    private val _hiddenPlatforms = MutableStateFlow<Set<String>>(emptySet())
+    val hiddenPlatforms: StateFlow<Set<String>> = _hiddenPlatforms
+
+    fun visiblePlatforms(): List<PlatformDto> =
+        _platforms.value.filter { it.slug !in _hiddenPlatforms.value }
+
+    fun togglePlatform(slug: String) {
+        val next = if (slug in _hiddenPlatforms.value) _hiddenPlatforms.value - slug else _hiddenPlatforms.value + slug
+        _hiddenPlatforms.value = next
+        DesktopConfig.hiddenPlatforms = next.joinToString(",")
+    }
+
+    // ── Selector de plataforma en la barra de la biblioteca ─────────────
+
+    private val _selectedPlatformSlug = MutableStateFlow<String?>(null)
+    val selectedPlatformSlug: StateFlow<String?> = _selectedPlatformSlug
+
+    /** null = todas las plataformas. */
+    fun selectPlatformBySlug(slug: String?) {
+        _selectedPlatformSlug.value = slug
+        _selectedPlatformId.value = null
+        _roms.value = emptyList()
+        loadRomsForSlug(slug)
+    }
+
+    // ── Detalle de juego ───────────────────────────────────────────────
+
+    private val _selectedGame = MutableStateFlow<GameCard?>(null)
+    val selectedGame: StateFlow<GameCard?> = _selectedGame
+
+    fun openGame(card: GameCard) { _selectedGame.value = card }
+    fun closeGame() { _selectedGame.value = null }
+
+    // ── Saves: comprobar cambios (negociación sin ejecutar) ────────────
+
+    private val _pendingReport = MutableStateFlow<DesktopSyncCoordinator.PendingSavesReport?>(null)
+    val pendingReport: StateFlow<DesktopSyncCoordinator.PendingSavesReport?> = _pendingReport
+    private val _scanningSaves = MutableStateFlow(false)
+    val scanningSaves: StateFlow<Boolean> = _scanningSaves
+
+    fun scanSaves() {
+        if (_scanningSaves.value) return
+        _scanningSaves.value = true
+        scope.launch {
+            try {
+                val coordinator = DesktopSyncCoordinator(config, library, config.cacheDir)
+                _pendingReport.value = coordinator.scanPendingSaves()
+            } catch (e: Exception) {
+                _syncStatus.value = "Error escaneando saves: ${e.message}"
+            } finally {
+                _scanningSaves.value = false
+            }
+        }
+    }
+
+    fun resolveConflict(romId: Int, fileName: String, resolution: String) {
+        scope.launch {
+            _syncing.value = true
+            try {
+                val coordinator = DesktopSyncCoordinator(config, library, config.cacheDir)
+                val result = coordinator.runConflictResolution(romId, fileName, resolution)
+                _syncStatus.value = result.message ?: if (result.isSuccess) "Conflicto resuelto" else result.error
+                scanSaves()
+            } catch (e: Exception) {
+                _syncStatus.value = "Error resolviendo conflicto: ${e.message}"
+            } finally {
+                _syncing.value = false
+            }
+        }
+    }
+
+    // ── Sync automático cada X minutos ─────────────────────────────────
+
+    private var autoSyncJob: Job? = null
+    private val _autoSyncMinutes = MutableStateFlow(DesktopConfig.autoSyncMinutes)
+    val autoSyncMinutes: StateFlow<Int> = _autoSyncMinutes
+
+    fun setAutoSyncMinutes(minutes: Int) {
+        _autoSyncMinutes.value = minutes
+        DesktopConfig.autoSyncMinutes = minutes
+        restartAutoSync()
+    }
+
+    private fun restartAutoSync() {
+        autoSyncJob?.cancel()
+        val minutes = _autoSyncMinutes.value
+        if (minutes <= 0) return
+        autoSyncJob = scope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(minutes * 60_000L)
+                if (!_syncing.value) syncSaves()
+            }
+    }
+    }
+
     private var api: RomMApiService? = null
 
     init {
         downloadedIds.addAll(library.roms().map { it.romId })
+        val rawHidden = config.hiddenPlatforms
+        if (rawHidden.isNotBlank()) {
+            _hiddenPlatforms.value = rawHidden.split(",").filter { it.isNotBlank() }.toSet()
+        }
+        if (config.autoSyncMinutes > 0) restartAutoSync()
         if (config.serverUrl.isNotBlank() && config.apiKey.isNotBlank()) {
             connect(config.serverUrl, config.apiKey, silent = true)
         }
@@ -164,6 +266,56 @@ class DesktopAppState(private val scope: CoroutineScope) {
         }
     }
 
+    /** Igual pero por slug (null = todas las plataformas visibles). */
+    private fun loadRomsForSlug(slug: String?) {
+        val svc = api ?: return
+        scope.launch {
+            _loadingRoms.value = true
+            try {
+                val all = mutableListOf<RomDto>()
+                if (slug == null) {
+                    for (p in visiblePlatforms()) {
+                        var offset = 0
+                        while (true) {
+                            val resp = svc.getRoms(
+                                mapOf(
+                                    "platform_ids" to p.id.toString(),
+                                    "limit" to "500",
+                                    "offset" to offset.toString(),
+                                ),
+                            )
+                            all += resp.items
+                            offset += resp.items.size
+                            if (resp.items.size < 500) break
+                        }
+                    }
+                } else {
+                    val platId = visiblePlatforms().firstOrNull { it.slug == slug }?.id
+                    if (platId != null) {
+                        var offset = 0
+                        while (true) {
+                            val resp = svc.getRoms(
+                                mapOf(
+                                    "platform_ids" to platId.toString(),
+                                    "limit" to "500",
+                                    "offset" to offset.toString(),
+                                ),
+                            )
+                            all += resp.items
+                            offset += resp.items.size
+                            if (resp.items.size < 500) break
+                        }
+                    }
+                }
+                _roms.value = all
+            } catch (e: Exception) {
+                _syncStatus.value = "Error cargando ROMs: ${e.message}"
+            } finally {
+                _loadingRoms.value = false
+            }
+        }
+    }
+
     /** Juegos agrupados por igdbId con filtro y búsqueda aplicados. */
     fun games(): List<GameCard> {
         val romsList = _roms.value
@@ -218,6 +370,50 @@ class DesktopAppState(private val scope: CoroutineScope) {
                     updateTask(rom.id) { it.copy(status = "error", message = e.message) }
                 }
             }
+        }
+    }
+
+    // ── Exportar metadata a ES-DE ──────────────────────────────────────
+
+    private val _esdeStatus = MutableStateFlow<String?>(null)
+    val esdeStatus: StateFlow<String?> = _esdeStatus
+    private val _esdeRunning = MutableStateFlow(false)
+    val esdeRunning: StateFlow<Boolean> = _esdeRunning
+
+    fun exportEsde() {
+        if (_esdeRunning.value) return
+        _esdeRunning.value = true
+        scope.launch {
+            try {
+                val result = DesktopEsdeExporter(config, library).export()
+                _esdeStatus.value = result
+            } catch (e: Exception) {
+                _esdeStatus.value = "Error exportando: ${e.message}"
+            } finally {
+                _esdeRunning.value = false
+            }
+        }
+    }
+
+    // ── Actualizaciones (GitHub releases) ──────────────────────────────
+
+    private val _updateInfo = MutableStateFlow<String?>(null)
+
+    val updateInfo: StateFlow<String?> = _updateInfo
+    private val _checkingUpdate = MutableStateFlow(false)
+    val checkingUpdate: StateFlow<Boolean> = _checkingUpdate
+
+    fun checkUpdate() {
+        if (_checkingUpdate.value) return
+        _checkingUpdate.value = true
+        scope.launch {
+            try {
+                _updateInfo.value = DesktopUpdateChecker.check()
+            } catch (e: Exception) {
+                _updateInfo.value = "Error comprobando: ${e.message}"
+            } finally {
+                _checkingUpdate.value = false
+    }
         }
     }
 

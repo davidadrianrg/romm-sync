@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
@@ -28,6 +29,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -37,12 +40,15 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -121,22 +127,28 @@ fun PlatformsScreen(state: DesktopAppState) {
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             gridItems(platforms, key = { it.id }) { p ->
-                val isSel = selected == p.id
+                val hidden by remember { derivedStateOf { p.slug in state.hiddenPlatforms.value } }
                 Card(
                     modifier = Modifier.fillMaxWidth().clickable {
                         state.selectPlatform(p.id)
                         state.navigate(Section.LIBRARY)
                     },
                     colors = CardDefaults.cardColors(
-                        containerColor = if (isSel) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+                        containerColor = if (selected == p.id) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
                     ),
                 ) {
-                    Column(Modifier.padding(14.dp)) {
-                        Text(p.displayName ?: p.name, style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "${p.romCount} ROMs",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(p.displayName ?: p.name, style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "${p.romCount} ROMs",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = !hidden,
+                            onCheckedChange = { state.togglePlatform(p.slug) },
                         )
                     }
                 }
@@ -155,9 +167,30 @@ fun LibraryScreen(state: DesktopAppState) {
     val games = remember(roms, search, filter, version) { state.games() }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
+        // Selector de plataforma (dropdown por slug)
+        var platMenu by remember { mutableStateOf(false) }
+        val selSlug by state.selectedPlatformSlug.collectAsState()
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("Biblioteca", style = MaterialTheme.typography.headlineSmall)
-            Spacer(Modifier.width(16.dp))
+            Spacer(Modifier.width(12.dp))
+            Box {
+                OutlinedButton(onClick = { platMenu = true }) {
+                    Text(visiblePlatformsLabel(state, selSlug))
+                }
+                DropdownMenu(expanded = platMenu, onDismissRequest = { platMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Todas las plataformas") },
+                        onClick = { state.selectPlatformBySlug(null); platMenu = false },
+                    )
+                    state.visiblePlatforms().forEach { p ->
+                        DropdownMenuItem(
+                            text = { Text("${p.displayName ?: p.name} (${p.romCount})") },
+                            onClick = { state.selectPlatformBySlug(p.slug); platMenu = false },
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.width(12.dp))
             OutlinedTextField(
                 value = search,
                 onValueChange = state::setSearch,
@@ -180,15 +213,93 @@ fun LibraryScreen(state: DesktopAppState) {
                 Text("Cargando ROMs…")
             }
         }
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(150.dp),
-            contentPadding = PaddingValues(vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            gridItems(games, key = { it.rep.id }) { card ->
-                GameCardItem(card, state)
+        val selectedGame by state.selectedGame.collectAsState()
+        val g = selectedGame
+        if (g != null) {
+            GameDetailPanel(g, state)
+        } else {
+            // Carga incremental: lotes de 60 con detección de fin de scroll
+            var visibleCount by remember { mutableStateOf(60) }
+            val gridState = rememberLazyGridState()
+            val endReached by remember {
+                derivedStateOf {
+                    val last = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                    val total = gridState.layoutInfo.totalItemsCount
+                    total > 0 && last >= total - 12
+                }
+            }
+            LaunchedEffect(endReached, games.size) {
+                if (endReached && visibleCount < games.size) {
+                    visibleCount = minOf(visibleCount + 60, games.size)
+                }
+            }
+            LazyVerticalGrid(
+                state = gridState,
+                columns = GridCells.Adaptive(150.dp),
+                contentPadding = PaddingValues(vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                gridItems(games.take(visibleCount), key = { it.rep.id }) { card ->
+                    GameCardItem(card, state)
+                }
+                if (visibleCount < games.size) {
+                    item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(Modifier.size(22.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
+    val tasks by state.tasks.collectAsState()
+    val groupIds = card.groupRoms.map { it.id }
+    val downloading = tasks.any { it.romId in groupIds && (it.status == "running" || it.status == "queued") }
+    val rep = card.rep
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = state::closeGame) { Text("← Volver") }
+            Spacer(Modifier.width(8.dp))
+            Text(rep.name, style = MaterialTheme.typography.headlineSmall)
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth()) {
+            CoverImage(
+                coverUrl = rep.urlCover,
+                pathCover = rep.pathCoverLarge ?: rep.pathCoverSmall,
+                serverUrl = state.config.serverUrl,
+            )
+            Spacer(Modifier.width(20.dp))
+            Column {
+                if (card.discCount > 1) Text("Multi-disc: ${card.discCount} discos", style = MaterialTheme.typography.titleSmall)
+                rep.summary?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                Spacer(Modifier.height(8.dp))
+                Text("Tamaño: ${rep.fileSizeBytes.toSizeLabel()}", style = MaterialTheme.typography.bodySmall)
+                rep.platformSlug?.let { Text("Plataforma: $it", style = MaterialTheme.typography.bodySmall) }
+                Spacer(Modifier.height(12.dp))
+                Row {
+                    if (card.downloaded) {
+                        Text("✓ Descargado", color = MaterialTheme.colorScheme.secondary)
+                    } else if (downloading) {
+                        Text("Descargando…")
+                    } else {
+                        Button(onClick = { state.enqueue(card) }) { Text("Descargar") }
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        Text("Discos / versiones (${card.groupRoms.size})", style = MaterialTheme.typography.titleMedium)
+        card.groupRoms.forEach { rom ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(rom.fileName, Modifier.weight(1f))
+                Text(rom.fileSizeBytes.toSizeLabel(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -200,7 +311,7 @@ private fun GameCardItem(card: GameCard, state: DesktopAppState) {
         modifier = Modifier
             .padding(2.dp)
             .fillMaxWidth()
-            .clickable { state.enqueue(card) },
+            .clickable { state.openGame(card) },
     ) {
         Box {
             CoverImage(coverUrl = card.rep.urlCover, pathCover = card.rep.pathCoverSmall, serverUrl = state.config.serverUrl)
@@ -382,7 +493,72 @@ fun SavesScreen(state: DesktopAppState) {
                 color = if (it.startsWith("Error")) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
                 shape = RoundedCornerShape(10.dp),
             ) {
-                Text(it, Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium)
+                Text(it, Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+
+        // ── Comprobar cambios ──
+        val scanning by state.scanningSaves.collectAsState()
+        val report by state.pendingReport.collectAsState()
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Cambios pendientes", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.weight(1f))
+            OutlinedButton(onClick = state::scanSaves, enabled = !scanning) {
+                if (scanning) {
+                    CircularProgressIndicator(Modifier.size(14.dp))
+                    Spacer(Modifier.width(6.dp))
+                }
+                Text(if (scanning) "Comprobando…" else "Comprobar cambios")
+            }
+        }
+        report?.let { r ->
+            Spacer(Modifier.height(8.dp))
+            if (r.error != null) {
+                Text(r.error, color = MaterialTheme.colorScheme.error)
+            } else if (r.uploads.isEmpty() && r.downloads.isEmpty() && r.conflicts.isEmpty()) {
+                Text("Todo sincronizado — sin cambios pendientes.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                if (r.uploads.isNotEmpty()) {
+                    Text("Subirán (${r.uploads.size}):", style = MaterialTheme.typography.titleSmall)
+                    r.uploads.forEach { Text("  ↑ ${it.romName} — ${it.fileName}", style = MaterialTheme.typography.bodySmall) }
+                }
+                if (r.downloads.isNotEmpty()) {
+                    Text("Bajarán (${r.downloads.size}):", style = MaterialTheme.typography.titleSmall)
+                    r.downloads.forEach { Text("  ↓ ${it.romName} — ${it.fileName}", style = MaterialTheme.typography.bodySmall) }
+                }
+                if (r.conflicts.isNotEmpty()) {
+                    Text("Conflictos (${r.conflicts.size}):", style = MaterialTheme.typography.titleSmall)
+                    r.conflicts.forEach { c ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("  ⚠ ${c.romName} — ${c.fileName}", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                            TextButton(onClick = { state.resolveConflict(c.romId, c.fileName, "local") }) { Text("Gana local") }
+                            TextButton(onClick = { state.resolveConflict(c.romId, c.fileName, "server") }) { Text("Gana servidor") }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Programar cada X minutos ──
+        Spacer(Modifier.height(16.dp))
+        val autoMin by state.autoSyncMinutes.collectAsState()
+        var autoMenu by remember { mutableStateOf(false) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Sincronización automática", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.weight(1f))
+            Box {
+                OutlinedButton(onClick = { autoMenu = true }) {
+                    Text(if (autoMin == 0) "Desactivada ▾" else "Cada $autoMin min ▾")
+                }
+                DropdownMenu(expanded = autoMenu, onDismissRequest = { autoMenu = false }) {
+                    listOf(0, 5, 15, 30, 60).forEach { m ->
+                        DropdownMenuItem(
+                            text = { Text(if (m == 0) "Desactivada" else "Cada $m minutos") },
+                            onClick = { state.setAutoSyncMinutes(m); autoMenu = false },
+                        )
+                    }
+    }
             }
         }
     }
@@ -416,8 +592,53 @@ fun SettingsScreen(state: DesktopAppState) {
             }
         }
         Spacer(Modifier.height(20.dp))
+
+        // ── Exportar metadata a ES-DE ──
+        Text("ES-DE", style = MaterialTheme.typography.titleMedium)
+        var esdeDir by remember { mutableStateOf(state.config.esdeDataDir) }
+        OutlinedTextField(
+            esdeDir,
+            { esdeDir = it },
+            label = { Text("Carpeta de datos de ES-DE") },
+            modifier = Modifier.fillMaxWidth().width(420.dp),
+        )
+        Spacer(Modifier.height(8.dp))
+        val esdeRunning by state.esdeRunning.collectAsState()
+        val esdeStatus by state.esdeStatus.collectAsState()
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Button(onClick = {
+                state.config.esdeDataDir = esdeDir
+                state.exportEsde()
+            }, enabled = !esdeRunning) {
+                if (esdeRunning) { CircularProgressIndicator(Modifier.size(14.dp)); Spacer(Modifier.width(6.dp)) }
+                Text("Exportar metadata a ES-DE")
+            }
+        }
+        esdeStatus?.let {
+            Spacer(Modifier.height(6.dp))
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
+        Spacer(Modifier.height(20.dp))
+
+        // ── Actualizaciones ──
+        Text("Actualizaciones", style = MaterialTheme.typography.titleMedium)
+        val checking by state.checkingUpdate.collectAsState()
+        val updateInfo by state.updateInfo.collectAsState()
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(onClick = state::checkUpdate, enabled = !checking) {
+                if (checking) { CircularProgressIndicator(Modifier.size(14.dp)); Spacer(Modifier.width(6.dp)) }
+                Text("Buscar actualizaciones")
+            }
+        }
+        updateInfo?.let {
+            Spacer(Modifier.height(6.dp))
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
+        Spacer(Modifier.height(20.dp))
         Text("Acerca de", style = MaterialTheme.typography.titleMedium)
-        Text("RomM Sync desktop", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("RomM Sync desktop v" + DesktopConfig.appVersion, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -433,3 +654,9 @@ private fun Long.toSizeLabel(): String {
 }
 
 private fun Long.toSpeedLabel(): String = toSizeLabel() + "/s"
+
+private fun visiblePlatformsLabel(state: DesktopAppState, selSlug: String?): String {
+    if (selSlug == null) return "Todas las plataformas ▾"
+    val p = state.visiblePlatforms().firstOrNull { it.slug == selSlug }
+    return (p?.displayName ?: p?.name ?: selSlug) + " ▾"
+}
