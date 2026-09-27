@@ -55,6 +55,7 @@ jobs:
         run: |
           VERSION="$(grep -oP 'versionName = "\K[0-9]+\.[0-9]+\.[0-9]+' app/build.gradle.kts | head -1)"
           echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       # Descargar el JDK del arch objetivo y jlinkear un runtime mínimo
       - name: Download target-arch JDK
