@@ -140,15 +140,36 @@ class LibraryViewModel(
                 initialValue = emptySet(),
             )
 
+    // ── Orden y filtro por región (declarados ANTES de romsWithStatus,
+    // que los referencia como fuentes del combine) ─────────────────────
+
+    private val _sort = MutableStateFlow(RomSort.NAME_ASC)
+    val sort: StateFlow<RomSort> = _sort
+
+    fun setSort(s: RomSort) { _sort.value = s }
+
+    private val _regionFilter = MutableStateFlow<String?>(null)
+    val regionFilter: StateFlow<String?> = _regionFilter
+
+    fun setRegionFilter(r: String?) { _regionFilter.value = r }
+
+    /** Regiones distintas presentes en los ROMs cargados (para el selector). */
+    val availableRegions: StateFlow<List<String>> = _roms
+        .map { roms -> roms.flatMap { it.regions }.distinct().sorted() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     /**
      * ROMs de la plataforma tal como los devuelve la API de RomM: cada disco
      * de un multi-disc es una ROM separada (mismo igdbId). Se agrupan aquí
      * para que la UI muestre UNA card por juego, igual que la web de RomM —
      * antes cada disco salía como juego repetido.
+     *
+     * Se aplica además el filtro por región y el orden elegidos en la barra
+     * de la biblioteca (client-side sobre las páginas ya cargadas).
      */
     val romsWithStatus: StateFlow<List<RomWithStatus>> = combine(
-        _roms, downloadedIds, activeDownloads,
-    ) { roms, downloaded, downloading ->
+        _roms, downloadedIds, activeDownloads, sort, regionFilter,
+    ) { roms, downloaded, downloading, sortType, region ->
         roms
             .groupBy { it.igdbId ?: it.id }
             .map { (groupKey, groupRoms) ->
@@ -177,6 +198,23 @@ class LibraryViewModel(
             .let { grouped ->
                 val order = roms.map { it.igdbId ?: it.id }
                 grouped.sortedBy { order.indexOf(it.rom.igdbId ?: it.rom.id) }
+            }
+            // Filtro por región y orden elegidos
+            .filter { card ->
+                region == null || card.rom.regions.any { it.equals(region, ignoreCase = true) }
+            }
+            .let { grouped ->
+                val list = when (sortType) {
+                    RomSort.NAME_ASC -> grouped.sortedBy { it.rom.name.lowercase() }
+                    RomSort.NAME_DESC -> grouped.sortedByDescending { it.rom.name.lowercase() }
+                    RomSort.SIZE_DESC -> grouped.sortedByDescending { it.rom.fileSizeBytes }
+                    RomSort.SIZE_ASC -> grouped.sortedBy { it.rom.fileSizeBytes }
+                    RomSort.YEAR_DESC -> grouped.sortedByDescending { it.rom.igdbMetadata?.firstReleaseDate ?: 0L }
+                    RomSort.YEAR_ASC -> grouped.sortedBy { it.rom.igdbMetadata?.firstReleaseDate ?: Long.MAX_VALUE }
+                    RomSort.RATING_DESC -> grouped.sortedByDescending { it.rom.igdbMetadata?.totalRating ?: -1.0 }
+                    RomSort.RATING_ASC -> grouped.sortedBy { it.rom.igdbMetadata?.totalRating ?: -1.0 }
+                }
+                list
             }
     }.stateIn(
         scope = viewModelScope,
@@ -300,6 +338,11 @@ class LibraryViewModel(
 
     private fun loadRoms(serverUrl: String, apiKey: String, reset: Boolean) {
         val platformId = _selectedPlatformId.value ?: return
+        // Guard de generación: con el debounce de búsqueda pueden solaparse
+        // dos loadRoms (p. ej. "mar" y "mario"); si la respuesta VIEJA llega
+        // después que la nueva, pisaría la lista con resultados obsoletos —
+        // la causa intermitente de los "Sin resultados" falsos.
+        val generation = ++loadGeneration
         viewModelScope.launch {
             if (reset) {
                 _isLoading.value = true
@@ -316,19 +359,28 @@ class LibraryViewModel(
                 search = currentSearch,
             )) {
                 is ApiResult.Success -> {
-                    _roms.value = if (reset) result.data else _roms.value + result.data
-                    _hasMore.value = result.data.size >= PAGE_SIZE
+                    if (generation == loadGeneration) {
+                        _roms.value = if (reset) result.data else _roms.value + result.data
+                        _hasMore.value = result.data.size >= PAGE_SIZE
+                    }
                 }
                 is ApiResult.Error -> {
-                    val userMessage = result.kind.toUserMessage()
-                    _error.value = userMessage
-                    _events.emit(LibraryEvent.Error(userMessage))
+                    if (generation == loadGeneration) {
+                        val userMessage = result.kind.toUserMessage()
+                        _error.value = userMessage
+                        _events.emit(LibraryEvent.Error(userMessage))
+                    }
                 }
             }
-            _isLoading.value = false
-            _isLoadingMore.value = false
+            if (generation == loadGeneration) {
+                _isLoading.value = false
+                _isLoadingMore.value = false
+            }
         }
     }
+
+    /** Token de la última carga lanzada (guard anti-respuesta-obsoleta). */
+    private var loadGeneration = 0
 }
 
 /**
@@ -350,4 +402,16 @@ sealed class LibraryEvent {
     /** ROM movido entre almacenamientos con éxito; [targetPath] es la nueva ruta. */
     data class RomMoved(val romName: String, val targetPath: String) : LibraryEvent()
     data class Error(val message: String) : LibraryEvent()
+}
+
+/** Criterios de ordenación de la biblioteca (paridad con el desktop). */
+enum class RomSort(val label: String) {
+    NAME_ASC("Nombre A-Z"),
+    NAME_DESC("Nombre Z-A"),
+    SIZE_DESC("Tamaño ↓"),
+    SIZE_ASC("Tamaño ↑"),
+    YEAR_DESC("Año ↓"),
+    YEAR_ASC("Año ↑"),
+    RATING_DESC("Rating ↓"),
+    RATING_ASC("Rating ↑"),
 }

@@ -42,6 +42,9 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Casino
+import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.outlined.Album
 import androidx.compose.material.icons.outlined.DeleteOutline
@@ -122,6 +125,7 @@ import es.davidrg.rommsync.domain.model.RomWithStatus
 import es.davidrg.rommsync.ui.components.FilledTonalIconButton
 import es.davidrg.rommsync.ui.viewmodel.LibraryEvent
 import es.davidrg.rommsync.ui.viewmodel.LibraryViewModel
+import es.davidrg.rommsync.ui.viewmodel.RomSort
 
 private enum class RomFilter(val label: String) {
     ALL("Todos"), MISSING("Faltantes"), DOWNLOADED("Descargados")
@@ -493,7 +497,7 @@ fun LibraryScreen() {
                     .height(if (compact) 46.dp else 56.dp),
             )
 
-            // ── Fila 3: filtros (siempre visibles, compactos) ────────────
+            // ── Fila 3: filtros + orden + región + aleatorio ────────────
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -513,6 +517,66 @@ fun LibraryScreen() {
                             )
                         },
                     )
+                }
+                Spacer(Modifier.weight(1f))
+
+                val sort by viewModel.sort.collectAsState()
+                val regionFilter by viewModel.regionFilter.collectAsState()
+                val availableRegions by viewModel.availableRegions.collectAsState()
+
+                // Juego aleatorio de la vista actual
+                if (romsWithStatus.isNotEmpty()) {
+                    IconButton(onClick = { selectedRom = romsWithStatus.random().rom }) {
+                        Icon(Icons.Filled.Casino, contentDescription = "Juego aleatorio")
+                    }
+                }
+
+                // Filtro por región
+                if (availableRegions.isNotEmpty()) {
+                    var regionMenu by remember { mutableStateOf(false) }
+                    Box {
+                        IconButton(onClick = { regionMenu = true }) {
+                            Icon(
+                                Icons.Filled.Public,
+                                contentDescription = "Filtrar por región",
+                                tint = if (regionFilter != null) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        DropdownMenu(expanded = regionMenu, onDismissRequest = { regionMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Todas las regiones") },
+                                onClick = { viewModel.setRegionFilter(null); regionMenu = false },
+                            )
+                            availableRegions.forEach { r ->
+                                DropdownMenuItem(
+                                    text = { Text(if (r == regionFilter) "● $r" else r) },
+                                    onClick = { viewModel.setRegionFilter(r); regionMenu = false },
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Orden
+                var sortMenu by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(onClick = { sortMenu = true }) {
+                        Icon(
+                            Icons.Filled.Sort,
+                            contentDescription = "Orden",
+                            tint = if (sort != RomSort.NAME_ASC) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                        RomSort.entries.forEach { s ->
+                            DropdownMenuItem(
+                                text = { Text(if (s == sort) "● ${s.label}" else s.label) },
+                                onClick = { viewModel.setSort(s); sortMenu = false },
+                            )
+                        }
+                    }
                 }
             }
                 }
@@ -1496,6 +1560,64 @@ private fun RomDetailSheet(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+
+            // ── Historial de copias de seguridad (versionado de saves) ──
+            val sheetContext = androidx.compose.ui.platform.LocalContext.current
+            val restorer = remember {
+                (sheetContext.applicationContext as es.davidrg.rommsync.RomMSyncApplication)
+                    .container.saveBackupRestorer
+            }
+            val backups = remember(rom.id) { restorer.versions(rom.id) }
+            if (backups.isNotEmpty()) {
+                Spacer(modifier = Modifier.size(16.dp))
+                Text(
+                    "Copias de seguridad (${backups.size})",
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    "Se guardan automáticamente antes de que un sync sobrescriba un save de este juego.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                val restoreScope = androidx.compose.runtime.rememberCoroutineScope()
+                var restoring by remember { mutableStateOf(false) }
+                backups.take(5).forEach { v ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                v.fileName,
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                "${
+                                    java.text.SimpleDateFormat(
+                                        "d MMM HH:mm",
+                                        java.util.Locale("es", "ES"),
+                                    ).format(java.util.Date(v.timestamp))
+                                } · ${formatFileSize(v.sizeBytes)}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        TextButton(
+                            enabled = !restoring,
+                            onClick = {
+                                restoreScope.launch {
+                                    restoring = true
+                                    restorer.restore(v.romId, v.fileName, v.backupFile)
+                                    restoring = false
+                                }
+                            },
+                        ) { Text(if (restoring) "…" else "Restaurar") }
+                    }
+                }
             }
         }
     }

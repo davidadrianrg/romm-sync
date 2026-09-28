@@ -52,6 +52,10 @@ class SettingsDataStore(private val context: Context) {
         val LAST_SYNC_CONFLICTS_JSON = stringPreferencesKey("last_sync_conflicts_json")
         val LAST_SYNC_FAILED_JSON = stringPreferencesKey("last_sync_failed_json")
         val SAVE_SYNC_INTERVAL_MINUTES = intPreferencesKey("save_sync_interval_minutes")
+        val SYNC_WIFI_ONLY = booleanPreferencesKey("sync_wifi_only")
+        val SYNC_CHARGING_ONLY = booleanPreferencesKey("sync_charging_only")
+        val SKIPPED_VERSION = stringPreferencesKey("skipped_version")
+        val CONFLICT_POLICY = stringPreferencesKey("conflict_policy")
         val ESDE_DATA_DIR = stringPreferencesKey("esde_data_dir")
         val RETROHRAI_MEDIA_PATH = stringPreferencesKey("retrohrai_media_path")
 
@@ -226,6 +230,49 @@ class SettingsDataStore(private val context: Context) {
     suspend fun setWifiOnlyDownloads(enabled: Boolean) {
         context.dataStore.edit { it[WIFI_ONLY_DOWNLOADS] = enabled }
     }
+
+    /** Auto-sync de saves solo con redes sin límite de datos (WiFi). */
+    suspend fun setSyncWifiOnly(enabled: Boolean) {
+        context.dataStore.edit { it[SYNC_WIFI_ONLY] = enabled }
+    }
+
+    /** Auto-sync de saves solo con el dispositivo cargando. */
+    suspend fun setSyncChargingOnly(enabled: Boolean) {
+        context.dataStore.edit { it[SYNC_CHARGING_ONLY] = enabled }
+    }
+
+    /** Versión de actualización omitida por el usuario ("" = ninguna). */
+    suspend fun setSkippedVersion(version: String) {
+        context.dataStore.edit { it[SKIPPED_VERSION] = version }
+    }
+
+    /** Política de conflictos de saves (id de ConflictPolicy del core). */
+    suspend fun setConflictPolicy(policyId: String) {
+        context.dataStore.edit { it[CONFLICT_POLICY] = policyId }
+    }
+
+    fun getSyncWifiOnlyBlocking(): Boolean = runBlocking {
+        context.dataStore.data.first()[SYNC_WIFI_ONLY] ?: false
+    }
+
+    fun getSyncChargingOnlyBlocking(): Boolean = runBlocking {
+        context.dataStore.data.first()[SYNC_CHARGING_ONLY] ?: false
+    }
+
+    fun getSkippedVersionBlocking(): String = runBlocking {
+        context.dataStore.data.first()[SKIPPED_VERSION] ?: ""
+    }
+
+    fun getConflictPolicyBlocking(): String = runBlocking {
+        context.dataStore.data.first()[CONFLICT_POLICY] ?: "ask"
+    }
+
+    // ── Flows reactivos de los nuevos ajustes ─────────────────────────
+
+    val syncWifiOnly: Flow<Boolean> = context.dataStore.data.map { it[SYNC_WIFI_ONLY] ?: false }
+    val syncChargingOnly: Flow<Boolean> = context.dataStore.data.map { it[SYNC_CHARGING_ONLY] ?: false }
+    val skippedVersion: Flow<String> = context.dataStore.data.map { it[SKIPPED_VERSION] ?: "" }
+    val conflictPolicy: Flow<String> = context.dataStore.data.map { it[CONFLICT_POLICY] ?: "ask" }
 
     suspend fun setRetroArchBasePath(path: String) {
         context.dataStore.edit { it[RETROARCH_BASE_PATH] = path.trimEnd('/') }

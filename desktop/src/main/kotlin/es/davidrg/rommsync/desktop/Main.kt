@@ -8,6 +8,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
@@ -15,6 +16,7 @@ import es.davidrg.rommsync.desktop.theme.RomMSyncDesktopTheme
 import java.awt.Dimension
 import java.awt.KeyEventDispatcher
 import java.awt.KeyboardFocusManager
+import java.awt.SystemTray
 import java.awt.event.KeyEvent
 import javax.swing.UIManager
 import kotlin.system.exitProcess
@@ -26,14 +28,31 @@ fun main() = application {
 
     val scope = rememberCoroutineScope()
     val state = remember { DesktopAppState(scope) }
+    val traySupported = SystemTray.isSupported()
+
+    // Ventana para el close-to-tray: "Mostrar" del menú de bandeja la revive.
+    var appWindow: java.awt.Window? = null
 
     Window(
-        onCloseRequest = ::exitApplication,
+        onCloseRequest = {
+            if (DesktopConfig.closeToTray && traySupported) {
+                // Ocultar en vez de salir: los downloads y el auto-sync siguen
+                // corriendo en background; se sale desde el menú de bandeja.
+                appWindow?.isVisible = false
+            } else {
+                exitApplication()
+            }
+        },
         title = "RomM Sync",
         icon = painterResource("romm-sync-icon.png"),
         state = rememberWindowState(width = 1280.dp, height = 832.dp),
     ) {
         window.minimumSize = Dimension(980, 640)
+
+        DisposableEffect(window) {
+            appWindow = window
+            onDispose { if (appWindow == window) appWindow = null }
+        }
 
         // Atajos globales vía KeyEventDispatcher de AWT: reciben TODOS los key
         // eventos con independencia del foco de Compose (los campos de texto
@@ -68,6 +87,22 @@ fun main() = application {
             Surface(modifier = Modifier.fillMaxSize()) {
                 DesktopApp(state)
             }
+        }
+    }
+
+    // Bandeja del sistema (KDE/SteamOS la soportan de serie; en GNOME puede
+    // requerir extensión — si no hay soporte, simplemente no aparece).
+    if (traySupported) {
+        Tray(
+            icon = painterResource("romm-sync-icon.png"),
+            tooltip = "RomM Sync",
+        ) {
+            Item("Sincronizar saves") { state.syncSaves() }
+            Item("Mostrar RomM Sync") {
+                appWindow?.isVisible = true
+                appWindow?.toFront()
+            }
+            Item("Salir") { exitApplication() }
         }
     }
 }

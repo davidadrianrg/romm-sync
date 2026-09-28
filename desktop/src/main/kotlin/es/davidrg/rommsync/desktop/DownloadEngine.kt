@@ -92,8 +92,46 @@ class DownloadEngine(
             onProgress(Progress(read, total, speed))
         }
         FileOutputStream(target, resumed).use { out -> counting.copyTo(out) }
+
+        // Verificación de integridad contra el hash del servidor (mismo
+        // criterio que Android: algoritmo por longitud hex; desconocida = skip).
+        val hashError = verifyHash(rom, target)
+        if (hashError != null) {
+            target.delete() // corrupto: no dejarlo en la biblioteca
+            return@withContext hashError
+        }
+
         registerInLibrary(rom, target)
         return@withContext "Descargado ${rom.name} → ${target.absolutePath}"
+    }
+
+    /**
+     * Compara el hash del fichero descargado con el que reporta el servidor
+     * (rom.files[0].hash). Devuelve un mensaje de error si NO coincide, o
+     * null si está OK o no hay hash verificable.
+     */
+    private fun verifyHash(rom: RomDto, target: File): String? {
+        val expected = rom.files.firstOrNull()?.hash?.takeIf { it.isNotBlank() } ?: return null
+        val algo = when (expected.length) {
+            32 -> "MD5"
+            40 -> "SHA-1"
+            64 -> "SHA-256"
+            else -> return null // algoritmo desconocido: no verificar, no fallar
+        }
+        val actual = runCatching {
+            java.security.MessageDigest.getInstance(algo).let { md ->
+                java.security.DigestInputStream(target.inputStream(), md).use { dis ->
+                    val buf = ByteArray(64 * 1024)
+                    while (dis.read(buf) >= 0) { /* consume */ }
+                }
+                md.digest().joinToString("") { "%02x".format(it) }
+            }
+        }.getOrNull() ?: return null
+        return if (!actual.equals(expected, ignoreCase = true)) {
+            "Error: el hash del fichero descargado no coincide (esperado ${expected.take(8)}…, obtenido ${actual.take(8)}…)"
+        } else {
+            null
+        }
     }
 
     private fun registerInLibrary(rom: RomDto, localPath: File) {

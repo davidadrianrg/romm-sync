@@ -22,7 +22,10 @@ import java.util.concurrent.TimeUnit
  * - Programar sync periódico.
  * - Observar el estado del worker activo.
  */
-class SaveSyncManager(private val context: Context) {
+class SaveSyncManager(
+    private val context: Context,
+    private val settings: SettingsDataStore = SettingsDataStore(context),
+) {
 
     private val workManager = WorkManager.getInstance(context)
 
@@ -83,17 +86,29 @@ class SaveSyncManager(private val context: Context) {
      * cualquier sync periódico existente.
      *
      * @param replace si es true, reemplaza el trabajo existente (para cuando el
-     *   usuario cambia el intervalo). Si es false, usa KEEP (para restaurar al
-     *   arrancar sin reiniciar el timer).
+     * usuario cambia el intervalo). Si es false, usa KEEP (para restaurar al
+     * arrancar sin reiniciar el timer).
+     * @param wifiOnly solo con redes sin límite de datos (null = leer ajuste).
+     * @param chargingOnly solo con el dispositivo cargando (null = leer ajuste).
      */
-    fun schedulePeriodicSync(intervalMinutes: Int, replace: Boolean = false) {
+    fun schedulePeriodicSync(
+        intervalMinutes: Int,
+        replace: Boolean = false,
+        wifiOnly: Boolean? = null,
+        chargingOnly: Boolean? = null,
+    ) {
         if (intervalMinutes <= 0) {
             workManager.cancelUniqueWork(PERIODIC_WORK_NAME)
             return
         }
 
+        // null = usar el valor persistido en ajustes (wifi/charging only)
+        val wifi = wifiOnly ?: settings.getSyncWifiOnlyBlocking()
+        val charging = chargingOnly ?: settings.getSyncChargingOnlyBlocking()
+
         val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .setRequiredNetworkType(if (wifi) NetworkType.UNMETERED else NetworkType.CONNECTED)
+            .setRequiresCharging(charging)
             .build()
 
         val request = PeriodicWorkRequestBuilder<SaveSyncWorker>(

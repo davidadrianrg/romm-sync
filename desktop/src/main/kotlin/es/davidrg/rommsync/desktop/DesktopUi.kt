@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -309,7 +310,8 @@ private fun PlatformConfigCard(
     ) {
         Column(Modifier.padding(14.dp).fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Avatar con las 2 primeras letras del slug (como Android)
+                // Avatar: logo de la plataforma si el servidor lo sirve, si no
+                // las 2 primeras letras del slug (como Android).
                 Box(
                     Modifier.size(44.dp).background(
                         if (hidden) MaterialTheme.colorScheme.surfaceContainerHigh
@@ -318,12 +320,25 @@ private fun PlatformConfigCard(
                     ),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        p.slug.take(2).uppercase(),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = if (hidden) MaterialTheme.colorScheme.onSurfaceVariant
-                        else MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
+                    val logoBitmap = p.logoUrl?.takeIf { it.isNotBlank() }?.let { produceCover(it) }
+                    if (logoBitmap != null) {
+                        androidx.compose.foundation.Image(
+                            bitmap = logoBitmap,
+                            contentDescription = null,
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            modifier = Modifier.size(36.dp).background(
+                                MaterialTheme.colorScheme.surfaceContainerHighest,
+                                androidx.compose.foundation.shape.CircleShape,
+                            ),
+                        )
+                    } else {
+                        Text(
+                            p.slug.take(2).uppercase(),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = if (hidden) MaterialTheme.colorScheme.onSurfaceVariant
+                            else MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    }
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
@@ -445,7 +460,9 @@ fun LibraryScreen(state: DesktopAppState) {
     val version by state.downloadedVersion.collectAsState()
     val connected by state.connected.collectAsState()
     val tasks by state.tasks.collectAsState()
-    val games = remember(roms, search, filter, version) { state.games() }
+    val sort by state.sort.collectAsState()
+    val regionFilter by state.regionFilter.collectAsState()
+    val games = remember(roms, search, filter, version, sort, regionFilter) { state.games() }
     val ratio = rememberMedianCoverRatio(remember(roms) { state.games() }, state.config.serverUrl)
 
     var showBatchDialog by remember { mutableStateOf(false) }
@@ -508,23 +525,74 @@ fun LibraryScreen(state: DesktopAppState) {
         )
         Spacer(Modifier.height(10.dp))
 
-        // Fila 3: filtros
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Fila 3: filtros + orden + región + aleatorio
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             FilterChip(
                 selected = filter == LibraryFilter.ALL,
                 onClick = { state.setFilter(LibraryFilter.ALL) },
                 label = { Text("Todos") },
             )
+            Spacer(Modifier.width(8.dp))
             FilterChip(
                 selected = filter == LibraryFilter.MISSING,
                 onClick = { state.setFilter(LibraryFilter.MISSING) },
                 label = { Text("Faltantes") },
             )
+            Spacer(Modifier.width(8.dp))
             FilterChip(
                 selected = filter == LibraryFilter.DOWNLOADED,
                 onClick = { state.setFilter(LibraryFilter.DOWNLOADED) },
                 label = { Text("Descargados") },
             )
+            Spacer(Modifier.weight(1f))
+
+            // Juego aleatorio de la vista actual
+            if (games.isNotEmpty()) {
+                IconButton(onClick = { state.openGame(games.random()) }) {
+                    Icon(AppIcons.Casino, contentDescription = "Juego aleatorio")
+                }
+            }
+
+            // Filtro por región
+            if (state.availableRegions().isNotEmpty()) {
+                var regionMenu by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(onClick = { regionMenu = true }) {
+                        Icon(
+                            AppIcons.Public,
+                            contentDescription = "Filtrar por región",
+                            tint = if (regionFilter != null) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    DropdownMenu(expanded = regionMenu, onDismissRequest = { regionMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Todas las regiones") },
+                            onClick = { state.setRegionFilter(null); regionMenu = false },
+                        )
+                        state.availableRegions().forEach { r ->
+                            DropdownMenuItem(
+                                text = { Text(if (r == regionFilter) "● $r" else "  $r") },
+                                onClick = { state.setRegionFilter(r); regionMenu = false },
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Orden
+            var sortMenu by remember { mutableStateOf(false) }
+            Box {
+                TextButton(onClick = { sortMenu = true }) { Text("Orden: ${sort.label} ▾") }
+                DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                    LibrarySort.entries.forEach { s ->
+                        DropdownMenuItem(
+                            text = { Text(if (s == sort) "● ${s.label}" else "  ${s.label}") },
+                            onClick = { state.setSort(s); sortMenu = false },
+                        )
+                    }
+                }
+            }
         }
         Spacer(Modifier.height(8.dp))
 
@@ -1313,6 +1381,41 @@ fun SettingsScreen(state: DesktopAppState) {
             )
         }
 
+        // ── Escanear biblioteca ──
+        SettingsSection(icon = AppIcons.Storage, title = "Escanear biblioteca") {
+            Text(
+                "Detecta los juegos que ya tienes en disco y los marca como descargados " +
+                    "(útil si montaste la biblioteca a mano o con otra app).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            val scanState by state.scanState.collectAsState()
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Button(onClick = state::scanLibrary, enabled = connected && scanState !is DesktopAppState.ScanState.Running) {
+                    if (scanState is DesktopAppState.ScanState.Running) {
+                        CircularProgressIndicator(Modifier.size(14.dp))
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Text("Escanear ahora")
+                }
+                Spacer(Modifier.width(12.dp))
+                when (val s = scanState) {
+                    is DesktopAppState.ScanState.Running -> Text(
+                        s.status,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    is DesktopAppState.ScanState.Done -> Text(
+                        s.summary,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                    )
+                    DesktopAppState.ScanState.Idle -> Unit
+                }
+            }
+        }
+
         // ── Descargas simultáneas ──
         val maxDowns by state.maxConcurrentDownloads.collectAsState()
         SettingsSection(icon = AppIcons.Download, title = "Descargas simultáneas") {
@@ -1380,6 +1483,52 @@ fun SettingsScreen(state: DesktopAppState) {
             )
         }
 
+        // ── Saves y conflictos ──
+        SettingsSection(icon = AppIcons.Sync, title = "Saves y conflictos") {
+            Text(
+                "Cuando el mismo save cambió aquí y en el servidor:",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            val policy by state.conflictPolicy.collectAsState()
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                es.davidrg.rommsync.core.sync.ConflictPolicy.entries.forEach { p ->
+                    FilterChip(
+                        selected = policy == p,
+                        onClick = { state.setConflictPolicy(p) },
+                        label = { Text(p.displayName) },
+                    )
+                }
+            }
+            Text(
+                "Antes de sobrescribir una copia local se guarda automáticamente una copia de seguridad " +
+                    "(revisible y restaurable en el detalle de cada juego).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        // ── Sistema ──
+        SettingsSection(icon = AppIcons.Gamepad, title = "Sistema") {
+            var closeToTray by remember { mutableStateOf(DesktopConfig.closeToTray) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Cerrar a la bandeja del sistema", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "Al cerrar la ventana la app sigue en segundo plano (descargas y auto-sync activos, " +
+                            "con notificaciones). Sal de verdad desde el menú de la bandeja.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(checked = closeToTray, onCheckedChange = {
+                    closeToTray = it
+                    DesktopConfig.closeToTray = it
+                })
+            }
+        }
+
         // ── Actualizaciones ──
         SettingsSection(icon = AppIcons.Refresh, title = "Actualizaciones") {
             val updState by state.updateState.collectAsState()
@@ -1425,6 +1574,33 @@ fun SettingsScreen(state: DesktopAppState) {
                     "Nueva versión disponible: v${upd.info.latestVersion} (tienes v${upd.info.currentVersion})",
                     style = MaterialTheme.typography.bodySmall,
                 )
+                // Changelog del release (cuerpo tal cual de GitHub)
+                if (upd.info.releaseNotes.isNotBlank()) {
+                    var showNotes by remember { mutableStateOf(false) }
+                    TextButton(onClick = { showNotes = !showNotes }) {
+                        Text(if (showNotes) "Ocultar novedades" else "Ver novedades")
+                    }
+                    if (showNotes) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+                        ) {
+                            Text(
+                                upd.info.releaseNotes,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier
+                                    .padding(12.dp)
+                                    .heightIn(max = 260.dp)
+                                    .verticalScroll(rememberScrollState()),
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                TextButton(onClick = state::skipUpdateVersion) { Text("Saltar esta versión") }
+            }
+            if (upd.message?.contains("omitida") == true) {
+                TextButton(onClick = state::recheckSkippedUpdate) { Text("Volver a comprobar") }
             }
             upd.message?.let {
                 Spacer(Modifier.height(6.dp))

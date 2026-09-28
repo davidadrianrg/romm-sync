@@ -21,6 +21,8 @@ object DesktopUpdater {
         val downloadUrl: String?,
         val assetName: String?,
         val currentVersion: String = DesktopConfig.appVersion,
+        /** Cuerpo del release (changelog en markdown tal cual lo escribe GitHub). */
+        val releaseNotes: String = "",
     )
 
     fun check(): UpdateInfo? {
@@ -37,11 +39,27 @@ object DesktopUpdater {
             val asset = Regex("\"browser_download_url\"\\s*:\\s*\"([^\"]+${Regex.escape(arch)}[^\"]*)\"").find(body)?.groupValues?.get(1)
             val name = asset?.substringAfterLast('/')
             val available = isNewer(latest, DesktopConfig.appVersion)
-            return UpdateInfo(available, latest, asset, name)
+            return UpdateInfo(available, latest, asset, name, releaseNotes = extractBody(body))
         } finally {
             conn.disconnect()
         }
-}
+    }
+
+    /**
+     * Extrae el campo "body" del JSON de release. El valor es un string JSON
+     * escapado (\n, \", \\, \t); se des-escapa lo básico para mostrarlo tal
+     * cual en la UI.
+     */
+    private fun extractBody(json: String): String {
+        val raw = Regex("\"body\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").find(json)?.groupValues?.get(1) ?: return ""
+        return raw
+            .replace("\\r\\n", "\n")
+            .replace("\\n", "\n")
+            .replace("\\t", "    ")
+            .replace("\\\"", "\"")
+            .replace("\\\\", "\\")
+            .trim()
+    }
 
     /**
      * Descarga el AppImage nuevo y reemplaza el actual atómicamente.

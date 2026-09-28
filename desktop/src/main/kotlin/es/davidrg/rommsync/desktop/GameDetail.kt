@@ -267,7 +267,7 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
     }
 }
 
-/** Sección "Sincronización de partidas" del detalle (exclusión + ruta). */
+/** Sección "Sincronización de partidas" del detalle (exclusión + ruta + copias). */
 @Composable
 private fun RomSyncConfigSection(card: GameCard, state: DesktopAppState, romsVersion: Int) {
     val entry = remember(card, romsVersion) { state.romEntry(card.rep.id) } ?: return
@@ -322,6 +322,36 @@ private fun RomSyncConfigSection(card: GameCard, state: DesktopAppState, romsVer
                 savesPath = ""
                 state.setRomSavesPath(card.rep.id, null)
             }) { Text("Restablecer") }
+        }
+    }
+
+    // ── Historial de copias de seguridad (versionado de saves) ──
+    val versions = remember(card, romsVersion, state.downloadedVersion.collectAsState().value) {
+        state.saveBackupVersions(card.rep.id)
+    }
+    if (versions.isNotEmpty()) {
+        Spacer(Modifier.height(12.dp))
+        HorizontalDivider()
+        Spacer(Modifier.height(12.dp))
+        Text("Copias de seguridad (${versions.size})", style = MaterialTheme.typography.titleSmall)
+        Text(
+            "Se guardan automáticamente antes de que un sync sobrescriba un save de este juego.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(6.dp))
+        versions.take(10).forEach { v ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(v.fileName, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        "${formatTimestamp(v.timestamp)} · ${formatBytes(v.sizeBytes)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                TextButton(onClick = { state.restoreSaveBackup(v) }) { Text("Restaurar") }
+            }
         }
     }
 }

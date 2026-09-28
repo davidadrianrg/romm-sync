@@ -4,6 +4,8 @@ import es.davidrg.rommsync.core.remote.NetworkModule
 import es.davidrg.rommsync.core.remote.RomMApiService
 import es.davidrg.rommsync.core.remote.dto.PlatformDto
 import es.davidrg.rommsync.core.remote.dto.RomDto
+import es.davidrg.rommsync.core.sync.ConflictPolicy
+import es.davidrg.rommsync.core.sync.SaveBackupManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +24,18 @@ enum class Section { PLATFORMS, LIBRARY, DOWNLOADS, SAVES, SETTINGS }
 
 /** Filtro de la biblioteca. */
 enum class LibraryFilter { ALL, MISSING, DOWNLOADED }
+
+/** Criterios de ordenación de la biblioteca. */
+enum class LibrarySort(val label: String) {
+    NAME_ASC("Nombre A-Z"),
+    NAME_DESC("Nombre Z-A"),
+    SIZE_DESC("Tamaño ↓"),
+    SIZE_ASC("Tamaño ↑"),
+    YEAR_DESC("Año ↓"),
+    YEAR_ASC("Año ↑"),
+    RATING_DESC("Rating ↓"),
+    RATING_ASC("Rating ↑"),
+}
 
 /** Estado de un elemento de la cola de descargas. */
 data class DesktopTask(
@@ -62,6 +76,12 @@ class DesktopAppState(private val scope: CoroutineScope) {
 
     val config = DesktopConfig
     val library = DesktopLibrary(File(DesktopConfig.configDir, "library.properties"))
+
+    /** Versionado local de saves (restaurables desde el detalle de juego). */
+    val saveBackups = SaveBackupManager(File(DesktopConfig.configDir, "save-backups"))
+
+    /** Fingerprints sellados por ROM (atajo del ciclo de sync). */
+    private val hashStore = DesktopHashStore(File(DesktopConfig.configDir, "sync-hashes.properties"))
 
     private val _section = MutableStateFlow(Section.PLATFORMS)
     val section: StateFlow<Section> = _section
@@ -201,6 +221,23 @@ class DesktopAppState(private val scope: CoroutineScope) {
 
     fun setFilter(f: LibraryFilter) { _filter.value = f }
 
+    // ── Orden y filtro por región de la biblioteca ──────────────────────
+
+    private val _sort = MutableStateFlow(LibrarySort.NAME_ASC)
+    val sort: StateFlow<LibrarySort> = _sort
+
+    fun setSort(s: LibrarySort) { _sort.value = s }
+
+    /** null = todas las regiones. */
+    private val _regionFilter = MutableStateFlow<String?>(null)
+    val regionFilter: StateFlow<String?> = _regionFilter
+
+    fun setRegionFilter(r: String?) { _regionFilter.value = r }
+
+    /** Regiones distintas presentes en los ROMs cargados (para el selector). */
+    fun availableRegions(): List<String> =
+        _roms.value.flatMap { it.regions }.distinct().sorted()
+
     // ── Plataformas: visibilidad (activar/desactivar como Android) ──────
 
     private val _hiddenPlatforms = MutableStateFlow<Set<String>>(emptySet())
@@ -318,16 +355,17 @@ class DesktopAppState(private val scope: CoroutineScope) {
 
     // ── Biblioteca: agrupado, filtro y búsqueda ─────────────────────────
 
-    /** Juegos agrupados por igdbId con filtro y búsqueda aplicados. */
+    /** Juegos agrupados por igdbId con filtro, región, búsqueda y orden. */
     fun games(): List<GameCard> {
         val romsList = _roms.value
         val q = _search.value.trim().lowercase()
-        return romsList
+        val region = _regionFilter.value
+        val rep = romsList
             .groupBy { it.igdbId ?: it.id }
             .map { (_, group) ->
-                val rep = group.maxByOrNull { it.files.size } ?: group.first()
+                val representative = group.maxByOrNull { it.files.size } ?: group.first()
                 GameCard(
-                    rep = rep,
+                    rep = representative,
                     discCount = if (group.size > 1) group.size else 1,
                     groupRoms = group,
                     downloaded = group.all { it.id in downloadedIds },
@@ -335,26 +373,46 @@ class DesktopAppState(private val scope: CoroutineScope) {
             }
             .filter { card ->
                 val match = q.isEmpty() || card.rep.name.lowercase().contains(q)
+                val regionMatch = region == null || card.rep.regions.any { it.equals(region, ignoreCase = true) }
                 val f = when (_filter.value) {
                     LibraryFilter.ALL -> true
                     LibraryFilter.MISSING -> !card.downloaded
                     LibraryFilter.DOWNLOADED -> card.downloaded
                 }
-                match && f
+                match && regionMatch && f
             }
-            .sortedBy { it.rep.name.lowercase() }
+        return sorted(rep)
     }
 
+    private fun sorted(cards: List<GameCard>): List<GameCard> = when (_sort.value) {
+        LibrarySort.NAME_ASC -> cards.sortedBy { it.rep.name.lowercase() }
+        LibrarySort.NAME_DESC -> cards.sortedByDescending { it.rep.name.lowercase() }
+        LibrarySort.SIZE_DESC -> cards.sortedByDescending { it.rep.fileSizeBytes }
+        LibrarySort.SIZE_ASC -> cards.sortedBy { it.rep.fileSizeBytes }
+        LibrarySort.YEAR_DESC -> cards.sortedByDescending { releaseYear(it.rep) ?: 0L }
+        LibrarySort.YEAR_ASC -> cards.sortedBy { releaseYear(it.rep) ?: Long.MAX_VALUE }
+        LibrarySort.RATING_DESC -> cards.sortedByDescending { rating(it.rep) }
+        LibrarySort.RATING_ASC -> cards.sortedBy { rating(it.rep) }
+    }
+
+    private fun releaseYear(rep: RomDto): Long? =
+        rep.igdbMetadata?.firstReleaseDate?.takeIf { it > 0 }
+
+    private fun rating(rep: RomDto): Double =
+        rep.igdbMetadata?.totalRating?.toDoubleOrNull() ?: -1.0
+
     /** Juegos no descargados de la vista actual, SIN aplicar búsqueda. */
-    fun missingGames(): List<GameCard> =
-        _roms.value
+    fun missingGames(): List<GameCard> {
+        val region = _regionFilter.value
+        return _roms.value
             .groupBy { it.igdbId ?: it.id }
             .map { (_, group) ->
                 val rep = group.maxByOrNull { it.files.size } ?: group.first()
                 GameCard(rep, if (group.size > 1) group.size else 1, group, group.all { it.id in downloadedIds })
             }
-            .filter { !it.downloaded }
+            .filter { !it.downloaded && (region == null || it.rep.regions.any { r -> r.equals(region, ignoreCase = true) }) }
             .sortedBy { it.rep.name.lowercase() }
+    }
 
     // ── Cola de descargas ───────────────────────────────────────────────
 
@@ -417,11 +475,13 @@ class DesktopAppState(private val scope: CoroutineScope) {
                     }
                     if (msg.startsWith("Error")) {
                         updateTask(rom.id) { it.copy(status = "error", message = msg) }
+                        DesktopNotifier.notify("RomM Sync", "Error descargando ${rom.name}: $msg")
                     } else {
                         downloadedIds.add(rom.id)
                         _downloadedVersion.value = _downloadedVersion.value + 1
                         updateTask(rom.id) { it.copy(status = "done", message = msg) }
                         refreshLocalStats()
+                        DesktopNotifier.notify("Descarga completada", rom.name)
                     }
                 } catch (e: CancellationException) {
                     throw e // cancelada por el usuario; la tarea ya se quitó de la lista
@@ -535,6 +595,96 @@ class DesktopAppState(private val scope: CoroutineScope) {
     /** Entrada local de un ROM (descargado) o null. */
     fun romEntry(romId: Int) = library.rom(romId)
 
+    // ── Escanear biblioteca local (marcar ROMs ya presentes en disco) ────
+
+    sealed class ScanState {
+        data object Idle : ScanState()
+        data class Running(val status: String) : ScanState()
+        data class Done(val summary: String) : ScanState()
+    }
+
+    private val _scanState = MutableStateFlow<ScanState>(ScanState.Idle)
+    val scanState: StateFlow<ScanState> = _scanState
+
+    /**
+     * Recorre las carpetas de plataforma del root comparando los ficheros en
+     * disco con los ROMs del servidor: los que ya existen se marcan como
+     * descargados (equivalente al "Escanear biblioteca" de Android).
+     */
+    fun scanLibrary() {
+        val svc = api ?: run { showSnackbar("Conecta el servidor primero"); return }
+        if (_scanState.value is ScanState.Running) return
+        scope.launch {
+            _scanState.value = ScanState.Running("Preparando escaneo…")
+            try {
+                var detected = 0
+                var checked = 0
+                for (p in visiblePlatforms()) {
+                    _scanState.value = ScanState.Running("Escaneando: ${p.displayName ?: p.name}…")
+                    val romsOfPlatform = withContext(Dispatchers.IO) { fetchAllRoms(svc, p.id) }
+                    checked += romsOfPlatform.size
+
+                    val folder = library.platform(p.slug).romsFolderOverride ?: p.slug
+                    val dir = File(config.romsRoot, folder)
+                    val diskFiles = mutableSetOf<String>()
+                    if (dir.isDirectory) {
+                        withContext(Dispatchers.IO) {
+                            dir.walkTopDown().take(4000).forEach { f -> if (f.isFile) diskFiles.add(f.name.lowercase()) }
+                        }
+                    }
+
+                    for (rom in romsOfPlatform) {
+                        val names = if (rom.files.isNotEmpty()) rom.files.map { it.filename } else listOf(rom.fileName)
+                        val matched = names.firstOrNull { it.lowercase() in diskFiles }
+                        if (matched != null && library.rom(rom.id) == null) {
+                            withContext(Dispatchers.IO) {
+                                library.upsertRom(
+                                    DesktopLibrary.RomEntry(
+                                        romId = rom.id,
+                                        name = rom.name,
+                                        fileName = rom.fileName,
+                                        platformSlug = p.slug,
+                                        localPath = File(dir, matched).absolutePath,
+                                    ),
+                                )
+                            }
+                            downloadedIds.add(rom.id)
+                            detected++
+                        }
+                    }
+                }
+                _downloadedVersion.value = _downloadedVersion.value + 1
+                refreshLocalStats()
+                _scanState.value = ScanState.Done(
+                    if (detected > 0) "$detected juegos detectados de $checked comprobados"
+                    else "No se detectaron juegos nuevos ($checked comprobados)",
+                )
+            } catch (e: Exception) {
+                _scanState.value = ScanState.Idle
+                showSnackbar("Error escaneando: ${e.message}")
+            }
+        }
+    }
+
+    private suspend fun fetchAllRoms(svc: RomMApiService, platformId: Int): List<RomDto> =
+        withContext(Dispatchers.IO) {
+            val all = mutableListOf<RomDto>()
+            var offset = 0
+            while (true) {
+                val resp = svc.getRoms(
+                    mapOf(
+                        "platform_ids" to platformId.toString(),
+                        "limit" to "500",
+                        "offset" to offset.toString(),
+                    ),
+                )
+                all += resp.items
+                offset += resp.items.size
+                if (resp.items.size < 500) break
+            }
+            all
+        }
+
     // ── Saves: comprobar cambios (negociación sin ejecutar) ────────────
 
     private val _pendingReport = MutableStateFlow<DesktopSyncCoordinator.PendingSavesReport?>(null)
@@ -547,7 +697,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
         _scanningSaves.value = true
         scope.launch {
             try {
-                val coordinator = DesktopSyncCoordinator(config, library, config.cacheDir)
+                val coordinator = makeSyncCoordinator()
                 _pendingReport.value = coordinator.scanPendingSaves()
             } catch (e: Exception) {
                 showSnackbar("Error escaneando saves: ${e.message}")
@@ -561,7 +711,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
         scope.launch {
             _syncing.value = true
             try {
-                val coordinator = DesktopSyncCoordinator(config, library, config.cacheDir)
+                val coordinator = makeSyncCoordinator()
                 val result = coordinator.runConflictResolution(romId, fileName, resolution)
                 showSnackbar(result.message ?: if (result.isSuccess) "Conflicto resuelto" else result.error ?: "Error")
                 scanSaves()
@@ -570,6 +720,40 @@ class DesktopAppState(private val scope: CoroutineScope) {
             } finally {
                 _syncing.value = false
             }
+        }
+    }
+
+    private fun makeSyncCoordinator() = DesktopSyncCoordinator(
+        config = config,
+        library = library,
+        cacheDir = config.cacheDir,
+        backupManager = saveBackups,
+        hashStore = hashStore,
+        conflictPolicy = ConflictPolicy.fromId(config.conflictPolicy),
+    )
+
+    // ── Política de conflictos + historial de copias de saves ───────────
+
+    private val _conflictPolicy = MutableStateFlow(ConflictPolicy.fromId(DesktopConfig.conflictPolicy))
+    val conflictPolicy: StateFlow<ConflictPolicy> = _conflictPolicy
+
+    fun setConflictPolicy(policy: ConflictPolicy) {
+        _conflictPolicy.value = policy
+        DesktopConfig.conflictPolicy = policy.id
+    }
+
+    /** Versiones de respaldo de un ROM (más recientes primero). */
+    fun saveBackupVersions(romId: Int): List<SaveBackupManager.BackupVersion> =
+        saveBackups.versions(romId)
+
+    /** Restaura una copia de seguridad de save sobre su ubicación original. */
+    fun restoreSaveBackup(version: SaveBackupManager.BackupVersion) {
+        scope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                makeSyncCoordinator().restoreBackup(version.romId, version.fileName, version.backupFile)
+            }
+            showSnackbar(if (ok) "Copia restaurada: ${version.fileName}" else "No se pudo restaurar ${version.fileName}")
+            if (ok) scanSaves()
         }
     }
 
@@ -616,17 +800,14 @@ class DesktopAppState(private val scope: CoroutineScope) {
         _syncStatus.value = "Sincronizando saves…"
         scope.launch {
             try {
-                val coordinator = DesktopSyncCoordinator(
-                    config = config,
-                    library = library,
-                    cacheDir = config.cacheDir,
-                )
+                val coordinator = makeSyncCoordinator()
                 val result = coordinator.runSync()
                 val summary = buildString {
                     if (result.error != null) append(result.error)
                     else append(result.message ?: "Sync completado")
                     if (result.uploaded > 0) append(" · ${result.uploaded} subidos")
                     if (result.downloaded > 0) append(" · ${result.downloaded} descargados")
+                    if (result.autoResolvedConflicts > 0) append(" · ${result.autoResolvedConflicts} conflictos auto-resueltos")
                     if (result.conflicts > 0) append(" · ${result.conflicts} conflictos")
                 }
                 _syncStatus.value = summary
@@ -634,6 +815,11 @@ class DesktopAppState(private val scope: CoroutineScope) {
                 config.lastSyncAt = System.currentTimeMillis()
                 config.lastSyncSummary = summary
                 _lastSync.value = LastSyncInfo(config.lastSyncAt, summary)
+                if (result.conflicts > 0) {
+                    DesktopNotifier.notify("RomM Sync", "Sync con ${result.conflicts} conflicto(s) pendiente(s)")
+                } else if (result.failedDetails.isNotEmpty()) {
+                    DesktopNotifier.notify("RomM Sync", "El sync terminó con ${result.failedDetails.size} fallo(s)")
+                }
                 // Refrescar el informe de pendientes tras el ciclo.
                 scanSaves()
             } catch (e: Exception) {
@@ -696,6 +882,8 @@ class DesktopAppState(private val scope: CoroutineScope) {
                     info = info,
                     message = when {
                         info == null -> "No se pudo comprobar (sin respuesta de GitHub)"
+                        info.available && info.latestVersion == config.skippedVersion ->
+                            "Versión v${info.latestVersion} omitida — «Volver a comprobar» para verla de nuevo"
                         info.available -> null // la UI muestra el botón de instalar
                         else -> "Estás en la última versión (v${info.currentVersion})"
                     },
@@ -704,6 +892,19 @@ class DesktopAppState(private val scope: CoroutineScope) {
                 _updateState.value = UpdateUiState(message = "Error comprobando: ${e.message}")
             }
         }
+    }
+
+    /** Omite la versión disponible (no volverá a ofrecerse hasta la siguiente). */
+    fun skipUpdateVersion() {
+        val info = _updateState.value.info ?: return
+        config.skippedVersion = info.latestVersion
+        _updateState.value = UpdateUiState(message = "Omitida v${info.latestVersion} hasta la próxima versión")
+    }
+
+    /** Limpia la versión omitida y vuelve a comprobar. */
+    fun recheckSkippedUpdate() {
+        config.skippedVersion = ""
+        checkUpdate()
     }
 
     /** Descarga el AppImage nuevo, lo instala in-place y ofrece reiniciar. */

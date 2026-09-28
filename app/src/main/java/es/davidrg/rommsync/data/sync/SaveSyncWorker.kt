@@ -53,6 +53,12 @@ class SaveSyncWorker(
             platformDao = database.platformDao(),
             cacheDir = applicationContext.cacheDir,
             syncedHashStore = SyncedHashStore(applicationContext),
+            backupManager = es.davidrg.rommsync.core.sync.SaveBackupManager(
+                java.io.File(applicationContext.filesDir, "save-backups"),
+            ),
+            conflictPolicy = es.davidrg.rommsync.core.sync.ConflictPolicy.fromId(
+                dataStore.getConflictPolicyBlocking(),
+            ),
         )
 
         // Modo resolución de conflicto único (disparado desde la UI de conflictos)

@@ -37,6 +37,19 @@ class AppContainer(private val appContext: Context) {
 
     val saveSyncManager = SaveSyncManager(appContext)
 
+    /** Versionado local de saves (restaurable desde el detalle de juego). */
+    val saveBackupManager = es.davidrg.rommsync.core.sync.SaveBackupManager(
+        java.io.File(appContext.filesDir, "save-backups"),
+    )
+
+    val saveBackupRestorer = es.davidrg.rommsync.data.sync.SaveBackupRestorer(
+        context = appContext,
+        settingsDataStore = settingsDataStore,
+        romDao = database.romDao(),
+        platformDao = database.platformDao(),
+        backupManager = saveBackupManager,
+    )
+
     val metadataExportManager = MetadataExportManager(appContext)
 
     val appUpdateChecker = AppUpdateChecker()

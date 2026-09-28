@@ -9,6 +9,10 @@ import kotlinx.coroutines.flow.Flow
  */
 class SettingsRepository(private val dataStore: SettingsDataStore) {
     val settings: Flow<ServerConfig> = dataStore.settings
+    val syncWifiOnly: Flow<Boolean> = dataStore.syncWifiOnly
+    val syncChargingOnly: Flow<Boolean> = dataStore.syncChargingOnly
+    val skippedVersion: Flow<String> = dataStore.skippedVersion
+    val conflictPolicy: Flow<String> = dataStore.conflictPolicy
 
     suspend fun setServerUrl(url: String) = dataStore.setServerUrl(url)
     suspend fun setApiKey(key: String) = dataStore.setApiKey(key)
@@ -17,6 +21,10 @@ class SettingsRepository(private val dataStore: SettingsDataStore) {
     suspend fun setDualRomsPathsEnabled(enabled: Boolean) = dataStore.setDualRomsPathsEnabled(enabled)
     suspend fun setMaxConcurrentDownloads(max: Int) = dataStore.setMaxConcurrentDownloads(max)
     suspend fun setWifiOnlyDownloads(enabled: Boolean) = dataStore.setWifiOnlyDownloads(enabled)
+    suspend fun setSyncWifiOnly(enabled: Boolean) = dataStore.setSyncWifiOnly(enabled)
+    suspend fun setSyncChargingOnly(enabled: Boolean) = dataStore.setSyncChargingOnly(enabled)
+    suspend fun setSkippedVersion(version: String) = dataStore.setSkippedVersion(version)
+    suspend fun setConflictPolicy(policyId: String) = dataStore.setConflictPolicy(policyId)
     suspend fun setRetroArchBasePath(path: String) = dataStore.setRetroArchBasePath(path)
     suspend fun setSaveSyncEnabled(enabled: Boolean) = dataStore.setSaveSyncEnabled(enabled)
 

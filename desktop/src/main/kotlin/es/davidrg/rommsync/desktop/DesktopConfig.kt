@@ -62,6 +62,21 @@ object DesktopConfig {
         get() = prefs.get("last_sync_summary", "")
         set(v) = prefs.put("last_sync_summary", v)
 
+    /** Política de resolución de conflictos de saves (id de ConflictPolicy). */
+    var conflictPolicy: String
+        get() = prefs.get("conflict_policy", "ask")
+        set(v) = prefs.put("conflict_policy", v)
+
+    /** Cerrar a la bandeja del sistema en vez de salir (sync en background). */
+    var closeToTray: Boolean
+        get() = prefs.getBoolean("close_to_tray", false)
+        set(v) = prefs.putBoolean("close_to_tray", v)
+
+    /** Versión de actualización omitida por el usuario ("" = ninguna). */
+    var skippedVersion: String
+        get() = prefs.get("skipped_version", "")
+        set(v) = prefs.put("skipped_version", v)
+
     /** Versión de la app desktop (para el comprobador de actualizaciones). */
-    const val appVersion: String = "0.7.0"
+    const val appVersion: String = "0.8.0"
 }

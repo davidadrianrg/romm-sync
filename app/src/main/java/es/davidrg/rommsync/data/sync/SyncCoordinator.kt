@@ -10,6 +10,8 @@ import es.davidrg.rommsync.core.remote.dto.ClientSaveState
 import es.davidrg.rommsync.core.remote.dto.DeviceRegistrationRequest
 import es.davidrg.rommsync.core.remote.dto.NegotiateRequest
 import es.davidrg.rommsync.core.remote.dto.SessionCompleteRequest
+import es.davidrg.rommsync.core.sync.ConflictPolicy
+import es.davidrg.rommsync.core.sync.SaveBackupManager
 import es.davidrg.rommsync.core.sync.platform.LocalSave
 import es.davidrg.rommsync.core.sync.platform.SaveHandler
 import es.davidrg.rommsync.core.sync.platform.SaveHandlerRegistry
@@ -39,6 +41,8 @@ class SyncCoordinator(
     private val platformDao: es.davidrg.rommsync.data.local.dao.PlatformDao,
     private val cacheDir: File,
     private val syncedHashStore: SyncedHashStore? = null,
+    private val backupManager: SaveBackupManager? = null,
+    private val conflictPolicy: ConflictPolicy = ConflictPolicy.ASK,
 ) {
 
     suspend fun runSync(): SyncResult = withContext(Dispatchers.IO) {
@@ -141,6 +145,7 @@ class SyncCoordinator(
         // 4. Ejecutar operaciones
         var completed = 0
         var failed = 0
+        var autoResolvedConflicts = 0
         val failedRomIds = mutableSetOf<Int>()
         val failures = mutableListOf<FailedOpInfo>()
         val conflicts = mutableListOf<es.davidrg.rommsync.core.remote.dto.SyncOperation>()
@@ -189,6 +194,8 @@ class SyncCoordinator(
                     if (rom != null && opSaveId != null && handler != null) {
                         val config = platformConfigs[rom.platformSlug]
                         val effectiveBasePath = resolveSavesBasePath(rom, config, retroArchBase)
+                        // Copia de seguridad de la copia local antes de pisarla
+                        backupLocalSave(op.romId, op.fileName, localSavesMap[op.romId], handler)
                         val ok = executeDownload(
                             api = api,
                             saveId = opSaveId,
@@ -232,8 +239,43 @@ class SyncCoordinator(
                     }
                 }
                 "conflict" -> {
-                    conflicts.add(op)
-                    Log.w(TAG, "Conflicto sin resolver: ${op.fileName} para rom ${op.romId}: ${op.reason}")
+                    // Política automática si el usuario no quiere decidir uno a uno
+                    when (conflictPolicy) {
+                        ConflictPolicy.PREFER_LOCAL -> {
+                            val save = localSavesMap[op.romId]?.find { it.fileName == op.fileName }
+                            val handler = handlerByRom[op.romId]
+                            if (save != null && handler != null &&
+                                executeUpload(api, save, op.romId, deviceId, handler)
+                            ) {
+                                completed++
+                                autoResolvedConflicts++
+                            } else {
+                                conflicts.add(op)
+                            }
+                        }
+                        ConflictPolicy.PREFER_SERVER -> {
+                            val handler = handlerByRom[op.romId]
+                            val rom = downloadedRoms.find { it.romId == op.romId }
+                            val saveId = op.saveId
+                            if (handler != null && rom != null && saveId != null) {
+                                val config = platformConfigs[rom.platformSlug]
+                                val base = resolveSavesBasePath(rom, config, retroArchBase)
+                                backupLocalSave(op.romId, op.fileName, localSavesMap[op.romId], handler)
+                                if (executeDownload(api, saveId, deviceId, rom, op.fileName, base, handler)) {
+                                    completed++
+                                    autoResolvedConflicts++
+                                } else {
+                                    conflicts.add(op)
+                                }
+                            } else {
+                                conflicts.add(op)
+                            }
+                        }
+                        ConflictPolicy.ASK -> {
+                            conflicts.add(op)
+                            Log.w(TAG, "Conflicto sin resolver: ${op.fileName} para rom ${op.romId}: ${op.reason}")
+                        }
+                    }
                 }
                 "no_op" -> {
                     // Ya sincronizado: registrar hash local para que el preview sepa
@@ -280,6 +322,7 @@ class SyncCoordinator(
             uploaded = negotiateResponse.operations.count { it.action == "upload" },
             downloaded = negotiateResponse.operations.count { it.action == "download" },
             conflicts = conflicts.size,
+            autoResolvedConflicts = autoResolvedConflicts,
             conflictDetails = conflicts.map { op ->
                 ConflictInfo(
                     romId = op.romId,
@@ -384,6 +427,9 @@ class SyncCoordinator(
                 val saveId = op.saveId
                     ?: return@withContext SyncResult(error = "El servidor no devolvió saveId para $fileName")
 
+                // Copia de seguridad de la copia local antes de pisarla
+                backupLocalSave(rom.romId, fileName, localSaves, handler)
+
                 val ok = executeDownload(
                     api = api,
                     saveId = saveId,
@@ -412,12 +458,50 @@ class SyncCoordinator(
         }
     }
 
+    /**
+     * Guarda una copia de seguridad de la copia local de un save justo antes
+     * de que una descarga del servidor la sobrescriba (blob preparado por el
+     * handler, restaurable vía extractDownload).
+     */
+    private suspend fun backupLocalSave(
+        romId: Int,
+        fileName: String,
+        saves: List<LocalSave>?,
+        handler: SaveHandler,
+    ) {
+        val manager = backupManager ?: return
+        val local = saves?.find { it.fileName == fileName } ?: return
+        runCatching { manager.backup(romId, fileName, handler.prepareForUpload(local)) }
+    }
+
+    /**
+     * Restaura una copia de seguridad de save sobre su ubicación original
+     * (para la UI de historial de copias del detalle de juego).
+     */
+    suspend fun restoreBackup(romId: Int, fileName: String, backupFile: File): Boolean =
+        withContext(Dispatchers.IO) {
+            val rom = romDao.getAllDownloadedRomsBlocking().find { it.romId == romId }
+                ?: return@withContext false
+            val config = platformDao.getAllPlatformsBlocking().find { it.slug == rom.platformSlug }
+            val handler = SaveHandlerRegistry.getHandler(rom.platformSlug, config?.emulatorId)
+            val retroArchBase = settingsDataStore.getRetroArchBasePathBlocking()
+            val base = resolveSavesBasePath(rom, config, retroArchBase)
+            runCatching {
+                handler.extractDownload(
+                    tempFile = backupFile,
+                    romFileName = rom.fileName,
+                    platformSlug = rom.platformSlug,
+                    savesBasePath = base,
+                    targetFileName = fileName,
+                )
+            }.getOrDefault(false)
+        }
+
     private fun resolveSavesBasePath(
         rom: es.davidrg.rommsync.data.local.entity.DownloadedRomEntity,
         config: es.davidrg.rommsync.data.local.entity.PlatformEntity?,
         retroArchBase: String,
-    ): String {
-        rom.savesPathOverride?.takeIf { it.isNotBlank() }?.let { return it }
+    ): String {        rom.savesPathOverride?.takeIf { it.isNotBlank() }?.let { return it }
         config?.savesPathOverride?.takeIf { it.isNotBlank() }?.let { return it }
         return SaveHandlerRegistry.getDefaultSavesPath(
             emulatorId = config?.emulatorId
@@ -529,6 +613,7 @@ data class SyncResult(
     val uploaded: Int = 0,
     val downloaded: Int = 0,
     val conflicts: Int = 0,
+    val autoResolvedConflicts: Int = 0,
     val conflictDetails: List<ConflictInfo> = emptyList(),
     val failedDetails: List<FailedOpInfo> = emptyList(),
     val message: String? = null,

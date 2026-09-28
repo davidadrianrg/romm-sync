@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -29,6 +30,9 @@ import androidx.compose.material.icons.outlined.SystemUpdateAlt
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -583,6 +587,74 @@ fun ConfigScreen() {
                         },
                     )
                 }
+
+                if (saveSyncEnabledLocal ?: saveSyncEnabled) {
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Restricciones del auto-sync
+                    val syncWifiOnly by viewModel.syncWifiOnly.collectAsState()
+                    val syncChargingOnly by viewModel.syncChargingOnly.collectAsState()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Solo con WiFi", style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                "El sync automático no se ejecuta con datos móviles.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Switch(
+                            checked = syncWifiOnly,
+                            onCheckedChange = { viewModel.setSyncConstraints(wifiOnly = it) },
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Solo cargando", style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                "El sync automático se ejecuta únicamente con el dispositivo cargando.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Switch(
+                            checked = syncChargingOnly,
+                            onCheckedChange = { viewModel.setSyncConstraints(chargingOnly = it) },
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Política de conflictos
+                    val conflictPolicy by viewModel.conflictPolicy.collectAsState()
+                    Text("Cuando un save cambie aquí y en el servidor:", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        es.davidrg.rommsync.core.sync.ConflictPolicy.entries.forEach { p ->
+                            FilterChip(
+                                selected = conflictPolicy == p.id,
+                                onClick = { viewModel.setConflictPolicy(p.id) },
+                                label = { Text(p.displayName, style = MaterialTheme.typography.labelSmall) },
+                            )
+                        }
+                    }
+                    Text(
+                        "Antes de sobrescribir una copia local se guarda una copia de seguridad " +
+                            "restaurable en el detalle del juego.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
 
             // ── Actualizaciones ────────────────────────────────────────
@@ -633,6 +705,50 @@ fun ConfigScreen() {
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Spacer(modifier = Modifier.height(12.dp))
+
+                        // Changelog del release (cuerpo tal cual de GitHub)
+                        if (r.releaseNotes.isNotBlank()) {
+                            var showNotes by remember { mutableStateOf(false) }
+                            TextButton(onClick = { showNotes = !showNotes }) {
+                                Text(if (showNotes) "Ocultar novedades" else "Ver novedades")
+                            }
+                            if (showNotes) {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                                    shape = MaterialTheme.shapes.medium,
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text(
+                                        r.releaseNotes,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier
+                                            .padding(12.dp)
+                                            .heightIn(max = 260.dp)
+                                            .verticalScroll(rememberScrollState()),
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+
+                        val skipped by viewModel.skippedVersion.collectAsState()
+                        if (r.latestVersion == skipped) {
+                            // Versión omitida: ofrecer re-comprobación sin instalador
+                            Text(
+                                "Versión v${r.latestVersion} omitida",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            FilledTonalButton(
+                                onClick = { viewModel.recheckSkippedVersion() },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text("Volver a ofrecer esta versión") }
+                        } else {
+                            TextButton(onClick = { viewModel.skipCurrentVersion() }) {
+                                Text("Saltar esta versión")
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
 
                         when (val d = updateDownloadState) {
                             is UpdateDownloadState.Downloading -> {

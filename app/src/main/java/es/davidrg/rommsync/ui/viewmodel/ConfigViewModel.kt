@@ -53,6 +53,55 @@ class ConfigViewModel(
     /** Version currently installed on this device. */
     val currentVersion: String = BuildConfig.VERSION_NAME
 
+    // ── Restricciones del auto-sync + política de conflictos + skip ────
+
+    val syncWifiOnly: StateFlow<Boolean> = settingsRepository.syncWifiOnly
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val syncChargingOnly: StateFlow<Boolean> = settingsRepository.syncChargingOnly
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val conflictPolicy: StateFlow<String> = settingsRepository.conflictPolicy
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "ask")
+    val skippedVersion: StateFlow<String> = settingsRepository.skippedVersion
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+
+    /** Cambia una restricción y reprograma el trabajo periódico si toca. */
+    fun setSyncConstraints(wifiOnly: Boolean? = null, chargingOnly: Boolean? = null) {
+        viewModelScope.launch {
+            wifiOnly?.let { settingsRepository.setSyncWifiOnly(it) }
+            chargingOnly?.let { settingsRepository.setSyncChargingOnly(it) }
+            val interval = settingsRepository.saveSyncIntervalMinutes.first()
+            if (interval > 0) {
+                saveSyncManager?.schedulePeriodicSync(
+                    interval,
+                    replace = true,
+                    wifiOnly = wifiOnly ?: settingsRepository.syncWifiOnly.first(),
+                    chargingOnly = chargingOnly ?: settingsRepository.syncChargingOnly.first(),
+                )
+            }
+        }
+    }
+
+    fun setConflictPolicy(policyId: String) {
+        viewModelScope.launch { settingsRepository.setConflictPolicy(policyId) }
+    }
+
+    /** Omite la versión disponible (deja de ofrecerse hasta la siguiente). */
+    fun skipCurrentVersion() {
+        val r = _updateCheckState.value as? UpdateCheckResult.UpdateAvailable ?: return
+        viewModelScope.launch {
+            settingsRepository.setSkippedVersion(r.latestVersion)
+            _updateCheckState.value = UpdateCheckResult.UpToDate
+        }
+    }
+
+    /** Limpia la versión omitida y vuelve a comprobar. */
+    fun recheckSkippedVersion() {
+        viewModelScope.launch {
+            settingsRepository.setSkippedVersion("")
+            checkForUpdates()
+        }
+    }
+
     /** Queries GitHub for the latest release and updates [updateCheckState]. */
     fun checkForUpdates() {
         val checker = updateChecker ?: return
