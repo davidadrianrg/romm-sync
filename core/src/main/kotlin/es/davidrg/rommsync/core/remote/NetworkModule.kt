@@ -47,8 +47,8 @@ object NetworkModule {
             .build()
     }
 
-    fun createApiService(baseUrl: String, apiKey: String): RomMApiService {
-        val client = createOkHttpClient(apiKey)
+    fun createApiService(baseUrl: String, apiKey: String, debugLogging: Boolean = false): RomMApiService {
+        val client = createOkHttpClient(apiKey, debugLogging)
         val retrofit = createRetrofit(baseUrl, client)
         return retrofit.create(RomMApiService::class.java)
     }

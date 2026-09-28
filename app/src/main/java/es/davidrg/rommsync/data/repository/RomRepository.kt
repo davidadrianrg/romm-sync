@@ -1,5 +1,6 @@
 package es.davidrg.rommsync.data.repository
 
+import es.davidrg.rommsync.BuildConfig
 import es.davidrg.rommsync.data.local.dao.PlatformDao
 import es.davidrg.rommsync.data.local.dao.RomDao
 import es.davidrg.rommsync.data.local.entity.DownloadedRomEntity
@@ -42,7 +43,7 @@ class RomRepository(
         if (serverUrl != currentServerUrl || apiKey != currentApiKey) {
             currentServerUrl = serverUrl
             currentApiKey = apiKey
-            apiService = NetworkModule.createApiService(serverUrl, apiKey)
+            apiService = NetworkModule.createApiService(serverUrl, apiKey, debugLogging = BuildConfig.DEBUG)
         }
     }
 
