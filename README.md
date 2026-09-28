@@ -78,6 +78,7 @@ RomM admite login OAuth/OIDC tras proxys (Authentik, Authelia...), que suele rom
 - **💾 Sincronización de saves** — Tus partidas guardadas siempre al día en todos los dispositivos, con el [Device Sync Protocol](https://docs.romm.app/latest/developers/device-sync-protocol/) de RomM (v4.9+): sube lo que cambió en el portátil, bájate lo que jugaste en el PC. Resuelve conflictos explícitamente en vez de sobrescribir.
 - **🗂️ Exportación de metadatos** — Genera los `gamelist.xml` de ES-DE o copia la media (covers, fanart, logos, screenshots) a la estructura de RetroHRAI.
 - **🔄 Auto-actualización** — Comprueba, descarga e instala nuevas versiones desde GitHub Releases sin desinstalar nada (ver Instalación).
+- **🖥️ Linux a la par de Android** — La app de escritorio comparte tema ("Midnight Arcade"), biblioteca con carátulas y detalle de juego completo (screenshots, metadatos IGDB), cola de descargas con cancelar/reintentar/reanudar, sync de saves con resolución de conflictos y exportación ES-DE con merge no destructivo.
 
 ### Emuladores soportados para sync de saves
 

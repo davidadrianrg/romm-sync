@@ -60,6 +60,7 @@ class DesktopLibrary(private val file: File) {
         props["$p.file"] = entry.fileName
         props["$p.platform"] = entry.platformSlug
         props["$p.path"] = entry.localPath ?: ""
+        props["$p.savesPath"] = entry.savesPathOverride ?: ""
         props["$p.excluded"] = entry.excludedFromSync.toString()
         persist()
     }
@@ -94,6 +95,7 @@ class DesktopLibrary(private val file: File) {
             fileName = props.getProperty("rom.$id.file") ?: name,
             platformSlug = props.getProperty("rom.$id.platform") ?: "unknown",
             localPath = props.getProperty("rom.$id.path")?.takeIf { it.isNotBlank() },
+            savesPathOverride = props.getProperty("rom.$id.savesPath")?.takeIf { it.isNotBlank() },
             excludedFromSync = props.getProperty("rom.$id.excluded") == "true",
         )
     }

@@ -47,6 +47,21 @@ object DesktopConfig {
         get() = prefs.getInt("auto_sync_minutes", 0)
         set(v) = prefs.putInt("auto_sync_minutes", v)
 
+    /** Descargas simultáneas máximas (1-5, igual que Android). */
+    var maxConcurrentDownloads: Int
+        get() = prefs.getInt("max_concurrent_downloads", 2).coerceIn(1, 5)
+        set(v) = prefs.putInt("max_concurrent_downloads", v.coerceIn(1, 5))
+
+    /** Timestamp (epoch ms) de la última sincronización de saves completada. */
+    var lastSyncAt: Long
+        get() = prefs.getLong("last_sync_at", 0L)
+        set(v) = prefs.putLong("last_sync_at", v)
+
+    /** Resumen de la última sincronización de saves (legible, en español). */
+    var lastSyncSummary: String
+        get() = prefs.get("last_sync_summary", "")
+        set(v) = prefs.put("last_sync_summary", v)
+
     /** Versión de la app desktop (para el comprobador de actualizaciones). */
-    const val appVersion: String = "0.6.4"
+    const val appVersion: String = "0.7.0"
 }

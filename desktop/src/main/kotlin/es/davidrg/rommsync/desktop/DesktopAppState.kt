@@ -4,12 +4,15 @@ import es.davidrg.rommsync.core.remote.NetworkModule
 import es.davidrg.rommsync.core.remote.RomMApiService
 import es.davidrg.rommsync.core.remote.dto.PlatformDto
 import es.davidrg.rommsync.core.remote.dto.RomDto
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
@@ -30,7 +33,9 @@ data class DesktopTask(
     val totalBytes: Long = -1L,
     val speedBps: Long = 0,
     val message: String? = null,
-)
+) {
+    val active: Boolean get() = status == "queued" || status == "running"
+}
 
 /** Juego agrupado (multi-disc fusionados por igdbId, igual que Android). */
 data class GameCard(
@@ -40,10 +45,18 @@ data class GameCard(
     val downloaded: Boolean,
 )
 
+/** Última sincronización de saves (persistida entre arranques). */
+data class LastSyncInfo(val at: Long, val summary: String) {
+    val exists: Boolean get() = at > 0L
+}
+
+/** Stats locales por plataforma: nº de ROMs descargados y bytes en disco. */
+data class PlatformLocalStat(val romCount: Int, val totalBytes: Long)
+
 /**
  * Estado central de la app desktop: conexión, plataformas, ROMs por
  * plataforma (paginados), agrupado multi-disc, cola de descargas con
- * progreso y resultado de sincronización de saves.
+ * progreso/cancelación/reintento, sincronización de saves y stats locales.
  */
 class DesktopAppState(private val scope: CoroutineScope) {
 
@@ -58,9 +71,6 @@ class DesktopAppState(private val scope: CoroutineScope) {
 
     private val _platforms = MutableStateFlow<List<PlatformDto>>(emptyList())
     val platforms: StateFlow<List<PlatformDto>> = _platforms
-
-    private val _selectedPlatformId = MutableStateFlow<Int?>(null)
-    val selectedPlatformId: StateFlow<Int?> = _selectedPlatformId
 
     private val _roms = MutableStateFlow<List<RomDto>>(emptyList())
     val roms: StateFlow<List<RomDto>> = _roms
@@ -80,11 +90,12 @@ class DesktopAppState(private val scope: CoroutineScope) {
     private val _tasks = MutableStateFlow<List<DesktopTask>>(emptyList())
     val tasks: StateFlow<List<DesktopTask>> = _tasks
 
-    private val _syncStatus = MutableStateFlow<String?>(null)
-    val syncStatus: StateFlow<String?> = _syncStatus
-
     private val _syncing = MutableStateFlow(false)
     val syncing: StateFlow<Boolean> = _syncing
+
+    /** Mensajes efímeros estilo snackbar (acciones del usuario). */
+    private val _snackbar = MutableStateFlow<String?>(null)
+    val snackbar: StateFlow<String?> = _snackbar
 
     /** romId -> ruta local registrada en library.properties tras descargar. */
     private val downloadedIds: MutableSet<Int> = ConcurrentHashMap.newKeySet()
@@ -92,6 +103,103 @@ class DesktopAppState(private val scope: CoroutineScope) {
     /** Se incrementa al completar descargas para recomponer la biblioteca. */
     private val _downloadedVersion = MutableStateFlow(0)
     val downloadedVersion: StateFlow<Int> = _downloadedVersion
+
+    private var api: RomMApiService? = null
+
+    // init al FINAL de la clase: las propiedades declaradas más abajo
+    // (_hiddenPlatforms, _lastSync, _autoSyncMinutes…) deben estar ya
+    // inicializadas cuando el bloque corra.
+
+    fun navigate(s: Section) { _section.value = s }
+
+    fun showSnackbar(message: String) { _snackbar.value = message }
+
+    fun consumeSnackbar() { _snackbar.value = null }
+
+    // ── Conexión / carga de datos ───────────────────────────────────────
+
+    /** Conecta (guardando config) y carga plataformas. */
+    fun connect(serverUrl: String, apiKey: String, silent: Boolean = false) {
+        config.serverUrl = serverUrl
+        config.apiKey = apiKey
+        val svc = NetworkModule.createApiService(serverUrl, apiKey)
+        api = svc
+        refreshPlatforms(silent)
+    }
+
+    private fun refreshPlatforms(silent: Boolean = false) {
+        val svc = api ?: return
+        _loadingPlatforms.value = true
+        scope.launch {
+            try {
+                val plats = svc.getPlatforms()
+                _platforms.value = plats
+                _connected.value = true
+            } catch (e: Exception) {
+                _connected.value = false
+                if (!silent) showSnackbar("Error de conexión: ${e.message}")
+            } finally {
+                _loadingPlatforms.value = false
+            }
+        }
+    }
+
+    /** Recarga plataformas + ROMs de la vista actual (botón refrescar / F5). */
+    fun refreshCurrentView() {
+        if (_connected.value || api != null) {
+            refreshPlatforms(silent = true)
+            when (_section.value) {
+                Section.LIBRARY -> refreshLibrary()
+                else -> Unit
+            }
+        }
+    }
+
+    /** Recarga los ROMs de la plataforma seleccionada (o todas las visibles). */
+    fun refreshLibrary() {
+        _roms.value = emptyList()
+        loadRomsForSlug(_selectedPlatformSlug.value)
+    }
+
+    /** Igual pero por slug (null = todas las plataformas visibles). */
+    private fun loadRomsForSlug(slug: String?) {
+        val svc = api ?: return
+        scope.launch {
+            _loadingRoms.value = true
+            try {
+                val all = mutableListOf<RomDto>()
+                val targets = if (slug == null) {
+                    visiblePlatforms()
+                } else {
+                    visiblePlatforms().filter { it.slug == slug }
+                }
+                for (p in targets) {
+                    var offset = 0
+                    while (true) {
+                        val resp = svc.getRoms(
+                            mapOf(
+                                "platform_ids" to p.id.toString(),
+                                "limit" to "500",
+                                "offset" to offset.toString(),
+                            ),
+                        )
+                        all += resp.items
+                        offset += resp.items.size
+                        if (resp.items.size < 500) break
+                    }
+                }
+                _roms.value = all
+            } catch (e: Exception) {
+                showSnackbar("Error cargando ROMs: ${e.message}")
+            } finally {
+                _loadingRoms.value = false
+            }
+        }
+    }
+
+    fun setSearch(q: String) { _search.value = q }
+
+    fun setFilter(f: LibraryFilter) { _filter.value = f }
 
     // ── Plataformas: visibilidad (activar/desactivar como Android) ──────
 
@@ -114,7 +222,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
         DesktopConfig.hiddenPlatforms = next.joinToString(",")
     }
 
-    // ── Config por plataforma: carpeta de ROMs y ruta de saves ─────────
+    // ── Config por plataforma: carpeta ROMs, saves y emulador ──────────
 
     /** Config persistida de una plataforma (emulator, saves, carpeta ROMs). */
     fun platformConfig(slug: String) = library.platform(slug)
@@ -131,6 +239,63 @@ class DesktopAppState(private val scope: CoroutineScope) {
         library.upsertPlatform(cur.copy(savesPathOverride = path.ifBlank { null }))
     }
 
+    /** Fija el emulador cuyos saves se sincronizan (vacío = default slug). */
+    fun setPlatformEmulator(slug: String, emulatorId: String?) {
+        val cur = library.platform(slug)
+        library.upsertPlatform(cur.copy(emulatorId = emulatorId?.takeIf { it.isNotBlank() }))
+    }
+
+    /** Stats locales (ROMs en disco por plataforma), calculadas en IO. */
+    private val _localStats = MutableStateFlow<Map<String, PlatformLocalStat>>(emptyMap())
+    val localStats: StateFlow<Map<String, PlatformLocalStat>> = _localStats
+
+    fun refreshLocalStats() {
+        scope.launch {
+            val stats = withContext(Dispatchers.IO) { computeLocalStats() }
+            _localStats.value = stats
+        }
+    }
+
+    private fun computeLocalStats(): Map<String, PlatformLocalStat> {
+        val roms = library.roms()
+        val bySlug = roms.groupBy { it.platformSlug }
+        val seenPaths = mutableSetOf<String>()
+        val out = mutableMapOf<String, PlatformLocalStat>()
+        for ((slug, entries) in bySlug) {
+            var bytes = 0L
+            for (entry in entries) {
+                val p = entry.localPath ?: continue
+                if (p in seenPaths) continue // dir compartida: contar una vez
+                seenPaths += p
+                val f = File(p)
+                bytes += when {
+                    f.isFile -> f.length()
+                    f.isDirectory -> dirSizeCapped(f)
+                    else -> 0L
+                }
+            }
+            out[slug] = PlatformLocalStat(entries.size, bytes)
+        }
+        return out
+    }
+
+    /** Suma el tamaño de un árbol con tope de ficheros (aprox. suficiente). */
+    private fun dirSizeCapped(dir: File): Long {
+        var total = 0L
+        var count = 0
+        val stack = ArrayDeque<File>()
+        stack.addLast(dir)
+        while (stack.isNotEmpty() && count < 2000) {
+            val d = stack.removeLast()
+            val children = d.listFiles() ?: continue
+            for (c in children) {
+                if (c.isFile) { total += c.length(); count++ }
+                else if (c.isDirectory) stack.addLast(c)
+            }
+        }
+        return total
+    }
+
     // ── Selector de plataforma en la barra de la biblioteca ─────────────
 
     private val _selectedPlatformSlug = MutableStateFlow<String?>(null)
@@ -139,7 +304,6 @@ class DesktopAppState(private val scope: CoroutineScope) {
     /** null = todas las plataformas. */
     fun selectPlatformBySlug(slug: String?) {
         _selectedPlatformSlug.value = slug
-        _selectedPlatformId.value = null
         _roms.value = emptyList()
         loadRomsForSlug(slug)
     }
@@ -152,194 +316,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
     fun openGame(card: GameCard) { _selectedGame.value = card }
     fun closeGame() { _selectedGame.value = null }
 
-    // ── Saves: comprobar cambios (negociación sin ejecutar) ────────────
-
-    private val _pendingReport = MutableStateFlow<DesktopSyncCoordinator.PendingSavesReport?>(null)
-    val pendingReport: StateFlow<DesktopSyncCoordinator.PendingSavesReport?> = _pendingReport
-    private val _scanningSaves = MutableStateFlow(false)
-    val scanningSaves: StateFlow<Boolean> = _scanningSaves
-
-    fun scanSaves() {
-        if (_scanningSaves.value) return
-        _scanningSaves.value = true
-        scope.launch {
-            try {
-                val coordinator = DesktopSyncCoordinator(config, library, config.cacheDir)
-                _pendingReport.value = coordinator.scanPendingSaves()
-            } catch (e: Exception) {
-                _syncStatus.value = "Error escaneando saves: ${e.message}"
-            } finally {
-                _scanningSaves.value = false
-            }
-        }
-    }
-
-    fun resolveConflict(romId: Int, fileName: String, resolution: String) {
-        scope.launch {
-            _syncing.value = true
-            try {
-                val coordinator = DesktopSyncCoordinator(config, library, config.cacheDir)
-                val result = coordinator.runConflictResolution(romId, fileName, resolution)
-                _syncStatus.value = result.message ?: if (result.isSuccess) "Conflicto resuelto" else result.error
-                scanSaves()
-            } catch (e: Exception) {
-                _syncStatus.value = "Error resolviendo conflicto: ${e.message}"
-            } finally {
-                _syncing.value = false
-            }
-        }
-    }
-
-    // ── Sync automático cada X minutos ─────────────────────────────────
-
-    private var autoSyncJob: Job? = null
-    private val _autoSyncMinutes = MutableStateFlow(DesktopConfig.autoSyncMinutes)
-    val autoSyncMinutes: StateFlow<Int> = _autoSyncMinutes
-
-    fun setAutoSyncMinutes(minutes: Int) {
-        _autoSyncMinutes.value = minutes
-        DesktopConfig.autoSyncMinutes = minutes
-        restartAutoSync()
-    }
-
-    private fun restartAutoSync() {
-        autoSyncJob?.cancel()
-        val minutes = _autoSyncMinutes.value
-        if (minutes <= 0) return
-        autoSyncJob = scope.launch {
-            while (true) {
-                kotlinx.coroutines.delay(minutes * 60_000L)
-                if (!_syncing.value) syncSaves()
-            }
-    }
-    }
-
-    private var api: RomMApiService? = null
-
-    init {
-        downloadedIds.addAll(library.roms().map { it.romId })
-        val rawHidden = config.hiddenPlatforms
-        if (rawHidden.isNotBlank()) {
-            _hiddenPlatforms.value = rawHidden.split(",").filter { it.isNotBlank() }.toSet()
-        }
-        if (config.autoSyncMinutes > 0) restartAutoSync()
-        if (config.serverUrl.isNotBlank() && config.apiKey.isNotBlank()) {
-            connect(config.serverUrl, config.apiKey, silent = true)
-        }
-    }
-
-    fun navigate(s: Section) { _section.value = s }
-
-    fun selectPlatform(id: Int?) {
-        _selectedPlatformId.value = id
-        _roms.value = emptyList()
-        if (id != null) loadRoms(reset = true)
-    }
-
-    fun setSearch(q: String) { _search.value = q }
-
-    fun setFilter(f: LibraryFilter) { _filter.value = f }
-
-    /** Conecta (guardando config) y carga plataformas. */
-    fun connect(serverUrl: String, apiKey: String, silent: Boolean = false) {
-        config.serverUrl = serverUrl
-        config.apiKey = apiKey
-        val svc = NetworkModule.createApiService(serverUrl, apiKey)
-        api = svc
-        _loadingPlatforms.value = true
-        scope.launch {
-            try {
-                val plats = svc.getPlatforms()
-                _platforms.value = plats
-                _connected.value = true
-            } catch (e: Exception) {
-                _connected.value = false
-                if (!silent) _syncStatus.value = "Error de conexión: ${e.message}"
-            } finally {
-                _loadingPlatforms.value = false
-            }
-        }
-    }
-
-    /** Carga ROMs de la plataforma seleccionada con paginación completa. */
-    fun loadRoms(reset: Boolean) {
-        val svc = api ?: return
-        val platformId = _selectedPlatformId.value ?: return
-        scope.launch {
-            _loadingRoms.value = true
-            try {
-                val all = mutableListOf<RomDto>()
-                var offset = 0
-                while (true) {
-                    val resp = svc.getRoms(
-                        mapOf(
-                            "platform_ids" to platformId.toString(),
-                            "limit" to "500",
-                            "offset" to offset.toString(),
-                        ),
-                    )
-                    all += resp.items
-                    offset += resp.items.size
-                    if (resp.items.size < 500) break
-                }
-                _roms.value = all
-            } catch (e: Exception) {
-                _syncStatus.value = "Error cargando ROMs: ${e.message}"
-            } finally {
-                _loadingRoms.value = false
-            }
-        }
-    }
-
-    /** Igual pero por slug (null = todas las plataformas visibles). */
-    private fun loadRomsForSlug(slug: String?) {
-        val svc = api ?: return
-        scope.launch {
-            _loadingRoms.value = true
-            try {
-                val all = mutableListOf<RomDto>()
-                if (slug == null) {
-                    for (p in visiblePlatforms()) {
-                        var offset = 0
-                        while (true) {
-                            val resp = svc.getRoms(
-                                mapOf(
-                                    "platform_ids" to p.id.toString(),
-                                    "limit" to "500",
-                                    "offset" to offset.toString(),
-                                ),
-                            )
-                            all += resp.items
-                            offset += resp.items.size
-                            if (resp.items.size < 500) break
-                        }
-                    }
-                } else {
-                    val platId = visiblePlatforms().firstOrNull { it.slug == slug }?.id
-                    if (platId != null) {
-                        var offset = 0
-                        while (true) {
-                            val resp = svc.getRoms(
-                                mapOf(
-                                    "platform_ids" to platId.toString(),
-                                    "limit" to "500",
-                                    "offset" to offset.toString(),
-                                ),
-                            )
-                            all += resp.items
-                            offset += resp.items.size
-                            if (resp.items.size < 500) break
-                        }
-                    }
-                }
-                _roms.value = all
-            } catch (e: Exception) {
-                _syncStatus.value = "Error cargando ROMs: ${e.message}"
-            } finally {
-                _loadingRoms.value = false
-            }
-        }
-    }
+    // ── Biblioteca: agrupado, filtro y búsqueda ─────────────────────────
 
     /** Juegos agrupados por igdbId con filtro y búsqueda aplicados. */
     fun games(): List<GameCard> {
@@ -368,13 +345,63 @@ class DesktopAppState(private val scope: CoroutineScope) {
             .sortedBy { it.rep.name.lowercase() }
     }
 
+    /** Juegos no descargados de la vista actual, SIN aplicar búsqueda. */
+    fun missingGames(): List<GameCard> =
+        _roms.value
+            .groupBy { it.igdbId ?: it.id }
+            .map { (_, group) ->
+                val rep = group.maxByOrNull { it.files.size } ?: group.first()
+                GameCard(rep, if (group.size > 1) group.size else 1, group, group.all { it.id in downloadedIds })
+            }
+            .filter { !it.downloaded }
+            .sortedBy { it.rep.name.lowercase() }
+
+    // ── Cola de descargas ───────────────────────────────────────────────
+
+    /** Jobs activos por romId (para cancelar). */
+    private val taskJobs = ConcurrentHashMap<Int, Job>()
+
+    /** Tope de descargas simultáneas (1-5), como en Android. */
+    @Volatile
+    private var downloadGate = Semaphore(DesktopConfig.maxConcurrentDownloads)
+
+    private val _maxConcurrentDownloads = MutableStateFlow(DesktopConfig.maxConcurrentDownloads)
+    val maxConcurrentDownloads: StateFlow<Int> = _maxConcurrentDownloads
+
+    fun setMaxConcurrentDownloads(n: Int) {
+        val v = n.coerceIn(1, 5)
+        DesktopConfig.maxConcurrentDownloads = v
+        _maxConcurrentDownloads.value = v
+        downloadGate = Semaphore(v) // afecta a las descargas que aún no empezaron
+    }
+
     /** Encola la descarga del juego completo (todos los discos del grupo). */
     fun enqueue(card: GameCard) {
+        card.groupRoms.forEach { rom -> enqueueRom(rom, notify = false) }
+        showSnackbar("Descargando ${card.rep.name}")
+    }
+
+    /** Descarga por lotes: encola todos los juegos faltantes de la vista. */
+    fun enqueueMissing() {
+        val missing = missingGames()
+        if (missing.isEmpty()) return
+        missing.forEach { card -> card.groupRoms.forEach { rom -> enqueueRom(rom, notify = false) } }
+        showSnackbar("Encoladas ${missing.size} descargas")
+    }
+
+    /**
+     * Encola un ROM individual. Guard anti-duplicados: si ya está en cola o
+     * ejecutándose se ignora (antes esto duplicaba keys en la LazyColumn y
+     * la crashaba).
+     */
+    private fun enqueueRom(rom: RomDto, notify: Boolean = true) {
         val svc = api ?: return
-        card.groupRoms.forEach { rom ->
-            val task = DesktopTask(rom.id, rom.name, rom.platformSlug, "queued")
-            _tasks.value = _tasks.value + task
-            scope.launch {
+        if (_tasks.value.any { it.romId == rom.id && it.active }) return
+        _tasks.value = _tasks.value + DesktopTask(rom.id, rom.name, rom.platformSlug, "queued")
+        if (notify) showSnackbar("Descargando ${rom.name}")
+        val job = scope.launch {
+            downloadGate.withPermit {
+                if (!_tasks.value.any { it.romId == rom.id && it.active }) return@withPermit
                 updateTask(rom.id) { it.copy(status = "running") }
                 try {
                     val engine = DownloadEngine(
@@ -388,12 +415,231 @@ class DesktopAppState(private val scope: CoroutineScope) {
                             t.copy(bytesRead = p.bytesRead, totalBytes = p.total, speedBps = p.speedBps)
                         }
                     }
-                    downloadedIds.add(rom.id)
-                    _downloadedVersion.value = _downloadedVersion.value + 1
-                    updateTask(rom.id) { it.copy(status = "done", message = msg) }
+                    if (msg.startsWith("Error")) {
+                        updateTask(rom.id) { it.copy(status = "error", message = msg) }
+                    } else {
+                        downloadedIds.add(rom.id)
+                        _downloadedVersion.value = _downloadedVersion.value + 1
+                        updateTask(rom.id) { it.copy(status = "done", message = msg) }
+                        refreshLocalStats()
+                    }
+                } catch (e: CancellationException) {
+                    throw e // cancelada por el usuario; la tarea ya se quitó de la lista
                 } catch (e: Exception) {
-                    updateTask(rom.id) { it.copy(status = "error", message = e.message) }
+                    updateTask(rom.id) { it.copy(status = "error", message = e.message ?: e.javaClass.simpleName) }
                 }
+            }
+        }
+        taskJobs[rom.id] = job
+        job.invokeOnCompletion { taskJobs.remove(rom.id, job) }
+    }
+
+    /** Cancela la descarga activa/en cola de un ROM y la quita de la lista. */
+    fun cancelDownload(romId: Int) {
+        taskJobs.remove(romId)?.cancel()
+        _tasks.value = _tasks.value.filterNot { it.romId == romId && it.active }
+    }
+
+    /** Cancela todas las descargas activas y las quita de la lista. */
+    fun cancelAll() {
+        val active = _tasks.value.filter { it.active }
+        active.forEach { taskJobs.remove(it.romId)?.cancel() }
+        _tasks.value = _tasks.value.filterNot { it.active }
+        if (active.isNotEmpty()) showSnackbar("Canceladas ${active.size} descargas")
+    }
+
+    /** Reintenta una descarga fallida (reanuda desde el parcial si existe). */
+    fun retryDownload(romId: Int) {
+        val rom = _roms.value.firstOrNull { it.id == romId }
+        if (rom == null) {
+            showSnackbar("No se encontró el ROM en la biblioteca actual")
+            return
+        }
+        _tasks.value = _tasks.value.filterNot { it.romId == romId }
+        enqueueRom(rom)
+    }
+
+    private fun updateTask(romId: Int, transform: (DesktopTask) -> DesktopTask) {
+        _tasks.value = _tasks.value.map { if (it.romId == romId) transform(it) else it }
+    }
+
+    /** Limpia las tareas terminadas de la cola. */
+    fun clearFinished() {
+        _tasks.value = _tasks.value.filter { it.active }
+    }
+
+    // ── Eliminar descarga local ─────────────────────────────────────────
+
+    /**
+     * Borra del disco los ficheros de un juego descargado y lo quita del
+     * registro local. Para ROMs extraídos de zip en la carpeta compartida de
+     * la plataforma se niega (borraría otros juegos).
+     */
+    fun deleteDownload(card: GameCard) {
+        scope.launch {
+            var sharedDir = false
+            var deletedAny = false
+            withContext(Dispatchers.IO) {
+                for (rom in card.groupRoms) {
+                    val entry = library.rom(rom.id) ?: continue
+                    val path = entry.localPath ?: continue
+                    val f = File(path)
+                    when {
+                        f.isFile -> {
+                            if (f.delete()) deletedAny = true
+                        }
+                        f.isDirectory -> {
+                            // Solo borramos si la carpeta es exclusiva del juego
+                            // (subcarpeta con su nombre), nunca la carpeta de la
+                            // plataforma completa.
+                            val platformDir = es.davidrg.rommsync.core.download.PathMapper
+                                .getPlatformDir(config.romsRoot, rom.platformSlug ?: "unknown")
+                            if (f.canonicalPath == platformDir.canonicalPath) {
+                                sharedDir = true
+                            } else {
+                                f.deleteRecursively()
+                                deletedAny = true
+                            }
+                        }
+                    }
+                    library.removeRom(rom.id)
+                    downloadedIds.remove(rom.id)
+                }
+            }
+            _downloadedVersion.value = _downloadedVersion.value + 1
+            refreshLocalStats()
+            showSnackbar(
+                when {
+                    sharedDir -> "Eliminado del registro (la carpeta de la plataforma es compartida: borra los ficheros a mano)"
+                    deletedAny -> "Eliminado ${card.rep.name}"
+                    else -> "Eliminado ${card.rep.name} del registro (ficheros no encontrados)"
+                },
+            )
+        }
+    }
+
+    // ── Config de sync por juego ────────────────────────────────────────
+
+    /** Excluye (o re-incluye) un juego de la sincronización de saves. */
+    fun setRomExcluded(romId: Int, excluded: Boolean) {
+        val entry = library.rom(romId) ?: return
+        library.upsertRom(entry.copy(excludedFromSync = excluded))
+    }
+
+    /** Ruta de saves personalizada para un juego (null = hereda plataforma). */
+    fun setRomSavesPath(romId: Int, path: String?) {
+        val entry = library.rom(romId) ?: return
+        library.upsertRom(entry.copy(savesPathOverride = path?.takeIf { it.isNotBlank() }))
+    }
+
+    /** Entrada local de un ROM (descargado) o null. */
+    fun romEntry(romId: Int) = library.rom(romId)
+
+    // ── Saves: comprobar cambios (negociación sin ejecutar) ────────────
+
+    private val _pendingReport = MutableStateFlow<DesktopSyncCoordinator.PendingSavesReport?>(null)
+    val pendingReport: StateFlow<DesktopSyncCoordinator.PendingSavesReport?> = _pendingReport
+    private val _scanningSaves = MutableStateFlow(false)
+    val scanningSaves: StateFlow<Boolean> = _scanningSaves
+
+    fun scanSaves() {
+        if (_scanningSaves.value) return
+        _scanningSaves.value = true
+        scope.launch {
+            try {
+                val coordinator = DesktopSyncCoordinator(config, library, config.cacheDir)
+                _pendingReport.value = coordinator.scanPendingSaves()
+            } catch (e: Exception) {
+                showSnackbar("Error escaneando saves: ${e.message}")
+            } finally {
+                _scanningSaves.value = false
+            }
+        }
+    }
+
+    fun resolveConflict(romId: Int, fileName: String, resolution: String) {
+        scope.launch {
+            _syncing.value = true
+            try {
+                val coordinator = DesktopSyncCoordinator(config, library, config.cacheDir)
+                val result = coordinator.runConflictResolution(romId, fileName, resolution)
+                showSnackbar(result.message ?: if (result.isSuccess) "Conflicto resuelto" else result.error ?: "Error")
+                scanSaves()
+            } catch (e: Exception) {
+                showSnackbar("Error resolviendo conflicto: ${e.message}")
+            } finally {
+                _syncing.value = false
+            }
+        }
+    }
+
+    // ── Sync automático cada X minutos ─────────────────────────────────
+
+    private var autoSyncJob: Job? = null
+    private val _autoSyncMinutes = MutableStateFlow(DesktopConfig.autoSyncMinutes)
+    val autoSyncMinutes: StateFlow<Int> = _autoSyncMinutes
+
+    fun setAutoSyncMinutes(minutes: Int) {
+        _autoSyncMinutes.value = minutes
+        DesktopConfig.autoSyncMinutes = minutes
+        restartAutoSync()
+    }
+
+    private fun restartAutoSync() {
+        autoSyncJob?.cancel()
+        val minutes = _autoSyncMinutes.value
+        if (minutes <= 0) return
+        autoSyncJob = scope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(minutes * 60_000L)
+                if (!_syncing.value) syncSaves()
+            }
+        }
+    }
+
+    // ── Sincronización de saves ─────────────────────────────────────────
+
+    private val _lastSync = MutableStateFlow(LastSyncInfo(0L, ""))
+    val lastSync: StateFlow<LastSyncInfo> = _lastSync
+
+    /** Estado resumido del último sync (para la tarjeta de estado). */
+    private val _syncStatus = MutableStateFlow<String?>(null)
+    val syncStatus: StateFlow<String?> = _syncStatus
+
+    private val _lastFailed = MutableStateFlow<List<FailedOpInfo>>(emptyList())
+    val lastFailed: StateFlow<List<FailedOpInfo>> = _lastFailed
+
+    /** Sincroniza saves con el servidor. */
+    fun syncSaves() {
+        if (_syncing.value) return
+        _syncing.value = true
+        _syncStatus.value = "Sincronizando saves…"
+        scope.launch {
+            try {
+                val coordinator = DesktopSyncCoordinator(
+                    config = config,
+                    library = library,
+                    cacheDir = config.cacheDir,
+                )
+                val result = coordinator.runSync()
+                val summary = buildString {
+                    if (result.error != null) append(result.error)
+                    else append(result.message ?: "Sync completado")
+                    if (result.uploaded > 0) append(" · ${result.uploaded} subidos")
+                    if (result.downloaded > 0) append(" · ${result.downloaded} descargados")
+                    if (result.conflicts > 0) append(" · ${result.conflicts} conflictos")
+                }
+                _syncStatus.value = summary
+                _lastFailed.value = result.failedDetails
+                config.lastSyncAt = System.currentTimeMillis()
+                config.lastSyncSummary = summary
+                _lastSync.value = LastSyncInfo(config.lastSyncAt, summary)
+                // Refrescar el informe de pendientes tras el ciclo.
+                scanSaves()
+            } catch (e: Exception) {
+                _syncStatus.value = "Error: ${e.message}"
+            } finally {
+                _syncing.value = false
             }
         }
     }
@@ -410,7 +656,9 @@ class DesktopAppState(private val scope: CoroutineScope) {
         _esdeRunning.value = true
         scope.launch {
             try {
-                val result = DesktopEsdeExporter(config, library).export()
+                val result = withContext(Dispatchers.IO) {
+                    DesktopEsdeExporter(config.esdeDataDir, config.romsRoot, library).export()
+                }
                 _esdeStatus.value = result
             } catch (e: Exception) {
                 _esdeStatus.value = "Error exportando: ${e.message}"
@@ -490,40 +738,19 @@ class DesktopAppState(private val scope: CoroutineScope) {
         DesktopUpdater.relaunch()
     }
 
-    private fun updateTask(romId: Int, transform: (DesktopTask) -> DesktopTask) {
-        _tasks.value = _tasks.value.map { if (it.romId == romId) transform(it) else it }
-    }
-
-    /** Limpia las tareas terminadas de la cola. */
-    fun clearFinished() {
-        _tasks.value = _tasks.value.filter { it.status == "running" || it.status == "queued" }
-    }
-
-    /** Sincroniza saves con el servidor. */
-    fun syncSaves() {
-        if (_syncing.value) return
-        _syncing.value = true
-        _syncStatus.value = "Sincronizando saves…"
-        scope.launch {
-            try {
-                val coordinator = DesktopSyncCoordinator(
-                    config = config,
-                    library = library,
-                    cacheDir = config.cacheDir,
-                )
-                val result = coordinator.runSync()
-                _syncStatus.value = buildString {
-                    if (result.error != null) append(result.error)
-                    else append(result.message ?: "Sync completado")
-                    if (result.uploaded > 0) append(" · ${result.uploaded} subidos")
-                    if (result.downloaded > 0) append(" · ${result.downloaded} descargados")
-                    if (result.conflicts > 0) append(" · ${result.conflicts} conflictos")
-                }
-            } catch (e: Exception) {
-                _syncStatus.value = "Error: ${e.message}"
-            } finally {
-                _syncing.value = false
-            }
-    }
+    init {
+        downloadedIds.addAll(library.roms().map { it.romId })
+        val rawHidden = config.hiddenPlatforms
+        if (rawHidden.isNotBlank()) {
+            _hiddenPlatforms.value = rawHidden.split(",").filter { it.isNotBlank() }.toSet()
+        }
+        if (config.lastSyncAt > 0L) {
+            _lastSync.value = LastSyncInfo(config.lastSyncAt, config.lastSyncSummary)
+        }
+        refreshLocalStats()
+        if (config.autoSyncMinutes > 0) restartAutoSync()
+        if (config.serverUrl.isNotBlank() && config.apiKey.isNotBlank()) {
+            connect(config.serverUrl, config.apiKey, silent = true)
+        }
     }
 }
