@@ -48,5 +48,5 @@ object DesktopConfig {
         set(v) = prefs.putInt("auto_sync_minutes", v)
 
     /** Versión de la app desktop (para el comprobador de actualizaciones). */
-    const val appVersion: String = "0.6.3"
+    const val appVersion: String = "0.6.4"
 }
