@@ -15,6 +15,7 @@ import es.davidrg.rommsync.core.sync.SaveBackupManager
 import es.davidrg.rommsync.core.sync.platform.LocalSave
 import es.davidrg.rommsync.core.sync.platform.SaveHandler
 import es.davidrg.rommsync.core.sync.platform.SaveHandlerRegistry
+import es.davidrg.rommsync.core.util.RootShell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -74,6 +75,7 @@ class SyncCoordinator(
         val platformConfigs = platformDao.getAllPlatformsBlocking().associateBy { it.slug }
         val localSavesMap = mutableMapOf<Int, List<LocalSave>>()
         val handlerByRom = mutableMapOf<Int, SaveHandler>()
+        val pathWarnings = mutableListOf<String>()
 
         for (rom in downloadedRoms) {
             val config = platformConfigs[rom.platformSlug]
@@ -84,6 +86,18 @@ class SyncCoordinator(
             handlerByRom[rom.romId] = handler
 
             val effectiveBasePath = resolveSavesBasePath(rom, config, retroArchBase)
+
+            // Una ruta configurada (por juego o por plataforma) que no se puede
+            // leer haría que el handler devolviera 0 saves en silencio: el sync
+            // diría "Todo sincronizado" sin pista alguna. Avisar explícitamente.
+            val explicitOverride = !rom.savesPathOverride.isNullOrBlank() ||
+                config?.savesPathOverride?.isNotBlank() == true
+            if (explicitOverride && !isPathReadable(effectiveBasePath) &&
+                pathWarnings.size < MAX_PATH_WARNINGS
+            ) {
+                Log.w(TAG, "Ruta de saves configurada ilegible: '${rom.name}' → $effectiveBasePath")
+                pathWarnings.add("${rom.name}: $effectiveBasePath")
+            }
 
             // ── Atajo por fingerprint: si los saves no cambiaron desde el
             // último sync, saltarse el zipeo+hash completo de este ROM. ──
@@ -334,8 +348,18 @@ class SyncCoordinator(
                 )
             },
             failedDetails = failures,
-            message = buildResultMessage(completed, failed, conflicts.size),
+            message = buildResultMessage(completed, failed, conflicts.size, pathWarnings),
         )
+    }
+
+    /**
+     * true si el directorio es legible por la app: bien vía API File, o bien
+     * vía root (rutas `/data/data/...` en teléfonos rooteados).
+     */
+    private fun isPathReadable(path: String): Boolean {
+        if (File(path).isDirectory) return true
+        return RootShell.available &&
+            RootShell.run("test -d ${RootShell.sq(path)}") != null
     }
 
     /**
@@ -591,15 +615,28 @@ class SyncCoordinator(
         }
     }
 
-    private fun buildResultMessage(completed: Int, failed: Int, conflicts: Int): String {
+    private fun buildResultMessage(
+        completed: Int,
+        failed: Int,
+        conflicts: Int,
+        pathWarnings: List<String> = emptyList(),
+    ): String {
         val parts = mutableListOf<String>()
         if (completed > 0) parts.add("$completed completadas")
         if (failed > 0) parts.add("$failed fallidas")
         if (conflicts > 0) parts.add("$conflicts conflictos")
-        return if (parts.isEmpty()) "Todo sincronizado" else parts.joinToString(", ")
+        if (pathWarnings.isNotEmpty()) {
+            val shown = pathWarnings.take(3).joinToString(", ") +
+                if (pathWarnings.size > 3) " (+${pathWarnings.size - 3} más)" else ""
+            parts.add("⚠ ${pathWarnings.size} ruta(s) configurada(s) ilegible(s): $shown")
+        }
+        return if (parts.isEmpty()) "Todo sincronizado" else parts.joinToString(" · ")
     }
     companion object {
         private const val TAG = "SyncCoordinator"
+
+        /** Tope de rutas ilegibles detalladas en el mensaje de resultado. */
+        private const val MAX_PATH_WARNINGS = 10
 
         private fun formatIso8601(millis: Long): String {
             val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)

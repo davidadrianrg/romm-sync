@@ -15,6 +15,8 @@ import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import es.davidrg.rommsync.data.sync.SyncedHashStore
 import es.davidrg.rommsync.core.sync.platform.SaveHandlerRegistry
+import es.davidrg.rommsync.core.util.RootShell
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -59,6 +61,10 @@ class SyncViewModel(
 
     private val _localSaves = MutableStateFlow<List<SavePreviewItem>>(emptyList())
     val localSaves: StateFlow<List<SavePreviewItem>> = _localSaves.asStateFlow()
+
+    /** Rutas de saves configuradas (juego/plataforma) que no se pueden leer. */
+    private val _pathWarnings = MutableStateFlow<List<String>>(emptyList())
+    val pathWarnings: StateFlow<List<String>> = _pathWarnings.asStateFlow()
 
     private val _isScanning = MutableStateFlow(false)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
@@ -164,6 +170,7 @@ class SyncViewModel(
 
         val platformConfigs = platformDao.getAllPlatformsBlocking().associateBy { it.slug }
         val results = mutableListOf<SavePreviewItem>()
+        val warnings = mutableListOf<String>()
 
         for (rom in downloadedRoms) {
             if (rom.excludedFromSync) continue
@@ -182,6 +189,17 @@ class SyncViewModel(
                     platformSlug = rom.platformSlug,
                     retroArchBase = retroArchBase,
                 )
+
+            // Ruta configurada explícitamente pero ilegible: el handler no
+            // encontrará nada y el sync parecería "al día" sin buscar aquí.
+            val explicitOverride = !rom.savesPathOverride.isNullOrBlank() ||
+                config?.savesPathOverride?.isNotBlank() == true
+            if (explicitOverride && warnings.size < 10) {
+                val readable = File(effectiveBasePath).isDirectory ||
+                    (RootShell.available &&
+                        RootShell.run("test -d ${RootShell.sq(effectiveBasePath)}") != null)
+                if (!readable) warnings.add("${rom.name}: $effectiveBasePath")
+            }
 
             val saves = handler.findSaves(
                 romId = rom.romId,
@@ -206,6 +224,7 @@ class SyncViewModel(
             }
         }
 
+        _pathWarnings.value = warnings
         return results.sortedByDescending { it.lastModified }
     }
 

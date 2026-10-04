@@ -343,9 +343,12 @@ class DownloadWorker(
                 verificationFailure
             } else {
 
-            // Persist download record in Room so UI shows the checkmark
+            // Persist download record in Room so UI shows the checkmark.
+            // En re-descargas la fila ya existe: conservar la config de sync
+            // por juego (ruta de saves / exclusión), que REPLACE borraría.
             val platformId = inputData.getInt(KEY_PLATFORM_ID, 0)
             val db = RomSyncDatabase.getDatabase(applicationContext)
+            val existing = db.romDao().getDownloadedRom(romId)
             db.romDao().insertDownloadedRom(
                 DownloadedRomEntity(
                     romId = romId,
@@ -355,6 +358,8 @@ class DownloadWorker(
                     platformSlug = platformSlug,
                     localPath = targetFile.absolutePath,
                     fileSizeBytes = targetFile.length(),
+                    savesPathOverride = existing?.savesPathOverride,
+                    excludedFromSync = existing?.excludedFromSync ?: false,
                 ),
             )
 

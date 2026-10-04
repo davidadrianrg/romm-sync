@@ -36,6 +36,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -102,6 +103,7 @@ fun SyncScreen() {
     val syncInterval by viewModel.syncIntervalMinutes.collectAsState()
     val localSaves by viewModel.localSaves.collectAsState()
     val isScanning by viewModel.isScanning.collectAsState()
+    val pathWarnings by viewModel.pathWarnings.collectAsState()
     val conflicts by viewModel.conflicts.collectAsState()
     val failedOps by viewModel.failedOps.collectAsState()
     val resolvingConflict by viewModel.resolvingConflict.collectAsState()
@@ -357,6 +359,38 @@ fun SyncScreen() {
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+                    if (pathWarnings.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text(
+                                    "⚠ Rutas configuradas que no se pueden leer:",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                )
+                                pathWarnings.forEach { warning ->
+                                    Text(
+                                        warning,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                                Text(
+                                    "El sync no buscará partidas ahí. Revisa la ruta o " +
+                                        "el permiso «Acceso a todos los archivos».",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f),
+                                )
+                            }
+                        }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     FilledTonalButton(
@@ -790,7 +824,14 @@ private fun formatServerTimestamp(iso: String): String = try {
 }
 @Composable
 private fun parseSyncResult(message: String): Quad<ImageVector, androidx.compose.ui.graphics.Color, String, String> {
-    return if (message.contains("Todo sincronizado", ignoreCase = true)) {
+    return if (message.contains("⚠")) {
+        Quad(
+            Icons.Filled.Warning,
+            MaterialTheme.colorScheme.tertiary,
+            "Sincronizado con avisos",
+            message,
+        )
+    } else if (message.contains("Todo sincronizado", ignoreCase = true)) {
         Quad(
             Icons.Filled.CheckCircle,
             MaterialTheme.colorScheme.secondary,
