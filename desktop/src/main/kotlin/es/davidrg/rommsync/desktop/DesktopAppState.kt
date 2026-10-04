@@ -355,20 +355,21 @@ class DesktopAppState(private val scope: CoroutineScope) {
 
     // ── Biblioteca: agrupado, filtro y búsqueda ─────────────────────────
 
-    /** Juegos agrupados por igdbId con filtro, región, búsqueda y orden. */
+    /** Una tarjeta por entrada de la API con filtro, región, búsqueda y orden.
+     *  Los multidisco reales vienen ya agrupados (multi/hasMultipleFiles);
+     *  NO agrupar por igdbId (Golden Sun 1 y 2 comparten igdb_id y se fusionaban). */
     fun games(): List<GameCard> {
         val romsList = _roms.value
         val q = _search.value.trim().lowercase()
         val region = _regionFilter.value
         val rep = romsList
-            .groupBy { it.igdbId ?: it.id }
-            .map { (_, group) ->
-                val representative = group.maxByOrNull { it.files.size } ?: group.first()
+            .map { rom ->
+                val isMulti = rom.multi || rom.hasMultipleFiles
                 GameCard(
-                    rep = representative,
-                    discCount = if (group.size > 1) group.size else 1,
-                    groupRoms = group,
-                    downloaded = group.all { it.id in downloadedIds },
+                    rep = rom,
+                    discCount = if (isMulti) rom.files.size.coerceAtLeast(2) else 1,
+                    groupRoms = listOf(rom),
+                    downloaded = rom.id in downloadedIds,
                 )
             }
             .filter { card ->
@@ -405,10 +406,14 @@ class DesktopAppState(private val scope: CoroutineScope) {
     fun missingGames(): List<GameCard> {
         val region = _regionFilter.value
         return _roms.value
-            .groupBy { it.igdbId ?: it.id }
-            .map { (_, group) ->
-                val rep = group.maxByOrNull { it.files.size } ?: group.first()
-                GameCard(rep, if (group.size > 1) group.size else 1, group, group.all { it.id in downloadedIds })
+            .map { rom ->
+                val isMulti = rom.multi || rom.hasMultipleFiles
+                GameCard(
+                    rep = rom,
+                    discCount = if (isMulti) rom.files.size.coerceAtLeast(2) else 1,
+                    groupRoms = listOf(rom),
+                    downloaded = rom.id in downloadedIds,
+                )
             }
             .filter { !it.downloaded && (region == null || it.rep.regions.any { r -> r.equals(region, ignoreCase = true) }) }
             .sortedBy { it.rep.name.lowercase() }

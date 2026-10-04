@@ -170,35 +170,23 @@ class LibraryViewModel(
     val romsWithStatus: StateFlow<List<RomWithStatus>> = combine(
         _roms, downloadedIds, activeDownloads, sort, regionFilter,
     ) { roms, downloaded, downloading, sortType, region ->
-        roms
-            .groupBy { it.igdbId ?: it.id }
-            .map { (groupKey, groupRoms) ->
-                // Representante del grupo: el más completo (más ficheros =
-                // el grupo multi). Si hay varias variantes IGDB distintas
-                // (raro), cada una conserva su propia card.
-                val rep = groupRoms.maxByOrNull { it.files.size } ?: groupRoms.first()
-                val discCount = if (groupRoms.size > 1 || rep.isMulti) groupRoms.size.coerceAtLeast(2) else 1
-                val status = when {
-                    // Descargado solo si TODOS los discos del juego lo están
-                    groupRoms.all { it.id in downloaded } -> DownloadStatus.DOWNLOADED
-                    groupRoms.any { it.id in downloading } -> DownloadStatus.DOWNLOADING
-                    // Parcial (algunos discos): NOT_DOWNLOADED para poder
-                    // re-descargar; el worker ya deduplica por KEEP
-                    else -> DownloadStatus.NOT_DOWNLOADED
-                }
-                RomWithStatus(
-                    rom = rep,
-                    status = status,
-                    discCount = discCount,
-                    groupRomIds = groupRoms.map { it.id },
-                )
+        // UNA card por entrada de la API: los multidisco reales vienen ya
+        // agrupados (isMulti, varios files). NO agrupar por igdbId — Golden
+        // Sun 1 y 2 comparten igdb_id y se fusionaban.
+        roms.map { rom ->
+            val discCount = if (rom.isMulti) rom.files.size.coerceAtLeast(2) else 1
+            val status = when {
+                rom.id in downloaded -> DownloadStatus.DOWNLOADED
+                rom.id in downloading -> DownloadStatus.DOWNLOADING
+                else -> DownloadStatus.NOT_DOWNLOADED
             }
-            // El orden original de la lista se pierde al agrupar: se conserva
-            // el del primer elemento de cada grupo (orden de la API).
-            .let { grouped ->
-                val order = roms.map { it.igdbId ?: it.id }
-                grouped.sortedBy { order.indexOf(it.rom.igdbId ?: it.rom.id) }
-            }
+            RomWithStatus(
+                rom = rom,
+                status = status,
+                discCount = discCount,
+                groupRomIds = listOf(rom.id),
+            )
+        }
             // Filtro por región y orden elegidos
             .filter { card ->
                 region == null || card.rom.regions.any { it.equals(region, ignoreCase = true) }

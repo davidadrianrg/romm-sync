@@ -139,7 +139,7 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
                 DetailRow("Tamaño", formatBytes(rep.fileSizeBytes))
                 rep.fileNameNoTags?.let { DetailRow("Nombre limpio", it) }
                 rep.fileExtension?.let { DetailRow("Extensión", it) }
-                if (card.discCount > 1) DetailRow("Multi-archivo", "Sí (${card.groupRoms.size} discos)")
+                if (card.discCount > 1) DetailRow("Multi-archivo", "Sí (${card.discCount} archivos)")
                 rep.igdbId?.let { DetailRow("IGDB ID", it.toString()) }
 
                 Spacer(Modifier.height(16.dp))
@@ -223,16 +223,17 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
             RomSyncConfigSection(card, state, romsVersion)
         }
 
-        // ── Discos / versiones ──
-        if (card.groupRoms.size > 1 || card.rep.multi) {
+        // ── Archivos de la entrada (multi-disc = varios files en una ROM) ──
+        if (rep.multi || rep.hasMultipleFiles || rep.files.size > 1) {
             Spacer(Modifier.height(20.dp))
-            Text("Discos / versiones (${card.groupRoms.size})", style = MaterialTheme.typography.titleMedium)
+            val fileRows = rep.files.ifEmpty { listOf(es.davidrg.rommsync.core.remote.dto.RomFileDto(rep.fileName, rep.fileSizeBytes)) }
+            Text("Discos / versiones (${fileRows.size})", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(4.dp))
-            card.groupRoms.forEach { rom ->
+            fileRows.forEach { file ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(rom.fileName, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    Text(file.filename, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                     Text(
-                        formatBytes(rom.fileSizeBytes),
+                        formatBytes(file.size),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
