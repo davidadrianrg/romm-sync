@@ -104,6 +104,7 @@ fun SyncScreen() {
     val localSaves by viewModel.localSaves.collectAsState()
     val isScanning by viewModel.isScanning.collectAsState()
     val pathWarnings by viewModel.pathWarnings.collectAsState()
+    val scanChecked by viewModel.scanCheckedCount.collectAsState()
     val conflicts by viewModel.conflicts.collectAsState()
     val failedOps by viewModel.failedOps.collectAsState()
     val resolvingConflict by viewModel.resolvingConflict.collectAsState()
@@ -340,11 +341,32 @@ fun SyncScreen() {
                             )
                         }
                     } else if (localSaves.isEmpty()) {
-                        Text(
-                            "Pulsa comprobar para ver si hay saves con cambios no sincronizados.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        if (scanChecked < 0) {
+                            Text(
+                                "Pulsa comprobar para ver si hay saves con cambios no sincronizados.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else {
+                            // Escaneo corrido sin resultados: decirlo explícitamente —
+                            // repetir "Pulsa comprobar…" parecía que no había corrido.
+                            Text(
+                                "Sin cambios pendientes · " +
+                                    "$scanChecked juego${if (scanChecked != 1) "s" else ""} " +
+                                    "comprobado${if (scanChecked != 1) "s" else ""}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                "Si acabas de guardar dentro del juego, cierra el contenido " +
+                                    "en el emulador: hasta que escribe el save a disco no hay " +
+                                    "cambios que sincronizar.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     } else {
                         Text(
                             "${localSaves.size} save${if (localSaves.size != 1) "s" else ""} " +

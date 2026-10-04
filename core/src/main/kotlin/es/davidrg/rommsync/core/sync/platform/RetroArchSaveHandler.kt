@@ -74,6 +74,24 @@ class RetroArchSaveHandler : SaveHandler {
             }
         }
 
+        // Fallback: si la ruta configurada apunta DIRECTAMENTE a la carpeta
+        // que contiene los saves del juego (típico en override por juego o
+        // cuando el usuario selecciona la carpeta real del .srm), escanear
+        // también sus ficheros — sin esto findSaves devolvía vacío y el sync
+        // parecía "al día" sin mirar nunca ahí.
+        File(savesBasePath).listFiles()?.filter { file ->
+            file.isFile && (
+                (file.nameWithoutExtension.equals(romBaseName, ignoreCase = true) &&
+                    SAVE_EXTENSIONS.any { file.name.endsWith(it, ignoreCase = true) }) ||
+                    (file.name.startsWith("$romBaseName.state", ignoreCase = true) &&
+                        STATE_PATTERN.matches(file.name))
+                )
+        }?.forEach { file ->
+            if (seenNames.add(file.name.lowercase())) {
+                results.add(file.toLocalSave(romId))
+            }
+        }
+
         results
     }
 
@@ -92,6 +110,9 @@ class RetroArchSaveHandler : SaveHandler {
         val slugDir = File(savesBasePath, "$subDir/$platformSlug")
         val rootDir = File(savesBasePath, subDir)
         val targetDir = when {
+            // El save ya vive directamente en la ruta configurada (override
+            // que apunta a la carpeta real del juego): restaurar ahí.
+            File(savesBasePath, targetFileName).isFile -> File(savesBasePath)
             File(slugDir, targetFileName).isFile -> slugDir
             File(rootDir, targetFileName).isFile -> rootDir
             slugDir.isDirectory -> slugDir
@@ -139,7 +160,11 @@ class RetroArchSaveHandler : SaveHandler {
             scan(File(savesBasePath, "saves/$platformSlug"), isSave) +
                 scan(File(savesBasePath, "saves"), isSave) +
                 scan(File(savesBasePath, "states/$platformSlug"), isState) +
-                scan(File(savesBasePath, "states"), isState)
+                scan(File(savesBasePath, "states"), isState) +
+                // Mismos ficheros que el fallback directo de findSaves: la
+                // huella debe cambiar si cambian, o el atajo por fingerprint
+                // se los saltaría.
+                scan(File(savesBasePath)) { name -> isSave(name) || isState(name) }
             ).sorted()
         if (parts.isEmpty()) null else parts.joinToString("|")
     }

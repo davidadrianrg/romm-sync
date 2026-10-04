@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -65,6 +66,10 @@ class SyncViewModel(
     /** Rutas de saves configuradas (juego/plataforma) que no se pueden leer. */
     private val _pathWarnings = MutableStateFlow<List<String>>(emptyList())
     val pathWarnings: StateFlow<List<String>> = _pathWarnings.asStateFlow()
+
+    /** Juegos comprobados en el último escaneo (-1 = aún sin comprobar). */
+    private val _scanCheckedCount = MutableStateFlow(-1)
+    val scanCheckedCount: StateFlow<Int> = _scanCheckedCount.asStateFlow()
 
     private val _isScanning = MutableStateFlow(false)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
@@ -161,11 +166,14 @@ class SyncViewModel(
     }
 
     private suspend fun scanSavesFromDisk(): List<SavePreviewItem> {
-        val retroArchBase = settingsRepository.retroArchBasePath
-            .stateIn(viewModelScope, SharingStarted.Eagerly, SettingsDataStore.DEFAULT_RETROARCH_PATH)
-            .value
+        // OJO: antes aquí había .stateIn(viewModelScope, Eagerly, DEFAULT).value —
+        // la colecta es asíncrona, así que la lectura inmediata devolvía SIEMPRE
+        // DEFAULT_RETROARCH_PATH: "Comprobar" escaneaba la ruta por defecto
+        // mientras runSync leía la real → nunca veía cambios con ruta custom.
+        val retroArchBase = settingsRepository.retroArchBasePath.first()
 
         val downloadedRoms = romDao.getAllDownloadedRoms()
+        _scanCheckedCount.value = downloadedRoms.count { !it.excludedFromSync }
         if (downloadedRoms.isEmpty()) return emptyList()
 
         val platformConfigs = platformDao.getAllPlatformsBlocking().associateBy { it.slug }
