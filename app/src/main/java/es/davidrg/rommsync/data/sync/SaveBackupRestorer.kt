@@ -30,5 +30,6 @@ class SaveBackupRestorer(
             platformDao = platformDao,
             cacheDir = File(context.cacheDir, "restore"),
             backupManager = backupManager,
+            appContext = context,
         ).restoreBackup(romId, fileName, backupFile)
 }

@@ -12,12 +12,11 @@ import es.davidrg.rommsync.core.remote.dto.NegotiateRequest
 import es.davidrg.rommsync.core.remote.dto.SessionCompleteRequest
 import es.davidrg.rommsync.core.sync.ConflictPolicy
 import es.davidrg.rommsync.core.sync.SaveBackupManager
-import es.davidrg.rommsync.core.sync.SavePathStaging
 import es.davidrg.rommsync.core.sync.StagedPath
 import es.davidrg.rommsync.core.sync.platform.LocalSave
 import es.davidrg.rommsync.core.sync.platform.SaveHandler
 import es.davidrg.rommsync.core.sync.platform.SaveHandlerRegistry
-import es.davidrg.rommsync.core.util.RootShell
+import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -46,6 +45,7 @@ class SyncCoordinator(
     private val syncedHashStore: SyncedHashStore? = null,
     private val backupManager: SaveBackupManager? = null,
     private val conflictPolicy: ConflictPolicy = ConflictPolicy.ASK,
+    private val appContext: Context,
 ) {
 
     /** Copias staged de rutas restringidas de esta corrida. */
@@ -54,20 +54,20 @@ class SyncCoordinator(
     /**
      * Ruta usable por la API File para los handlers: si es /storage/... que
      * la app no puede leer (Android ≥13 bloquea Android/data incluso con
-     * «Todos los archivos») y hay root, staging vía su (ver SavePathStaging).
+     * «Todos los archivos»), staging vía root o SAF (ver SavePathAccess).
      */
     private fun stageFor(basePath: String): String =
         stagedPaths.getOrPut(basePath) {
-            SavePathStaging.stage(basePath, File(cacheDir, "save_stage"))
+            SavePathAccess.stage(basePath, File(cacheDir, "save_stage"), appContext)
         }.dir.path
 
     /** Copia staged de vuelta a la ruta real (la staged se conserva para el resto de la corrida). */
     private fun commitStaged(basePath: String) {
-        stagedPaths[basePath]?.let { SavePathStaging.commit(it) }
+        stagedPaths[basePath]?.let { SavePathAccess.commit(it, appContext) }
     }
 
     private fun cleanupStaged() {
-        stagedPaths.values.forEach { SavePathStaging.cleanup(it) }
+        stagedPaths.values.forEach { SavePathAccess.cleanup(it, appContext) }
         stagedPaths.clear()
     }
 
@@ -386,14 +386,11 @@ class SyncCoordinator(
     }
 
     /**
-     * true si el directorio es legible por la app: bien vía API File, o bien
-     * vía root (rutas `/data/data/...` en teléfonos rooteados).
+     * true si el directorio es utilizable: API File, root (teléfonos
+     * rooteados) o concesión SAF vigente (selector, Android 11/12).
      */
-    private fun isPathReadable(path: String): Boolean {
-        if (File(path).isDirectory) return true
-        return RootShell.available &&
-            RootShell.run("test -d ${RootShell.sq(path)}") != null
-    }
+    private fun isPathReadable(path: String): Boolean =
+        SavePathAccess.isUsable(path, appContext)
 
     /**
      * Resuelve un conflicto pendiente forzando la dirección elegida por el
@@ -545,7 +542,7 @@ class SyncCoordinator(
             val handler = SaveHandlerRegistry.getHandler(rom.platformSlug, config?.emulatorId)
             val retroArchBase = settingsDataStore.getRetroArchBasePathBlocking()
             val rawBase = resolveSavesBasePath(rom, config, retroArchBase)
-            val staged = SavePathStaging.stage(rawBase, File(cacheDir, "save_stage"))
+            val staged = SavePathAccess.stage(rawBase, File(cacheDir, "save_stage"), appContext)
             val ok = runCatching {
                 handler.extractDownload(
                     tempFile = backupFile,
@@ -555,8 +552,8 @@ class SyncCoordinator(
                     targetFileName = fileName,
                 )
             }.getOrDefault(false)
-            if (ok) SavePathStaging.commit(staged)
-            SavePathStaging.cleanup(staged)
+            if (ok) SavePathAccess.commit(staged, appContext)
+            SavePathAccess.cleanup(staged, appContext)
             ok
         }
 

@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import es.davidrg.rommsync.data.sync.SafTreeStore
 import es.davidrg.rommsync.util.hasAllFilesAccess
 import java.io.File
 
@@ -52,10 +53,11 @@ private const val DEFAULT_START = "/storage/emulated/0"
 /**
  * Explorador de carpetas propio basado en [java.io.File].
  *
- * A diferencia del Storage Access Framework (que en Android 11+ no permite
- * navegar a `Android/data/...`), este diálogo usa acceso directo al sistema de
- * ficheros, disponible gracias a `MANAGE_EXTERNAL_STORAGE`. Así el usuario puede
- * llegar a las carpetas internas de los emuladores donde viven los saves.
+ * Navega con acceso directo al sistema de ficheros (MANAGE_EXTERNAL_STORAGE).
+ * Como Android bloquea `Android/data` incluso con ese permiso, si la carpeta
+ * no es legible se ofrece «Otorgar acceso» vía ACTION_OPEN_DOCUMENT_TREE (el
+ * mecanismo de ZArchiver en Android 11/12, sin root): la concesión se
+ * persiste por ruta y el sync la usa vía staging (SafStaging).
  *
  * Si el permiso aún no está concedido se muestra un aviso con botón para
  * pedirlo, y al volver de Ajustes se relista el directorio actual. También se
@@ -86,6 +88,28 @@ fun FolderPickerDialog(
         ActivityResultContracts.StartActivityForResult(),
     ) {
         hasAccess = hasAllFilesAccess()
+        refreshTick++
+    }
+
+    // Selector del sistema (SAF): en Android 11/12 permite elegir dentro de
+    // Android/data (mecanismo de ZArchiver sin root). La concesión se persiste
+    // por ruta (SafTreeStore) y el sync la usa vía staging (SafStaging).
+    val safLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                )
+            }
+            SafTreeStore.pathFromTreeUri(uri)?.let { path ->
+                SafTreeStore(context).put(path, uri.toString())
+                currentDir = File(path)
+            }
+        }
         refreshTick++
     }
 
@@ -161,21 +185,44 @@ fun FolderPickerDialog(
                 LazyColumn(modifier = Modifier.heightIn(max = 320.dp)) {
                     if (listing == null) {
                         item {
-                            Text(
-                                if (hasAccess &&
-                                    (currentDir.path.contains("/Android/data") ||
-                                        currentDir.path.contains("/Android/obb"))
-                                ) {
-                                    "Android ≥13 bloquea Android/data incluso con " +
-                                        "«Todos los archivos». Solo lectible con root (Magisk)."
-                                } else {
-                                    "No se pudo leer esta carpeta. Comprueba el permiso " +
-                                        "«Acceso a todos los archivos» en Ajustes."
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(vertical = 12.dp),
-                            )
+                            val granted = remember(currentDir.path, refreshTick) {
+                                SafTreeStore(context).hasGrantFor(currentDir.path)
+                            }
+                            if (granted) {
+                                Text(
+                                    "Acceso concedido vía selector del sistema: el sync " +
+                                        "lee y escribe esta carpeta aunque la lista esté " +
+                                        "vacía. Pulsa «Usar esta carpeta».",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(vertical = 12.dp),
+                                )
+                            } else {
+                                Text(
+                                    if (hasAccess &&
+                                        (currentDir.path.contains("/Android/data") ||
+                                            currentDir.path.contains("/Android/obb"))
+                                    ) {
+                                        "Android bloquea Android/data incluso con «Todos " +
+                                            "los archivos». Otórgalo con el selector del " +
+                                            "sistema (como hace ZArchiver)."
+                                    } else {
+                                        "No se pudo leer esta carpeta. Comprueba el permiso " +
+                                            "«Acceso a todos los archivos» en Ajustes."
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.padding(top = 12.dp),
+                                )
+                                Spacer(modifier = Modifier.size(4.dp))
+                                TextButton(
+                                    onClick = {
+                                        safLauncher.launch(
+                                            SafTreeStore.initialTreeUri(currentDir.path),
+                                        )
+                                    },
+                                ) { Text("Otorgar acceso") }
+                            }
                         }
                     }
                     if (canGoUp) {

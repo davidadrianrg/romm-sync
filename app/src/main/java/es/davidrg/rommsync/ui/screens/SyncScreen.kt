@@ -87,6 +87,7 @@ fun SyncScreen() {
                     romDao = database.romDao(),
                     platformDao = database.platformDao(),
                     syncedHashStore = es.davidrg.rommsync.data.sync.SyncedHashStore(context),
+                    appContext = context.applicationContext,
                 )
             }
         }

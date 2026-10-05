@@ -14,9 +14,9 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import es.davidrg.rommsync.data.sync.SyncedHashStore
-import es.davidrg.rommsync.core.sync.SavePathStaging
+import es.davidrg.rommsync.data.sync.SavePathAccess
 import es.davidrg.rommsync.core.sync.platform.SaveHandlerRegistry
-import es.davidrg.rommsync.core.util.RootShell
+import android.content.Context
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,6 +44,7 @@ class SyncViewModel(
     private val romDao: RomDao,
     private val platformDao: PlatformDao,
     private val syncedHashStore: SyncedHashStore,
+    private val appContext: Context,
 ) : ViewModel() {
 
     val retroArchBasePath: StateFlow<String> = settingsRepository.retroArchBasePath
@@ -207,23 +208,20 @@ class SyncViewModel(
             val explicitOverride = !rom.savesPathOverride.isNullOrBlank() ||
                 config?.savesPathOverride?.isNotBlank() == true
             if (explicitOverride && warnings.size < 10) {
-                val readable = File(effectiveBasePath).isDirectory ||
-                    (RootShell.available &&
-                        RootShell.run("test -d ${RootShell.sq(effectiveBasePath)}") != null)
-                if (!readable) {
+                if (!SavePathAccess.isUsable(effectiveBasePath, appContext)) {
                     val restricted = effectiveBasePath.contains("/Android/data") ||
                         effectiveBasePath.contains("/Android/obb") ||
                         effectiveBasePath.contains("/data/data")
-                    val hint = if (restricted && !RootShell.available) {
-                        " — Android ≥13 la bloquea: sin root (Magisk) no es legible"
+                    val hint = if (restricted) {
+                        " — sin root, usa «Otorgar acceso» en el selector de carpetas"
                     } else ""
                     warnings.add("${rom.name}: $effectiveBasePath$hint")
                 }
             }
 
-            // Ruta restringida (Android/data) con root: staging temporal para
-            // que el handler trabaje con la API File tal cual.
-            val staged = SavePathStaging.stage(effectiveBasePath, saveStageRoot)
+            // Ruta restringida (Android/data): staging temporal vía root o SAF
+            // para que el handler trabaje con la API File tal cual.
+            val staged = SavePathAccess.stage(effectiveBasePath, saveStageRoot, appContext)
             val saves = try {
                 handler.findSaves(
                     romId = rom.romId,
@@ -233,7 +231,7 @@ class SyncViewModel(
                     romLocalPath = rom.localPath,
                 )
             } finally {
-                SavePathStaging.cleanup(staged)
+                SavePathAccess.cleanup(staged, appContext)
             }
 
             for (save in saves) {

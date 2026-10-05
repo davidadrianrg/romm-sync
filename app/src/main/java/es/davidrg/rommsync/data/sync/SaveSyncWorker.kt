@@ -59,6 +59,7 @@ class SaveSyncWorker(
             conflictPolicy = es.davidrg.rommsync.core.sync.ConflictPolicy.fromId(
                 dataStore.getConflictPolicyBlocking(),
             ),
+            appContext = applicationContext,
         )
 
         // Modo resolución de conflicto único (disparado desde la UI de conflictos)
