@@ -78,5 +78,5 @@ object DesktopConfig {
         set(v) = prefs.put("skipped_version", v)
 
     /** Versión de la app desktop (para el comprobador de actualizaciones). */
-    const val appVersion: String = "0.8.2"
+    const val appVersion: String = "0.8.3"
 }
