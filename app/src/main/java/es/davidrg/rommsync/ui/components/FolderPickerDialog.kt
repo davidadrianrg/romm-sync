@@ -162,8 +162,16 @@ fun FolderPickerDialog(
                     if (listing == null) {
                         item {
                             Text(
-                                "No se pudo leer esta carpeta. Comprueba el permiso " +
-                                    "«Acceso a todos los archivos» en Ajustes.",
+                                if (hasAccess &&
+                                    (currentDir.path.contains("/Android/data") ||
+                                        currentDir.path.contains("/Android/obb"))
+                                ) {
+                                    "Android ≥13 bloquea Android/data incluso con " +
+                                        "«Todos los archivos». Solo lectible con root (Magisk)."
+                                } else {
+                                    "No se pudo leer esta carpeta. Comprueba el permiso " +
+                                        "«Acceso a todos los archivos» en Ajustes."
+                                },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.padding(vertical = 12.dp),

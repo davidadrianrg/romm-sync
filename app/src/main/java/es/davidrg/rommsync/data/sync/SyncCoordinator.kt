@@ -12,6 +12,8 @@ import es.davidrg.rommsync.core.remote.dto.NegotiateRequest
 import es.davidrg.rommsync.core.remote.dto.SessionCompleteRequest
 import es.davidrg.rommsync.core.sync.ConflictPolicy
 import es.davidrg.rommsync.core.sync.SaveBackupManager
+import es.davidrg.rommsync.core.sync.SavePathStaging
+import es.davidrg.rommsync.core.sync.StagedPath
 import es.davidrg.rommsync.core.sync.platform.LocalSave
 import es.davidrg.rommsync.core.sync.platform.SaveHandler
 import es.davidrg.rommsync.core.sync.platform.SaveHandlerRegistry
@@ -45,6 +47,29 @@ class SyncCoordinator(
     private val backupManager: SaveBackupManager? = null,
     private val conflictPolicy: ConflictPolicy = ConflictPolicy.ASK,
 ) {
+
+    /** Copias staged de rutas restringidas de esta corrida. */
+    private val stagedPaths = mutableMapOf<String, StagedPath>()
+
+    /**
+     * Ruta usable por la API File para los handlers: si es /storage/... que
+     * la app no puede leer (Android ≥13 bloquea Android/data incluso con
+     * «Todos los archivos») y hay root, staging vía su (ver SavePathStaging).
+     */
+    private fun stageFor(basePath: String): String =
+        stagedPaths.getOrPut(basePath) {
+            SavePathStaging.stage(basePath, File(cacheDir, "save_stage"))
+        }.dir.path
+
+    /** Copia staged de vuelta a la ruta real (la staged se conserva para el resto de la corrida). */
+    private fun commitStaged(basePath: String) {
+        stagedPaths[basePath]?.let { SavePathStaging.commit(it) }
+    }
+
+    private fun cleanupStaged() {
+        stagedPaths.values.forEach { SavePathStaging.cleanup(it) }
+        stagedPaths.clear()
+    }
 
     suspend fun runSync(): SyncResult = withContext(Dispatchers.IO) {
         val serverUrl = settingsDataStore.getServerUrlBlocking()
@@ -85,7 +110,8 @@ class SyncCoordinator(
             )
             handlerByRom[rom.romId] = handler
 
-            val effectiveBasePath = resolveSavesBasePath(rom, config, retroArchBase)
+            val rawBasePath = resolveSavesBasePath(rom, config, retroArchBase)
+            val effectiveBasePath = stageFor(rawBasePath)
 
             // Una ruta configurada (por juego o por plataforma) que no se puede
             // leer haría que el handler devolviera 0 saves en silencio: el sync
@@ -207,7 +233,8 @@ class SyncCoordinator(
                     val opSaveId = op.saveId
                     if (rom != null && opSaveId != null && handler != null) {
                         val config = platformConfigs[rom.platformSlug]
-                        val effectiveBasePath = resolveSavesBasePath(rom, config, retroArchBase)
+                        val rawBasePath = resolveSavesBasePath(rom, config, retroArchBase)
+                        val effectiveBasePath = stageFor(rawBasePath)
                         // Copia de seguridad de la copia local antes de pisarla
                         backupLocalSave(op.romId, op.fileName, localSavesMap[op.romId], handler)
                         val ok = executeDownload(
@@ -221,6 +248,8 @@ class SyncCoordinator(
                         )
                         if (ok) {
                             completed++
+                            // Ruta restringida staged: devolver la descarga al original
+                            commitStaged(rawBasePath)
                             // Tras un download exitoso, el hash local es el del servidor
                             op.serverContentHash?.let { hash ->
                                 syncedHashStore?.setSyncedHash(op.romId, op.fileName, hash)
@@ -273,11 +302,13 @@ class SyncCoordinator(
                             val saveId = op.saveId
                             if (handler != null && rom != null && saveId != null) {
                                 val config = platformConfigs[rom.platformSlug]
-                                val base = resolveSavesBasePath(rom, config, retroArchBase)
+                                val rawBase = resolveSavesBasePath(rom, config, retroArchBase)
+                                val base = stageFor(rawBase)
                                 backupLocalSave(op.romId, op.fileName, localSavesMap[op.romId], handler)
                                 if (executeDownload(api, saveId, deviceId, rom, op.fileName, base, handler)) {
                                     completed++
                                     autoResolvedConflicts++
+                                    commitStaged(rawBase)
                                 } else {
                                     conflicts.add(op)
                                 }
@@ -320,7 +351,7 @@ class SyncCoordinator(
             if (failed == 0 || rom.romId !in failedRomIds) {
                 val handler = handlerByRom[rom.romId] ?: continue
                 val config = platformConfigs[rom.platformSlug]
-                val effectiveBasePath = resolveSavesBasePath(rom, config, retroArchBase)
+                val effectiveBasePath = stageFor(resolveSavesBasePath(rom, config, retroArchBase))
                 val fp = handler.savesFingerprint(
                     romId = rom.romId,
                     romFileName = rom.fileName,
@@ -331,6 +362,8 @@ class SyncCoordinator(
                 if (fp != null) syncedHashStore?.setFingerprint(rom.romId, fp)
             }
         }
+
+        cleanupStaged()
 
         SyncResult(
             uploaded = negotiateResponse.operations.count { it.action == "upload" },
@@ -396,7 +429,8 @@ class SyncCoordinator(
             platformSlug = rom.platformSlug,
             emulatorId = config?.emulatorId,
         )
-        val effectiveBasePath = resolveSavesBasePath(rom, config, retroArchBase)
+        val rawBasePath = resolveSavesBasePath(rom, config, retroArchBase)
+        val effectiveBasePath = stageFor(rawBasePath)
 
         when (resolution) {
             "local" -> {
@@ -464,6 +498,7 @@ class SyncCoordinator(
                     handler = handler,
                 )
                 if (ok) {
+                    commitStaged(rawBasePath)
                     op.serverContentHash?.let { hash ->
                         syncedHashStore?.setSyncedHash(rom.romId, fileName, hash)
                     }
@@ -479,7 +514,7 @@ class SyncCoordinator(
                 }
             }
             else -> SyncResult(error = "Resolución desconocida: $resolution")
-        }
+        }.also { cleanupStaged() }
     }
 
     /**
@@ -509,16 +544,20 @@ class SyncCoordinator(
             val config = platformDao.getAllPlatformsBlocking().find { it.slug == rom.platformSlug }
             val handler = SaveHandlerRegistry.getHandler(rom.platformSlug, config?.emulatorId)
             val retroArchBase = settingsDataStore.getRetroArchBasePathBlocking()
-            val base = resolveSavesBasePath(rom, config, retroArchBase)
-            runCatching {
+            val rawBase = resolveSavesBasePath(rom, config, retroArchBase)
+            val staged = SavePathStaging.stage(rawBase, File(cacheDir, "save_stage"))
+            val ok = runCatching {
                 handler.extractDownload(
                     tempFile = backupFile,
                     romFileName = rom.fileName,
                     platformSlug = rom.platformSlug,
-                    savesBasePath = base,
+                    savesBasePath = staged.dir.path,
                     targetFileName = fileName,
                 )
             }.getOrDefault(false)
+            if (ok) SavePathStaging.commit(staged)
+            SavePathStaging.cleanup(staged)
+            ok
         }
 
     private fun resolveSavesBasePath(
