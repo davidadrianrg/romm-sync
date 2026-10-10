@@ -1,12 +1,28 @@
 package es.davidrg.rommsync.desktop
 
+import es.davidrg.rommsync.core.i18n.I18n
+import java.util.Locale
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 class DesktopEsdeExporterTest {
+
+    private val systemLocale = I18n.locale
+
+    @Before
+    fun spanish() {
+        I18n.locale = Locale.forLanguageTag("es")
+    }
+
+    @After
+    fun restoreLocale() {
+        I18n.locale = systemLocale
+    }
 
     @get:Rule
     val tmp = TemporaryFolder()

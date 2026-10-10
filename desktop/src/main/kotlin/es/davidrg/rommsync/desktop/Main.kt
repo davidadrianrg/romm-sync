@@ -12,6 +12,7 @@ import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import es.davidrg.rommsync.core.i18n.tr
 import es.davidrg.rommsync.desktop.theme.RomMSyncDesktopTheme
 import java.awt.Dimension
 import java.awt.KeyEventDispatcher
@@ -97,12 +98,12 @@ fun main() = application {
             icon = painterResource("romm-sync-icon.png"),
             tooltip = "RomM Sync",
         ) {
-            Item("Sincronizar saves") { state.syncSaves() }
-            Item("Mostrar RomM Sync") {
+            Item(tr("window.tray.sync_saves")) { state.syncSaves() }
+            Item(tr("window.tray.show")) {
                 appWindow?.isVisible = true
                 appWindow?.toFront()
             }
-            Item("Salir") { exitApplication() }
+            Item(tr("window.tray.quit")) { exitApplication() }
         }
     }
 }

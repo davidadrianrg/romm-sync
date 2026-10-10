@@ -1,6 +1,7 @@
 package es.davidrg.rommsync.desktop
 
 import es.davidrg.rommsync.core.download.PathMapper
+import es.davidrg.rommsync.core.i18n.tr
 import es.davidrg.rommsync.core.remote.RomMApiService
 import es.davidrg.rommsync.core.remote.dto.RomDto
 import kotlinx.coroutines.Dispatchers
@@ -31,10 +32,12 @@ class DownloadEngine(
     /** Progreso notificado durante la descarga. total=-1 → indeterminado (zip). */
     data class Progress(val bytesRead: Long, val total: Long, val speedBps: Long)
 
+    data class Result(val message: String, val failed: Boolean = false)
+
     suspend fun download(
         rom: RomDto,
         onProgress: (Progress) -> Unit = {},
-    ): String = withContext(Dispatchers.IO) {
+    ): Result = withContext(Dispatchers.IO) {
         val fileName = rom.fileName
         // Carpeta por plataforma (override del usuario) o slug por defecto
         val folderOverride = library?.platform(rom.platformSlug ?: "")?.romsFolderOverride
@@ -56,16 +59,16 @@ class DownloadEngine(
                 416 -> {
                     // Range insatisfiable: el fichero ya está completo en disco.
                     registerInLibrary(rom, target)
-                    return@withContext "Descargado ${rom.name} (ya completo)"
+                    return@withContext Result(tr("download.done_already_complete", rom.name))
                 }
                 else -> {
                     response.body()?.close()
                     response.raw().close()
-                    return@withContext "Error HTTP ${response.code()}"
+                    return@withContext Result(tr("download.http_error", response.code()), failed = true)
                 }
             }
         }
-        val body = response.body() ?: return@withContext "Respuesta vacía"
+        val body = response.body() ?: return@withContext Result(tr("download.empty_response"))
 
         val job = coroutineContext[Job]
 
@@ -74,7 +77,7 @@ class DownloadEngine(
         if (isZipStream) {
             val created = extractZipStream(body, targetDir, job, onProgress)
             registerInLibrary(rom, targetDir)
-            return@withContext "Descargado ${rom.name} (${created.size} ficheros extraídos)"
+            return@withContext Result(tr("download.done_extracted", rom.name, created.size))
         }
 
         // Fichero único — con reanudación: si hay un parcial de una descarga
@@ -98,11 +101,11 @@ class DownloadEngine(
         val hashError = verifyHash(rom, target)
         if (hashError != null) {
             target.delete() // corrupto: no dejarlo en la biblioteca
-            return@withContext hashError
+            return@withContext Result(hashError, failed = true)
         }
 
         registerInLibrary(rom, target)
-        return@withContext "Descargado ${rom.name} → ${target.absolutePath}"
+        return@withContext Result(tr("download.done_path", rom.name, target.absolutePath))
     }
 
     /**
@@ -128,7 +131,7 @@ class DownloadEngine(
             }
         }.getOrNull() ?: return null
         return if (!actual.equals(expected, ignoreCase = true)) {
-            "Error: el hash del fichero descargado no coincide (esperado ${expected.take(8)}…, obtenido ${actual.take(8)}…)"
+            tr("download.hash_mismatch", expected.take(8), actual.take(8))
         } else {
             null
         }

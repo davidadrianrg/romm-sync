@@ -1,5 +1,7 @@
 package es.davidrg.rommsync.core.sync.platform
 
+import es.davidrg.rommsync.core.i18n.tr
+
 /**
  * Registry que selecciona el [SaveHandler] correcto según la plataforma
  * y el emulador configurado.
@@ -25,7 +27,7 @@ object SaveHandlerRegistry {
     /**
      * Emuladores soportados con sus IDs para configuración por plataforma.
      */
-    enum class EmulatorId(val id: String, val displayName: String) {
+    enum class EmulatorId(val id: String, private val brand: String? = null) {
         RETROARCH("retroarch", "RetroArch"),
         MELONDS("melonds", "melonDS"),
         PPSSPP("ppsspp", "PPSSPP"),
@@ -36,7 +38,10 @@ object SaveHandlerRegistry {
         EDEN("eden", "Eden"),
         AZAHAR("azahar", "Azahar"),
         CEMU("cemu", "Cemu"),
-        ANDROID_NATIVE("android_native", "Nativo Android"),
+        ANDROID_NATIVE("android_native"),
+        ;
+
+        val displayName: String get() = brand ?: tr("emulator.$id")
     }
 
     /**
