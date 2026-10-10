@@ -50,6 +50,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import es.davidrg.rommsync.core.i18n.tr
 import es.davidrg.rommsync.core.remote.dto.RomDto
 import java.net.URI
 
@@ -73,7 +74,7 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedButton(onClick = state::closeGame) {
-                Text("← Volver")
+                Text(tr("game.back"))
             }
             Spacer(Modifier.width(12.dp))
             Text(
@@ -106,7 +107,7 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
                 }
                 val metaLine = buildList {
                     if (rep.regions.isNotEmpty()) add(regionsLabel(rep))
-                    rep.revision?.takeIf { it.isNotBlank() }?.let { add("Rev $it") }
+                    rep.revision?.takeIf { it.isNotBlank() }?.let { add(tr("game.revision", it)) }
                     releaseYear(rep)?.let { add("$it") }
                 }.joinToString(" • ")
                 if (metaLine.isNotBlank()) {
@@ -129,17 +130,17 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
                     )
                     if (summary.length > 120) {
                         TextButton(onClick = { expandedSummary = !expandedSummary }) {
-                            Text(if (expandedSummary) "Ver menos" else "Ver más")
+                            Text(if (expandedSummary) tr("game.summary.show_less") else tr("game.summary.show_more"))
                         }
                     }
                 }
 
                 Spacer(Modifier.height(12.dp))
-                DetailRow("Archivo", rep.fileName)
-                DetailRow("Tamaño", formatBytes(rep.fileSizeBytes))
-                rep.fileNameNoTags?.let { DetailRow("Nombre limpio", it) }
-                rep.fileExtension?.let { DetailRow("Extensión", it) }
-                if (card.discCount > 1) DetailRow("Multi-archivo", "Sí (${card.discCount} archivos)")
+                DetailRow(tr("game.info.file"), rep.fileName)
+                DetailRow(tr("game.info.size"), formatBytes(rep.fileSizeBytes))
+                rep.fileNameNoTags?.let { DetailRow(tr("game.info.clean_name"), it) }
+                rep.fileExtension?.let { DetailRow(tr("game.info.extension"), it) }
+                if (card.discCount > 1) DetailRow(tr("game.info.multi_file"), tr("game.info.multi_file_value", card.discCount))
                 rep.igdbId?.let { DetailRow("IGDB ID", it.toString()) }
 
                 Spacer(Modifier.height(16.dp))
@@ -153,7 +154,7 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
                                 modifier = Modifier.size(20.dp),
                             )
                             Spacer(Modifier.width(6.dp))
-                            Text("Descargado", color = MaterialTheme.colorScheme.secondary)
+                            Text(tr("common.downloaded"), color = MaterialTheme.colorScheme.secondary)
                             Spacer(Modifier.width(16.dp))
                             OutlinedButton(
                                 onClick = { showDeleteDialog = true },
@@ -163,19 +164,19 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
                             ) {
                                 Icon(AppIcons.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(6.dp))
-                                Text("Eliminar descarga")
+                                Text(tr("game.delete_download"))
                             }
                         }
                         downloading -> {
                             CircularProgressIndicator(Modifier.size(18.dp))
                             Spacer(Modifier.width(10.dp))
-                            Text("Descargando…")
+                            Text(tr("common.downloading"))
                         }
                         else -> {
                             Button(onClick = { state.enqueue(card) }) {
                                 Icon(AppIcons.Download, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(8.dp))
-                                Text("Descargar")
+                                Text(tr("common.download"))
                             }
                         }
                     }
@@ -187,7 +188,7 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
         val screenshots = rep.mergedScreenshots
         if (screenshots.isNotEmpty() || rep.youtubeVideoId != null) {
             Spacer(Modifier.height(20.dp))
-            Text("Multimedia", style = MaterialTheme.typography.titleMedium)
+            Text(tr("game.media.title"), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
             if (screenshots.isNotEmpty()) {
                 var viewerIndex by remember { mutableStateOf<Int?>(null) }
@@ -210,7 +211,7 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
                 OutlinedButton(onClick = { openTrailer(videoId) }) {
                     Icon(AppIcons.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Ver tráiler")
+                    Text(tr("game.media.watch_trailer"))
                 }
             }
         }
@@ -227,7 +228,7 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
         if (rep.multi || rep.hasMultipleFiles || rep.files.size > 1) {
             Spacer(Modifier.height(20.dp))
             val fileRows = rep.files.ifEmpty { listOf(es.davidrg.rommsync.core.remote.dto.RomFileDto(rep.fileName, rep.fileSizeBytes)) }
-            Text("Discos / versiones (${fileRows.size})", style = MaterialTheme.typography.titleMedium)
+            Text(tr("game.files.title", fileRows.size), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(4.dp))
             fileRows.forEach { file ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -246,13 +247,13 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             icon = { Icon(AppIcons.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-            title = { Text("¿Eliminar «${rep.name}»?") },
+            title = { Text(tr("game.delete.title", rep.name)) },
             text = {
                 Text(
                     if (card.discCount > 1) {
-                        "Se borrarán los archivos de todos los discos de este juego del disco local. La copia del servidor RomM no se toca."
+                        tr("game.delete.message_multi_disc")
                     } else {
-                        "Se borrará el archivo descargado del disco local. La copia del servidor RomM no se toca."
+                        tr("game.delete.message_single")
                     },
                 )
             },
@@ -261,9 +262,9 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
                     showDeleteDialog = false
                     state.deleteDownload(card)
                     state.closeGame()
-                }) { Text("Eliminar", color = MaterialTheme.colorScheme.error) }
+                }) { Text(tr("game.delete.confirm"), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("Cancelar") } },
+            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text(tr("common.cancel")) } },
         )
     }
 }
@@ -275,13 +276,13 @@ private fun RomSyncConfigSection(card: GameCard, state: DesktopAppState, romsVer
     var excluded by remember(card, romsVersion) { mutableStateOf(entry.excludedFromSync) }
     var savesPath by remember(card, romsVersion) { mutableStateOf(entry.savesPathOverride ?: "") }
 
-    Text("Sincronización de partidas", style = MaterialTheme.typography.titleMedium)
+    Text(tr("common.save_sync"), style = MaterialTheme.typography.titleMedium)
     Spacer(Modifier.height(8.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text("Excluir de la sincronización", style = MaterialTheme.typography.bodyMedium)
+            Text(tr("game.sync.exclude"), style = MaterialTheme.typography.bodyMedium)
             Text(
-                "Este juego no subirá ni bajará saves",
+                tr("game.sync.exclude_hint"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -293,8 +294,8 @@ private fun RomSyncConfigSection(card: GameCard, state: DesktopAppState, romsVer
     }
     Spacer(Modifier.height(12.dp))
     Text(
-        if (entry.savesPathOverride.isNullOrBlank()) "Ruta de saves: heredada de la plataforma"
-        else "Ruta de saves personalizada para este juego",
+        if (entry.savesPathOverride.isNullOrBlank()) tr("game.sync.path_inherited")
+        else tr("game.sync.path_custom"),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.primary,
     )
@@ -303,26 +304,26 @@ private fun RomSyncConfigSection(card: GameCard, state: DesktopAppState, romsVer
         OutlinedTextField(
             savesPath,
             { savesPath = it },
-            label = { Text("Ruta personalizada (vacío = default)") },
+            label = { Text(tr("game.sync.path_label")) },
             singleLine = true,
             modifier = Modifier.weight(1f),
         )
         Spacer(Modifier.width(8.dp))
-        IconButton(onClick = { pickDirectory("Carpeta de saves", savesPath)?.let { savesPath = it } }) {
-            Icon(AppIcons.FolderOpen, contentDescription = "Seleccionar carpeta")
+        IconButton(onClick = { pickDirectory(tr("game.sync.saves_folder"), savesPath)?.let { savesPath = it } }) {
+            Icon(AppIcons.FolderOpen, contentDescription = tr("common.select_folder"))
         }
     }
     Spacer(Modifier.height(6.dp))
     Row {
         TextButton(onClick = {
             state.setRomSavesPath(card.rep.id, savesPath)
-            state.showSnackbar("Ruta de saves guardada")
-        }) { Text("Guardar ruta") }
+            state.showSnackbar(tr("game.sync.path_saved"))
+        }) { Text(tr("game.sync.save_path")) }
         if (!entry.savesPathOverride.isNullOrBlank() || savesPath.isNotBlank()) {
             TextButton(onClick = {
                 savesPath = ""
                 state.setRomSavesPath(card.rep.id, null)
-            }) { Text("Restablecer") }
+            }) { Text(tr("game.sync.reset")) }
         }
     }
 
@@ -334,9 +335,9 @@ private fun RomSyncConfigSection(card: GameCard, state: DesktopAppState, romsVer
         Spacer(Modifier.height(12.dp))
         HorizontalDivider()
         Spacer(Modifier.height(12.dp))
-        Text("Copias de seguridad (${versions.size})", style = MaterialTheme.typography.titleSmall)
+        Text(tr("game.backups.title", versions.size), style = MaterialTheme.typography.titleSmall)
         Text(
-            "Se guardan automáticamente antes de que un sync sobrescriba un save de este juego.",
+            tr("game.backups.hint"),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -351,7 +352,7 @@ private fun RomSyncConfigSection(card: GameCard, state: DesktopAppState, romsVer
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                TextButton(onClick = { state.restoreSaveBackup(v) }) { Text("Restaurar") }
+                TextButton(onClick = { state.restoreSaveBackup(v) }) { Text(tr("game.backups.restore")) }
             }
         }
     }
@@ -501,7 +502,7 @@ fun ScreenshotViewerDialog(urls: List<String?>, initialIndex: Int, onDismiss: ()
                 onClick = onDismiss,
                 modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
             ) {
-                Icon(AppIcons.Close, contentDescription = "Cerrar", tint = Color.White)
+                Icon(AppIcons.Close, contentDescription = tr("game.viewer.close"), tint = Color.White)
             }
         }
     }

@@ -1,5 +1,6 @@
 package es.davidrg.rommsync.desktop
 
+import es.davidrg.rommsync.core.i18n.tr
 import es.davidrg.rommsync.core.remote.NetworkModule
 import es.davidrg.rommsync.core.remote.RomMApiService
 import es.davidrg.rommsync.core.remote.dto.PlatformDto
@@ -26,15 +27,18 @@ enum class Section { PLATFORMS, LIBRARY, DOWNLOADS, SAVES, SETTINGS }
 enum class LibraryFilter { ALL, MISSING, DOWNLOADED }
 
 /** Criterios de ordenación de la biblioteca. */
-enum class LibrarySort(val label: String) {
-    NAME_ASC("Nombre A-Z"),
-    NAME_DESC("Nombre Z-A"),
-    SIZE_DESC("Tamaño ↓"),
-    SIZE_ASC("Tamaño ↑"),
-    YEAR_DESC("Año ↓"),
-    YEAR_ASC("Año ↑"),
-    RATING_DESC("Rating ↓"),
-    RATING_ASC("Rating ↑"),
+enum class LibrarySort {
+    NAME_ASC,
+    NAME_DESC,
+    SIZE_DESC,
+    SIZE_ASC,
+    YEAR_DESC,
+    YEAR_ASC,
+    RATING_DESC,
+    RATING_ASC,
+    ;
+
+    val label: String get() = tr("state.library_sort.${name.lowercase()}")
 }
 
 /** Estado de un elemento de la cola de descargas. */
@@ -157,7 +161,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
                 _connected.value = true
             } catch (e: Exception) {
                 _connected.value = false
-                if (!silent) showSnackbar("Error de conexión: ${e.message}")
+                if (!silent) showSnackbar(tr("connection.error", e.message))
             } finally {
                 _loadingPlatforms.value = false
             }
@@ -210,7 +214,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
                 }
                 _roms.value = all
             } catch (e: Exception) {
-                showSnackbar("Error cargando ROMs: ${e.message}")
+                showSnackbar(tr("app.snackbar.load_roms_error", e.message))
             } finally {
                 _loadingRoms.value = false
             }
@@ -441,7 +445,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
     /** Encola la descarga del juego completo (todos los discos del grupo). */
     fun enqueue(card: GameCard) {
         card.groupRoms.forEach { rom -> enqueueRom(rom, notify = false) }
-        showSnackbar("Descargando ${card.rep.name}")
+        showSnackbar(tr("app.snackbar.downloading", card.rep.name))
     }
 
     /** Descarga por lotes: encola todos los juegos faltantes de la vista. */
@@ -449,7 +453,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
         val missing = missingGames()
         if (missing.isEmpty()) return
         missing.forEach { card -> card.groupRoms.forEach { rom -> enqueueRom(rom, notify = false) } }
-        showSnackbar("Encoladas ${missing.size} descargas")
+        showSnackbar(tr("app.snackbar.downloads_queued", missing.size))
     }
 
     /**
@@ -461,7 +465,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
         val svc = api ?: return
         if (_tasks.value.any { it.romId == rom.id && it.active }) return
         _tasks.value = _tasks.value + DesktopTask(rom.id, rom.name, rom.platformSlug, "queued")
-        if (notify) showSnackbar("Descargando ${rom.name}")
+        if (notify) showSnackbar(tr("app.snackbar.downloading", rom.name))
         val job = scope.launch {
             downloadGate.withPermit {
                 if (!_tasks.value.any { it.romId == rom.id && it.active }) return@withPermit
@@ -473,20 +477,20 @@ class DesktopAppState(private val scope: CoroutineScope) {
                         cacheDir = config.cacheDir,
                         library = library,
                     )
-                    val msg = engine.download(rom) { p ->
+                    val (msg, failed) = engine.download(rom) { p ->
                         updateTask(rom.id) { t ->
                             t.copy(bytesRead = p.bytesRead, totalBytes = p.total, speedBps = p.speedBps)
                         }
                     }
-                    if (msg.startsWith("Error")) {
+                    if (failed) {
                         updateTask(rom.id) { it.copy(status = "error", message = msg) }
-                        DesktopNotifier.notify("RomM Sync", "Error descargando ${rom.name}: $msg")
+                        DesktopNotifier.notify("RomM Sync", tr("app.notify.download_error", rom.name, msg))
                     } else {
                         downloadedIds.add(rom.id)
                         _downloadedVersion.value = _downloadedVersion.value + 1
                         updateTask(rom.id) { it.copy(status = "done", message = msg) }
                         refreshLocalStats()
-                        DesktopNotifier.notify("Descarga completada", rom.name)
+                        DesktopNotifier.notify(tr("common.download_completed"), rom.name)
                     }
                 } catch (e: CancellationException) {
                     throw e // cancelada por el usuario; la tarea ya se quitó de la lista
@@ -510,14 +514,14 @@ class DesktopAppState(private val scope: CoroutineScope) {
         val active = _tasks.value.filter { it.active }
         active.forEach { taskJobs.remove(it.romId)?.cancel() }
         _tasks.value = _tasks.value.filterNot { it.active }
-        if (active.isNotEmpty()) showSnackbar("Canceladas ${active.size} descargas")
+        if (active.isNotEmpty()) showSnackbar(tr("app.snackbar.downloads_cancelled", active.size))
     }
 
     /** Reintenta una descarga fallida (reanuda desde el parcial si existe). */
     fun retryDownload(romId: Int) {
         val rom = _roms.value.firstOrNull { it.id == romId }
         if (rom == null) {
-            showSnackbar("No se encontró el ROM en la biblioteca actual")
+            showSnackbar(tr("app.snackbar.retry_rom_not_found"))
             return
         }
         _tasks.value = _tasks.value.filterNot { it.romId == romId }
@@ -575,9 +579,9 @@ class DesktopAppState(private val scope: CoroutineScope) {
             refreshLocalStats()
             showSnackbar(
                 when {
-                    sharedDir -> "Eliminado del registro (la carpeta de la plataforma es compartida: borra los ficheros a mano)"
-                    deletedAny -> "Eliminado ${card.rep.name}"
-                    else -> "Eliminado ${card.rep.name} del registro (ficheros no encontrados)"
+                    sharedDir -> tr("app.snackbar.deleted_shared_dir")
+                    deletedAny -> tr("app.snackbar.deleted", card.rep.name)
+                    else -> tr("app.snackbar.deleted_files_missing", card.rep.name)
                 },
             )
         }
@@ -617,15 +621,15 @@ class DesktopAppState(private val scope: CoroutineScope) {
      * descargados (equivalente al "Escanear biblioteca" de Android).
      */
     fun scanLibrary() {
-        val svc = api ?: run { showSnackbar("Conecta el servidor primero"); return }
+        val svc = api ?: run { showSnackbar(tr("connection.required")); return }
         if (_scanState.value is ScanState.Running) return
         scope.launch {
-            _scanState.value = ScanState.Running("Preparando escaneo…")
+            _scanState.value = ScanState.Running(tr("scan.preparing"))
             try {
                 var detected = 0
                 var checked = 0
                 for (p in visiblePlatforms()) {
-                    _scanState.value = ScanState.Running("Escaneando: ${p.displayName ?: p.name}…")
+                    _scanState.value = ScanState.Running(tr("scan.progress", p.displayName ?: p.name))
                     val romsOfPlatform = withContext(Dispatchers.IO) { fetchAllRoms(svc, p.id) }
                     checked += romsOfPlatform.size
 
@@ -661,12 +665,12 @@ class DesktopAppState(private val scope: CoroutineScope) {
                 _downloadedVersion.value = _downloadedVersion.value + 1
                 refreshLocalStats()
                 _scanState.value = ScanState.Done(
-                    if (detected > 0) "$detected juegos detectados de $checked comprobados"
-                    else "No se detectaron juegos nuevos ($checked comprobados)",
+                    if (detected > 0) tr("scan.done.detected", detected, checked)
+                    else tr("scan.done.none", checked),
                 )
             } catch (e: Exception) {
                 _scanState.value = ScanState.Idle
-                showSnackbar("Error escaneando: ${e.message}")
+                showSnackbar(tr("scan.error", e.message))
             }
         }
     }
@@ -705,7 +709,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
                 val coordinator = makeSyncCoordinator()
                 _pendingReport.value = coordinator.scanPendingSaves()
             } catch (e: Exception) {
-                showSnackbar("Error escaneando saves: ${e.message}")
+                showSnackbar(tr("sync.scan_saves_error", e.message))
             } finally {
                 _scanningSaves.value = false
             }
@@ -718,10 +722,10 @@ class DesktopAppState(private val scope: CoroutineScope) {
             try {
                 val coordinator = makeSyncCoordinator()
                 val result = coordinator.runConflictResolution(romId, fileName, resolution)
-                showSnackbar(result.message ?: if (result.isSuccess) "Conflicto resuelto" else result.error ?: "Error")
+                showSnackbar(result.message ?: if (result.isSuccess) tr("sync.conflict.resolved") else result.error ?: tr("common.error"))
                 scanSaves()
             } catch (e: Exception) {
-                showSnackbar("Error resolviendo conflicto: ${e.message}")
+                showSnackbar(tr("sync.conflict.resolve_error", e.message))
             } finally {
                 _syncing.value = false
             }
@@ -757,7 +761,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
             val ok = withContext(Dispatchers.IO) {
                 makeSyncCoordinator().restoreBackup(version.romId, version.fileName, version.backupFile)
             }
-            showSnackbar(if (ok) "Copia restaurada: ${version.fileName}" else "No se pudo restaurar ${version.fileName}")
+            showSnackbar(if (ok) tr("sync.backup.restored", version.fileName) else tr("sync.backup.restore_failed", version.fileName))
             if (ok) scanSaves()
         }
     }
@@ -802,18 +806,18 @@ class DesktopAppState(private val scope: CoroutineScope) {
     fun syncSaves() {
         if (_syncing.value) return
         _syncing.value = true
-        _syncStatus.value = "Sincronizando saves…"
+        _syncStatus.value = tr("sync.in_progress")
         scope.launch {
             try {
                 val coordinator = makeSyncCoordinator()
                 val result = coordinator.runSync()
                 val summary = buildString {
                     if (result.error != null) append(result.error)
-                    else append(result.message ?: "Sync completado")
-                    if (result.uploaded > 0) append(" · ${result.uploaded} subidos")
-                    if (result.downloaded > 0) append(" · ${result.downloaded} descargados")
-                    if (result.autoResolvedConflicts > 0) append(" · ${result.autoResolvedConflicts} conflictos auto-resueltos")
-                    if (result.conflicts > 0) append(" · ${result.conflicts} conflictos")
+                    else append(result.message ?: tr("sync.completed"))
+                    if (result.uploaded > 0) append(" · " + tr("sync.summary.uploaded", result.uploaded))
+                    if (result.downloaded > 0) append(" · " + tr("sync.summary.downloaded", result.downloaded))
+                    if (result.autoResolvedConflicts > 0) append(" · " + tr("sync.summary.auto_resolved_conflicts", result.autoResolvedConflicts))
+                    if (result.conflicts > 0) append(" · " + tr("sync.summary.conflicts", result.conflicts))
                 }
                 _syncStatus.value = summary
                 _lastFailed.value = result.failedDetails
@@ -821,14 +825,14 @@ class DesktopAppState(private val scope: CoroutineScope) {
                 config.lastSyncSummary = summary
                 _lastSync.value = LastSyncInfo(config.lastSyncAt, summary)
                 if (result.conflicts > 0) {
-                    DesktopNotifier.notify("RomM Sync", "Sync con ${result.conflicts} conflicto(s) pendiente(s)")
+                    DesktopNotifier.notify("RomM Sync", tr("sync.notify.pending_conflicts", result.conflicts))
                 } else if (result.failedDetails.isNotEmpty()) {
-                    DesktopNotifier.notify("RomM Sync", "El sync terminó con ${result.failedDetails.size} fallo(s)")
+                    DesktopNotifier.notify("RomM Sync", tr("sync.notify.failures", result.failedDetails.size))
                 }
                 // Refrescar el informe de pendientes tras el ciclo.
                 scanSaves()
             } catch (e: Exception) {
-                _syncStatus.value = "Error: ${e.message}"
+                _syncStatus.value = tr("common.error_detail", e.message)
             } finally {
                 _syncing.value = false
             }
@@ -852,7 +856,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
                 }
                 _esdeStatus.value = result
             } catch (e: Exception) {
-                _esdeStatus.value = "Error exportando: ${e.message}"
+                _esdeStatus.value = tr("app.esde.export_error", e.message)
             } finally {
                 _esdeRunning.value = false
             }
@@ -886,15 +890,15 @@ class DesktopAppState(private val scope: CoroutineScope) {
                 _updateState.value = UpdateUiState(
                     info = info,
                     message = when {
-                        info == null -> "No se pudo comprobar (sin respuesta de GitHub)"
+                        info == null -> tr("app.update.check_failed")
                         info.available && info.latestVersion == config.skippedVersion ->
-                            "Versión v${info.latestVersion} omitida — «Volver a comprobar» para verla de nuevo"
+                            tr("app.update.version_skipped", info.latestVersion)
                         info.available -> null // la UI muestra el botón de instalar
-                        else -> "Estás en la última versión (v${info.currentVersion})"
+                        else -> tr("app.update.up_to_date", info.currentVersion)
                     },
                 )
             } catch (e: Exception) {
-                _updateState.value = UpdateUiState(message = "Error comprobando: ${e.message}")
+                _updateState.value = UpdateUiState(message = tr("app.update.check_error", e.message))
             }
         }
     }
@@ -903,7 +907,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
     fun skipUpdateVersion() {
         val info = _updateState.value.info ?: return
         config.skippedVersion = info.latestVersion
-        _updateState.value = UpdateUiState(message = "Omitida v${info.latestVersion} hasta la próxima versión")
+        _updateState.value = UpdateUiState(message = tr("app.update.skipped_until_next", info.latestVersion))
     }
 
     /** Limpia la versión omitida y vuelve a comprobar. */
@@ -921,12 +925,11 @@ class DesktopAppState(private val scope: CoroutineScope) {
         _updateState.value = s.copy(downloading = true, downloadedBytes = 0, totalBytes = -1, message = null)
         scope.launch {
             try {
-                val msg = withContext(Dispatchers.IO) {
+                val (msg, ok) = withContext(Dispatchers.IO) {
                     DesktopUpdater.downloadAndInstall(info, url) { read, total ->
                         _updateState.value = _updateState.value.copy(downloadedBytes = read, totalBytes = total)
                     }
                 }
-                val ok = msg.startsWith("Actualizado")
                 _updateState.value = _updateState.value.copy(
                     downloading = false,
                     installed = ok,
@@ -934,7 +937,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
                     message = msg,
                 )
             } catch (e: Exception) {
-                _updateState.value = _updateState.value.copy(downloading = false, message = "Error instalando: ${e.message}")
+                _updateState.value = _updateState.value.copy(downloading = false, message = tr("app.update.install_error", e.message))
             }
         }
     }

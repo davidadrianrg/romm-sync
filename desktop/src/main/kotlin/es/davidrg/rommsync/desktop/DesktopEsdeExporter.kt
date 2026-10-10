@@ -1,5 +1,6 @@
 package es.davidrg.rommsync.desktop
 
+import es.davidrg.rommsync.core.i18n.tr
 import java.io.File
 
 /**
@@ -25,7 +26,7 @@ class DesktopEsdeExporter(
     /** Exporta y devuelve un resumen legible. */
     fun export(): String {
         val roms = library.roms()
-        if (roms.isEmpty()) return "No hay ROMs descargados que exportar"
+        if (roms.isEmpty()) return tr("esde.no_roms")
 
         val byPlatform = roms.groupBy { it.platformSlug }
         var totalEntries = 0
@@ -50,8 +51,7 @@ class DesktopEsdeExporter(
             written.add("$slug (+$added)")
         }
 
-        return "Añadidas $totalEntries entradas en ${written.size} gamelists: " +
-            written.joinToString(", ")
+        return tr("esde.export_summary", totalEntries, written.size, written.joinToString(", "))
     }
 
     companion object {

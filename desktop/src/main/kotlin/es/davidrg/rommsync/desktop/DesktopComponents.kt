@@ -179,9 +179,9 @@ fun formatBytes(bytes: Long): String {
 
 fun formatSpeed(bps: Long): String = "${formatBytes(bps)}/s"
 
-/** Formatea un epoch-millis como "28 sep 2026 18:45" (locale ES). */
+/** Formatea un epoch-millis como "28 sep 2026 18:45" (locale de la UI). */
 fun formatTimestamp(epochMillis: Long): String {
-    val fmt = java.text.SimpleDateFormat("d MMM yyyy HH:mm", java.util.Locale("es", "ES"))
+    val fmt = java.text.SimpleDateFormat("d MMM yyyy HH:mm", es.davidrg.rommsync.core.i18n.I18n.textLocale)
     return fmt.format(java.util.Date(epochMillis))
 }
 

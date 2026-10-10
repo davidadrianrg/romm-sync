@@ -73,6 +73,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import es.davidrg.rommsync.core.i18n.tr
 import es.davidrg.rommsync.core.remote.dto.PlatformDto
 import es.davidrg.rommsync.core.sync.platform.SaveHandlerRegistry
 import kotlinx.coroutines.delay
@@ -145,14 +146,14 @@ private fun AppNavigationRail(state: DesktopAppState, section: Section) {
         },
     ) {
         Spacer(Modifier.height(12.dp))
-        RailItem(state, Section.PLATFORMS, section, AppIcons.Storage, "Plataformas")
-        RailItem(state, Section.LIBRARY, section, AppIcons.Gamepad, "Biblioteca")
+        RailItem(state, Section.PLATFORMS, section, AppIcons.Storage, tr("nav.platforms"))
+        RailItem(state, Section.LIBRARY, section, AppIcons.Gamepad, tr("nav.library"))
         RailItem(
-            state, Section.DOWNLOADS, section, AppIcons.Download, "Descargas",
+            state, Section.DOWNLOADS, section, AppIcons.Download, tr("nav.downloads"),
             badge = activeDownloads.takeIf { it > 0 },
         )
-        RailItem(state, Section.SAVES, section, AppIcons.Sync, "Saves")
-        RailItem(state, Section.SETTINGS, section, AppIcons.Settings, "Ajustes")
+        RailItem(state, Section.SAVES, section, AppIcons.Sync, tr("nav.saves"))
+        RailItem(state, Section.SETTINGS, section, AppIcons.Settings, tr("nav.settings"))
         Spacer(Modifier.weight(1f))
         Text(
             "v${DesktopConfig.appVersion}",
@@ -209,16 +210,16 @@ fun PlatformsScreen(state: DesktopAppState) {
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         ScreenHeader(
-            "Plataformas",
-            subtitle = "${platforms.size - hidden.size} de ${platforms.size} visibles",
+            tr("nav.platforms"),
+            subtitle = tr("platforms.visible_count", platforms.size - hidden.size, platforms.size),
         ) {
             IconButton(onClick = state::refreshCurrentView, enabled = connected) {
-                Icon(AppIcons.Refresh, contentDescription = "Actualizar")
+                Icon(AppIcons.Refresh, contentDescription = tr("platforms.refresh"))
             }
             Spacer(Modifier.width(8.dp))
             val allOn = hidden.isEmpty()
             OutlinedButton(onClick = { state.toggleAllPlatforms(!allOn) }) {
-                Text(if (allOn) "Desactivar todas" else "Activar todas")
+                Text(if (allOn) tr("platforms.disable_all") else tr("platforms.enable_all"))
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -231,8 +232,8 @@ fun PlatformsScreen(state: DesktopAppState) {
             } else {
                 EmptyState(
                     icon = AppIcons.Storage,
-                    title = "Sin servidor configurado",
-                    description = "Conecta tu servidor RomM en Ajustes para ver tus plataformas.",
+                    title = tr("common.no_server_configured"),
+                    description = tr("platforms.empty.no_server"),
                 )
             }
         } else {
@@ -247,9 +248,9 @@ fun PlatformsScreen(state: DesktopAppState) {
                 ) {
                     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("$totalRoms ROMs locales", style = MaterialTheme.typography.titleSmall)
+                            Text(tr("platforms.local_roms", totalRoms), style = MaterialTheme.typography.titleSmall)
                             Text(
-                                "${stats.size} plataformas con descargas",
+                                tr("platforms.with_downloads", stats.size),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -350,7 +351,7 @@ private fun PlatformConfigCard(
                     val subtitle = buildString {
                         append(p.slug)
                         append(" • ${p.romCount} ROMs")
-                        stat?.let { append(" • ${it.romCount} locales") }
+                        stat?.let { append(" • "); append(tr("platforms.card.local_count", it.romCount)) }
                     }
                     Text(
                         subtitle,
@@ -363,7 +364,7 @@ private fun PlatformConfigCard(
             Spacer(Modifier.height(6.dp))
             Row {
                 TextButton(onClick = { showConfig = true }) {
-                    Text("Configuración", style = MaterialTheme.typography.labelMedium)
+                    Text(tr("platforms.card.configure"), style = MaterialTheme.typography.labelMedium)
                 }
                 stat?.takeIf { it.totalBytes > 0 }?.let {
                     Spacer(Modifier.weight(1f))
@@ -404,16 +405,16 @@ private fun PlatformConfigDialog(p: PlatformDto, state: DesktopAppState, onDismi
                 state.setPlatformSavesPath(p.slug, savesPath)
                 state.setPlatformEmulator(p.slug, emulator)
                 onDismiss()
-            }) { Text("Guardar") }
+            }) { Text(tr("common.save")) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("common.cancel")) } },
         title = { Text(p.displayName ?: p.name) },
         text = {
             Column {
                 OutlinedTextField(
                     folder,
                     { folder = it },
-                    label = { Text("Carpeta de ROMs (relativa al root)") },
+                    label = { Text(tr("platforms.config.roms_folder")) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -421,18 +422,18 @@ private fun PlatformConfigDialog(p: PlatformDto, state: DesktopAppState, onDismi
                 OutlinedTextField(
                     savesPath,
                     { savesPath = it },
-                    label = { Text("Ruta de saves (vacío = default emulador)") },
+                    label = { Text(tr("platforms.config.saves_path")) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(12.dp))
-                Text("Emulador para sync", style = MaterialTheme.typography.labelMedium)
+                Text(tr("platforms.config.sync_emulator"), style = MaterialTheme.typography.labelMedium)
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     FilterChip(
                         selected = emulator.isBlank(),
                         onClick = { emulator = "" },
-                        label = { Text("Auto (${defaultEmu.displayName})") },
+                        label = { Text(tr("platforms.config.emulator_auto", defaultEmu.displayName)) },
                     )
                     emulators.forEach { emu ->
                         FilterChip(
@@ -473,7 +474,7 @@ fun LibraryScreen(state: DesktopAppState) {
         var platMenu by remember { mutableStateOf(false) }
         val selSlug by state.selectedPlatformSlug.collectAsState()
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Biblioteca", style = MaterialTheme.typography.headlineSmall)
+            Text(tr("nav.library"), style = MaterialTheme.typography.headlineSmall)
             Spacer(Modifier.width(12.dp))
             Box {
                 OutlinedButton(onClick = { platMenu = true }) {
@@ -481,7 +482,7 @@ fun LibraryScreen(state: DesktopAppState) {
                 }
                 DropdownMenu(expanded = platMenu, onDismissRequest = { platMenu = false }) {
                     DropdownMenuItem(
-                        text = { Text("Todas las plataformas") },
+                        text = { Text(tr("library.all_platforms")) },
                         onClick = { state.selectPlatformBySlug(null); platMenu = false },
                     )
                     state.visiblePlatforms().forEach { p ->
@@ -494,14 +495,14 @@ fun LibraryScreen(state: DesktopAppState) {
             }
             Spacer(Modifier.width(8.dp))
             IconButton(onClick = state::refreshCurrentView, enabled = connected) {
-                Icon(AppIcons.Refresh, contentDescription = "Refrescar")
+                Icon(AppIcons.Refresh, contentDescription = tr("library.refresh"))
             }
             Spacer(Modifier.weight(1f))
             if (missingCount > 0) {
                 FilledTonalButton(onClick = { showBatchDialog = true }) {
                     Icon(AppIcons.Download, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Descargar faltantes ($missingCount)")
+                    Text(tr("library.download_missing", missingCount))
                 }
             }
         }
@@ -511,12 +512,12 @@ fun LibraryScreen(state: DesktopAppState) {
         OutlinedTextField(
             value = search,
             onValueChange = state::setSearch,
-            placeholder = { Text("Buscar juego…") },
+            placeholder = { Text(tr("library.search_placeholder")) },
             leadingIcon = { Icon(AppIcons.Search, contentDescription = null) },
             trailingIcon = {
                 if (search.isNotBlank()) {
                     IconButton(onClick = { state.setSearch("") }) {
-                        Icon(AppIcons.Close, contentDescription = "Limpiar")
+                        Icon(AppIcons.Close, contentDescription = tr("library.clear_search"))
                     }
                 }
             },
@@ -530,26 +531,26 @@ fun LibraryScreen(state: DesktopAppState) {
             FilterChip(
                 selected = filter == LibraryFilter.ALL,
                 onClick = { state.setFilter(LibraryFilter.ALL) },
-                label = { Text("Todos") },
+                label = { Text(tr("library.filter.all")) },
             )
             Spacer(Modifier.width(8.dp))
             FilterChip(
                 selected = filter == LibraryFilter.MISSING,
                 onClick = { state.setFilter(LibraryFilter.MISSING) },
-                label = { Text("Faltantes") },
+                label = { Text(tr("library.filter.missing")) },
             )
             Spacer(Modifier.width(8.dp))
             FilterChip(
                 selected = filter == LibraryFilter.DOWNLOADED,
                 onClick = { state.setFilter(LibraryFilter.DOWNLOADED) },
-                label = { Text("Descargados") },
+                label = { Text(tr("library.filter.downloaded")) },
             )
             Spacer(Modifier.weight(1f))
 
             // Juego aleatorio de la vista actual
             if (games.isNotEmpty()) {
                 IconButton(onClick = { state.openGame(games.random()) }) {
-                    Icon(AppIcons.Casino, contentDescription = "Juego aleatorio")
+                    Icon(AppIcons.Casino, contentDescription = tr("library.random_game"))
                 }
             }
 
@@ -560,14 +561,14 @@ fun LibraryScreen(state: DesktopAppState) {
                     IconButton(onClick = { regionMenu = true }) {
                         Icon(
                             AppIcons.Public,
-                            contentDescription = "Filtrar por región",
+                            contentDescription = tr("library.filter_region"),
                             tint = if (regionFilter != null) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     DropdownMenu(expanded = regionMenu, onDismissRequest = { regionMenu = false }) {
                         DropdownMenuItem(
-                            text = { Text("Todas las regiones") },
+                            text = { Text(tr("library.all_regions")) },
                             onClick = { state.setRegionFilter(null); regionMenu = false },
                         )
                         state.availableRegions().forEach { r ->
@@ -583,7 +584,7 @@ fun LibraryScreen(state: DesktopAppState) {
             // Orden
             var sortMenu by remember { mutableStateOf(false) }
             Box {
-                TextButton(onClick = { sortMenu = true }) { Text("Orden: ${sort.label} ▾") }
+                TextButton(onClick = { sortMenu = true }) { Text(tr("library.sort_by", sort.label) + " ▾") }
                 DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
                     LibrarySort.entries.forEach { s ->
                         DropdownMenuItem(
@@ -666,7 +667,7 @@ fun LibraryScreen(state: DesktopAppState) {
                             ) {
                                 Icon(
                                     AppIcons.KeyboardArrowUp,
-                                    contentDescription = "Volver arriba",
+                                    contentDescription = tr("library.back_to_top"),
                                     tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                     modifier = Modifier.padding(10.dp).size(22.dp),
                                 )
@@ -686,21 +687,20 @@ fun LibraryScreen(state: DesktopAppState) {
         AlertDialog(
             onDismissRequest = { showBatchDialog = false },
             icon = { Icon(AppIcons.DownloadDone, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-            title = { Text("¿Descargar $missingCount juegos faltantes?") },
+            title = { Text(tr("library.batch.title", missingCount)) },
             text = {
                 Text(
-                    "Se encolarán las descargas de todos los juegos de la vista actual que no estén en disco. " +
-                        "Puedes seguir navegando mientras se descargan.",
+                    tr("library.batch.message"),
                 )
             },
             confirmButton = {
                 TextButton(onClick = {
                     state.enqueueMissing()
                     showBatchDialog = false
-                }) { Text("Descargar") }
+                }) { Text(tr("common.download")) }
             },
             dismissButton = {
-                TextButton(onClick = { showBatchDialog = false }) { Text("Cancelar") }
+                TextButton(onClick = { showBatchDialog = false }) { Text(tr("common.cancel")) }
             },
         )
     }
@@ -709,12 +709,13 @@ fun LibraryScreen(state: DesktopAppState) {
 @Composable
 private fun LibraryEmptyState(state: DesktopAppState, search: String, filter: LibraryFilter, connected: Boolean) {
     val (title, desc) = when {
-        !connected -> "Sin servidor configurado" to "Conecta tu servidor RomM en Ajustes."
-        search.isNotBlank() -> "Sin resultados" to "Ningún juego coincide con «$search»."
+        !connected -> tr("common.no_server_configured") to tr("library.empty.no_server.description")
+        search.isNotBlank() -> tr("library.empty.no_results.title") to tr("library.empty.no_results.description", search)
         filter == LibraryFilter.DOWNLOADED && state.missingGames().isNotEmpty() ->
-            "Sin descargas" to "Todavía no has descargado juegos de esta vista."
-        filter == LibraryFilter.MISSING -> "Todo descargado" to "Ya tienes en disco todos los juegos de esta vista."
-        else -> "Sin juegos" to "Esta plataforma no tiene ROMs en el servidor."
+            tr("library.empty.no_downloads.title") to tr("library.empty.no_downloads.description")
+        filter == LibraryFilter.MISSING ->
+            tr("library.empty.all_downloaded.title") to tr("library.empty.all_downloaded.description")
+        else -> tr("library.empty.no_games.title") to tr("library.empty.no_games.description")
     }
     EmptyState(icon = AppIcons.Gamepad, title = title, description = desc)
 }
@@ -758,7 +759,7 @@ private fun GameCardItem(card: GameCard, state: DesktopAppState, ratio: Float, t
                     )
                     Spacer(Modifier.width(4.dp))
                     Text(
-                        "${card.discCount} discos",
+                        tr("library.card.discs", card.discCount),
                         style = MaterialTheme.typography.labelSmall,
                         color = Color.White,
                     )
@@ -777,7 +778,7 @@ private fun GameCardItem(card: GameCard, state: DesktopAppState, ratio: Float, t
                 ) {
                     Icon(
                         AppIcons.CheckCircle,
-                        contentDescription = "Descargado",
+                        contentDescription = tr("common.downloaded"),
                         tint = MaterialTheme.colorScheme.onSecondaryContainer,
                         modifier = Modifier.size(16.dp),
                     )
@@ -794,7 +795,7 @@ private fun GameCardItem(card: GameCard, state: DesktopAppState, ratio: Float, t
                 ) {
                     Icon(
                         AppIcons.Download,
-                        contentDescription = "Descargar",
+                        contentDescription = tr("common.download"),
                         tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(18.dp),
                     )
@@ -844,7 +845,7 @@ private fun GameCardItem(card: GameCard, state: DesktopAppState, ratio: Float, t
 }
 
 private fun visiblePlatformsLabel(state: DesktopAppState, selSlug: String?): String {
-    if (selSlug == null) return "Todas las plataformas ▾"
+    if (selSlug == null) return tr("library.all_platforms") + " ▾"
     val p = state.visiblePlatforms().firstOrNull { it.slug == selSlug }
     return (p?.displayName ?: p?.name ?: selSlug) + " ▾"
 }
@@ -860,18 +861,18 @@ fun DownloadsScreen(state: DesktopAppState) {
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         ScreenHeader(
-            "Descargas",
-            subtitle = if (active > 0) "$active en progreso" else "${tasks.size} en la lista",
+            tr("nav.downloads"),
+            subtitle = if (active > 0) tr("downloads.in_progress", active) else tr("downloads.in_list", tasks.size),
         ) {
             if (tasks.any { !it.active }) {
-                TextButton(onClick = state::clearFinished) { Text("Limpiar terminadas") }
+                TextButton(onClick = state::clearFinished) { Text(tr("downloads.clear_finished")) }
             }
             if (active > 0) {
                 Spacer(Modifier.width(4.dp))
                 TextButton(
                     onClick = state::cancelAll,
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) { Text("Cancelar todo") }
+                ) { Text(tr("downloads.cancel_all")) }
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -879,8 +880,8 @@ fun DownloadsScreen(state: DesktopAppState) {
         if (tasks.isEmpty()) {
             EmptyState(
                 icon = AppIcons.Download,
-                title = "No hay descargas en cola",
-                description = "Las ROMs que descargues aparecerán aquí.",
+                title = tr("downloads.empty.title"),
+                description = tr("downloads.empty.description"),
             )
         } else {
             Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -922,14 +923,14 @@ private fun DownloadCard(t: DesktopTask, state: DesktopAppState) {
                     t.active -> IconButton(onClick = { state.cancelDownload(t.romId) }) {
                         Icon(
                             AppIcons.Close,
-                            contentDescription = "Cancelar",
+                            contentDescription = tr("common.cancel"),
                             tint = MaterialTheme.colorScheme.error,
                         )
                     }
                     t.status == "error" -> TextButton(onClick = { state.retryDownload(t.romId) }) {
                         Icon(AppIcons.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Reintentar")
+                        Text(tr("downloads.retry"))
                     }
                 }
             }
@@ -963,7 +964,7 @@ private fun DownloadCard(t: DesktopTask, state: DesktopAppState) {
                     if (t.bytesRead > 0) {
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            "${formatBytes(t.bytesRead)} descargados" +
+                            tr("downloads.bytes_downloaded", formatBytes(t.bytesRead)) +
                                 if (t.speedBps > 0) " · ${formatSpeed(t.speedBps)}" else "",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -974,12 +975,12 @@ private fun DownloadCard(t: DesktopTask, state: DesktopAppState) {
 
             when (t.status) {
                 "done" -> Text(
-                    "Descarga completada",
+                    tr("common.download_completed"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.secondary,
                 )
                 "error" -> Text(
-                    t.message ?: "Error",
+                    t.message ?: tr("common.error"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                     maxLines = 2,
@@ -1022,7 +1023,7 @@ fun SavesScreen(state: DesktopAppState) {
     val failed by state.lastFailed.collectAsState()
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-        Text("Saves", style = MaterialTheme.typography.headlineSmall)
+        Text(tr("nav.saves"), style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(12.dp))
         SyncStatusCard(syncing, syncStatus, lastSync)
         Spacer(Modifier.height(12.dp))
@@ -1037,7 +1038,7 @@ fun SavesScreen(state: DesktopAppState) {
                 CircularProgressIndicator(Modifier.size(18.dp), color = MaterialTheme.colorScheme.onPrimary)
                 Spacer(Modifier.width(10.dp))
             }
-            Text(if (syncing) "Sincronizando…" else "Sincronizar ahora")
+            Text(if (syncing) tr("saves.sync_button.syncing") else tr("saves.sync_button.sync_now"))
         }
         Spacer(Modifier.height(16.dp))
 
@@ -1050,7 +1051,7 @@ fun SavesScreen(state: DesktopAppState) {
             ) {
                 Column(Modifier.padding(14.dp)) {
                     Text(
-                        "Fallidos (${failed.size})",
+                        tr("saves.failed.title", failed.size),
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onErrorContainer,
                     )
@@ -1064,7 +1065,7 @@ fun SavesScreen(state: DesktopAppState) {
                     }
                     if (failed.size > 20) {
                         Text(
-                            "… y ${failed.size - 20} más",
+                            tr("saves.failed.more", failed.size - 20),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                         )
@@ -1078,14 +1079,14 @@ fun SavesScreen(state: DesktopAppState) {
         val scanning by state.scanningSaves.collectAsState()
         val report by state.pendingReport.collectAsState()
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Cambios pendientes", style = MaterialTheme.typography.titleMedium)
+            Text(tr("saves.pending.title"), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.weight(1f))
             FilledTonalButton(onClick = state::scanSaves, enabled = !scanning) {
                 if (scanning) {
                     CircularProgressIndicator(Modifier.size(14.dp))
                     Spacer(Modifier.width(6.dp))
                 }
-                Text(if (scanning) "Comprobando…" else "Comprobar cambios")
+                Text(if (scanning) tr("saves.pending.checking") else tr("common.check_changes"))
             }
         }
         Spacer(Modifier.height(8.dp))
@@ -1094,12 +1095,12 @@ fun SavesScreen(state: DesktopAppState) {
                 Text(r.error, color = MaterialTheme.colorScheme.error)
             } else if (r.uploads.isEmpty() && r.downloads.isEmpty() && r.conflicts.isEmpty()) {
                 Text(
-                    "Todo sincronizado — sin cambios pendientes.",
+                    tr("saves.pending.none"),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
                 if (r.uploads.isNotEmpty()) {
-                    Text("Subirán (${r.uploads.size}):", style = MaterialTheme.typography.titleSmall)
+                    Text(tr("saves.pending.uploads", r.uploads.size), style = MaterialTheme.typography.titleSmall)
                     r.uploads.forEach {
                         Row(Modifier.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(
@@ -1115,7 +1116,7 @@ fun SavesScreen(state: DesktopAppState) {
                     Spacer(Modifier.height(8.dp))
                 }
                 if (r.downloads.isNotEmpty()) {
-                    Text("Bajarán (${r.downloads.size}):", style = MaterialTheme.typography.titleSmall)
+                    Text(tr("saves.pending.downloads", r.downloads.size), style = MaterialTheme.typography.titleSmall)
                     r.downloads.forEach {
                         Row(Modifier.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(
@@ -1138,12 +1139,12 @@ fun SavesScreen(state: DesktopAppState) {
                     ) {
                         Column(Modifier.padding(14.dp)) {
                             Text(
-                                "Conflictos (${r.conflicts.size})",
+                                tr("saves.conflicts.title", r.conflicts.size),
                                 style = MaterialTheme.typography.titleSmall,
                                 color = MaterialTheme.colorScheme.onErrorContainer,
                             )
                             Text(
-                                "El mismo save cambió aquí y en el servidor. Elige qué versión conservar.",
+                                tr("saves.conflicts.description"),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onErrorContainer,
                             )
@@ -1156,7 +1157,7 @@ fun SavesScreen(state: DesktopAppState) {
                                         color = MaterialTheme.colorScheme.onErrorContainer,
                                     )
                                     Text(
-                                        c.fileName + (c.serverUpdatedAt?.let { " · Servidor: $it" } ?: ""),
+                                        c.fileName + (c.serverUpdatedAt?.let { " · " + tr("saves.conflicts.server_time", it) } ?: ""),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onErrorContainer,
                                     )
@@ -1168,7 +1169,7 @@ fun SavesScreen(state: DesktopAppState) {
                                         ) {
                                             Icon(AppIcons.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
                                             Spacer(Modifier.width(6.dp))
-                                            Text("Local")
+                                            Text(tr("saves.conflicts.keep_local"))
                                         }
                                         FilledTonalButton(
                                             onClick = { state.resolveConflict(c.romId, c.fileName, "server") },
@@ -1176,7 +1177,7 @@ fun SavesScreen(state: DesktopAppState) {
                                         ) {
                                             Icon(AppIcons.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
                                             Spacer(Modifier.width(6.dp))
-                                            Text("Servidor")
+                                            Text(tr("saves.conflicts.keep_server"))
                                         }
                                     }
                                 }
@@ -1189,11 +1190,11 @@ fun SavesScreen(state: DesktopAppState) {
 
         // ── Sincronización automática (chips como Android) ──
         Spacer(Modifier.height(20.dp))
-        Text("Sincronización automática", style = MaterialTheme.typography.titleMedium)
+        Text(tr("saves.auto_sync.title"), style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
         val autoMin by state.autoSyncMinutes.collectAsState()
         Text(
-            if (autoMin == 0) "Desactivada" else "Cada $autoMin minutos",
+            if (autoMin == 0) tr("saves.auto_sync.disabled") else tr("saves.auto_sync.every_minutes", autoMin),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1203,7 +1204,7 @@ fun SavesScreen(state: DesktopAppState) {
                 FilterChip(
                     selected = autoMin == m,
                     onClick = { state.setAutoSyncMinutes(m) },
-                    label = { Text(if (m == 0) "Off" else "$m m") },
+                    label = { Text(if (m == 0) tr("saves.auto_sync.off_chip") else "$m m") },
                 )
             }
         }
@@ -1227,9 +1228,9 @@ private fun SyncStatusCard(
                     CircularProgressIndicator(Modifier.size(40.dp))
                     Spacer(Modifier.width(16.dp))
                     Column {
-                        Text("Sincronizando", style = MaterialTheme.typography.titleMedium)
+                        Text(tr("saves.status.syncing"), style = MaterialTheme.typography.titleMedium)
                         Text(
-                            syncStatus ?: "Conectando con el servidor RomM…",
+                            syncStatus ?: tr("saves.status.connecting"),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -1244,7 +1245,7 @@ private fun SyncStatusCard(
                     )
                     Spacer(Modifier.width(16.dp))
                     Column {
-                        Text("Última sincronización", style = MaterialTheme.typography.titleMedium)
+                        Text(tr("saves.status.last_sync"), style = MaterialTheme.typography.titleMedium)
                         Text(
                             formatTimestamp(lastSync.at),
                             style = MaterialTheme.typography.bodySmall,
@@ -1252,7 +1253,7 @@ private fun SyncStatusCard(
                         )
                         if (lastSync.summary.isNotBlank()) {
                             Text(
-                                "Resultado: ${lastSync.summary}",
+                                tr("saves.status.result", lastSync.summary),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -1268,9 +1269,9 @@ private fun SyncStatusCard(
                     )
                     Spacer(Modifier.width(16.dp))
                     Column {
-                        Text("Sin sincronizar", style = MaterialTheme.typography.titleMedium)
+                        Text(tr("saves.status.never_synced"), style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "Pulsa el botón para sincronizar tus saves",
+                            tr("saves.status.never_synced_hint"),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -1296,16 +1297,16 @@ fun SettingsScreen(state: DesktopAppState) {
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp).widthIn(max = SettingsMaxWidth),
     ) {
-        Text("Ajustes", style = MaterialTheme.typography.headlineSmall)
+        Text(tr("nav.settings"), style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(12.dp))
 
         // ── Servidor ──
-        SettingsSection(icon = AppIcons.Storage, title = "Servidor RomM") {
+        SettingsSection(icon = AppIcons.Storage, title = tr("settings.server.title")) {
             OutlinedTextField(
                 serverUrl.value,
                 { serverUrl.value = it },
-                label = { Text("URL del servidor") },
-                placeholder = { Text("https://romm.midominio.com") },
+                label = { Text(tr("settings.server.url")) },
+                placeholder = { Text(tr("settings.server.url_placeholder")) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -1313,7 +1314,7 @@ fun SettingsScreen(state: DesktopAppState) {
             OutlinedTextField(
                 apiKey.value,
                 { apiKey.value = it },
-                label = { Text("API Key") },
+                label = { Text(tr("settings.server.api_key")) },
                 singleLine = true,
                 visualTransformation = if (showApiKey) {
                     androidx.compose.ui.text.input.VisualTransformation.None
@@ -1324,7 +1325,7 @@ fun SettingsScreen(state: DesktopAppState) {
                     IconButton(onClick = { showApiKey = !showApiKey }) {
                         Icon(
                             if (showApiKey) AppIcons.VisibilityOff else AppIcons.Visibility,
-                            contentDescription = if (showApiKey) "Ocultar" else "Mostrar",
+                            contentDescription = if (showApiKey) tr("settings.server.hide_api_key") else tr("common.show"),
                         )
                     }
                 },
@@ -1338,7 +1339,7 @@ fun SettingsScreen(state: DesktopAppState) {
                         state.connect(serverUrl.value, apiKey.value)
                     },
                     enabled = serverUrl.value.isNotBlank() && apiKey.value.isNotBlank(),
-                ) { Text("Guardar y conectar") }
+                ) { Text(tr("settings.server.save_and_connect")) }
                 Spacer(Modifier.width(12.dp))
                 if (connected) {
                     Icon(
@@ -1348,44 +1349,43 @@ fun SettingsScreen(state: DesktopAppState) {
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(Modifier.width(6.dp))
-                    Text("Conectado", color = MaterialTheme.colorScheme.secondary)
+                    Text(tr("settings.server.connected"), color = MaterialTheme.colorScheme.secondary)
                 }
             }
         }
 
         // ── Directorio de ROMs ──
-        SettingsSection(icon = AppIcons.Folder, title = "Directorio de ROMs (ES-DE)") {
+        SettingsSection(icon = AppIcons.Folder, title = tr("settings.roms.title")) {
             OutlinedTextField(
                 romsRoot.value,
                 { romsRoot.value = it },
-                label = { Text("Carpeta raíz de ROMs") },
+                label = { Text(tr("common.roms_root_folder")) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(8.dp))
             Row {
                 OutlinedButton(onClick = {
-                    pickDirectory("Carpeta raíz de ROMs", romsRoot.value)?.let { romsRoot.value = it }
+                    pickDirectory(tr("common.roms_root_folder"), romsRoot.value)?.let { romsRoot.value = it }
                 }) {
                     Icon(AppIcons.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Seleccionar carpeta")
+                    Text(tr("common.select_folder"))
                 }
                 Spacer(Modifier.width(12.dp))
-                Button(onClick = { state.config.romsRoot = romsRoot.value }) { Text("Guardar") }
+                Button(onClick = { state.config.romsRoot = romsRoot.value }) { Text(tr("common.save")) }
             }
             Text(
-                "Los juegos se guardan en <raíz>/<plataforma>/ (configurable por plataforma en la sección Plataformas).",
+                tr("settings.roms.hint"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
         // ── Escanear biblioteca ──
-        SettingsSection(icon = AppIcons.Storage, title = "Escanear biblioteca") {
+        SettingsSection(icon = AppIcons.Storage, title = tr("common.scan_library")) {
             Text(
-                "Detecta los juegos que ya tienes en disco y los marca como descargados " +
-                    "(útil si montaste la biblioteca a mano o con otra app).",
+                tr("settings.scan.description"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -1397,7 +1397,7 @@ fun SettingsScreen(state: DesktopAppState) {
                         CircularProgressIndicator(Modifier.size(14.dp))
                         Spacer(Modifier.width(6.dp))
                     }
-                    Text("Escanear ahora")
+                    Text(tr("settings.scan.scan_now"))
                 }
                 Spacer(Modifier.width(12.dp))
                 when (val s = scanState) {
@@ -1418,9 +1418,9 @@ fun SettingsScreen(state: DesktopAppState) {
 
         // ── Descargas simultáneas ──
         val maxDowns by state.maxConcurrentDownloads.collectAsState()
-        SettingsSection(icon = AppIcons.Download, title = "Descargas simultáneas") {
+        SettingsSection(icon = AppIcons.Download, title = tr("settings.downloads.title")) {
             Text(
-                "$maxDowns descargas en paralelo",
+                tr("settings.downloads.parallel", maxDowns),
                 style = MaterialTheme.typography.bodyMedium,
             )
             Slider(
@@ -1433,23 +1433,23 @@ fun SettingsScreen(state: DesktopAppState) {
         }
 
         // ── ES-DE ──
-        SettingsSection(icon = AppIcons.Image, title = "Datos de ES-DE (gamelist)") {
+        SettingsSection(icon = AppIcons.Image, title = tr("settings.esde.title")) {
             var esdeDir by remember { mutableStateOf(state.config.esdeDataDir) }
             OutlinedTextField(
                 esdeDir,
                 { esdeDir = it },
-                label = { Text("Carpeta de datos de ES-DE") },
+                label = { Text(tr("common.esde_data_folder")) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(8.dp))
             Row {
                 OutlinedButton(onClick = {
-                    pickDirectory("Carpeta de datos de ES-DE", esdeDir)?.let { esdeDir = it }
+                    pickDirectory(tr("common.esde_data_folder"), esdeDir)?.let { esdeDir = it }
                 }) {
                     Icon(AppIcons.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Seleccionar carpeta")
+                    Text(tr("common.select_folder"))
                 }
                 Spacer(Modifier.width(12.dp))
                 val esdeRunning by state.esdeRunning.collectAsState()
@@ -1464,7 +1464,7 @@ fun SettingsScreen(state: DesktopAppState) {
                         CircularProgressIndicator(Modifier.size(14.dp))
                         Spacer(Modifier.width(6.dp))
                     }
-                    Text("Exportar metadata a ES-DE")
+                    Text(tr("settings.esde.export"))
                 }
             }
             val esdeStatus by state.esdeStatus.collectAsState()
@@ -1477,16 +1477,16 @@ fun SettingsScreen(state: DesktopAppState) {
                 )
             }
             Text(
-                "Fusiona (sin sobrescribir) tus descargas en gamelist.xml por plataforma.",
+                tr("settings.esde.hint"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
         // ── Saves y conflictos ──
-        SettingsSection(icon = AppIcons.Sync, title = "Saves y conflictos") {
+        SettingsSection(icon = AppIcons.Sync, title = tr("settings.saves.title")) {
             Text(
-                "Cuando el mismo save cambió aquí y en el servidor:",
+                tr("settings.saves.conflict_policy_prompt"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -1502,22 +1502,20 @@ fun SettingsScreen(state: DesktopAppState) {
                 }
             }
             Text(
-                "Antes de sobrescribir una copia local se guarda automáticamente una copia de seguridad " +
-                    "(revisible y restaurable en el detalle de cada juego).",
+                tr("settings.saves.backup_hint"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
         // ── Sistema ──
-        SettingsSection(icon = AppIcons.Gamepad, title = "Sistema") {
+        SettingsSection(icon = AppIcons.Gamepad, title = tr("settings.system.title")) {
             var closeToTray by remember { mutableStateOf(DesktopConfig.closeToTray) }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Cerrar a la bandeja del sistema", style = MaterialTheme.typography.bodyMedium)
+                    Text(tr("settings.system.close_to_tray"), style = MaterialTheme.typography.bodyMedium)
                     Text(
-                        "Al cerrar la ventana la app sigue en segundo plano (descargas y auto-sync activos, " +
-                            "con notificaciones). Sal de verdad desde el menú de la bandeja.",
+                        tr("settings.system.close_to_tray_hint"),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1530,7 +1528,7 @@ fun SettingsScreen(state: DesktopAppState) {
         }
 
         // ── Actualizaciones ──
-        SettingsSection(icon = AppIcons.Refresh, title = "Actualizaciones") {
+        SettingsSection(icon = AppIcons.Refresh, title = tr("settings.updates.title")) {
             val updState by state.updateState.collectAsState()
             val upd = updState
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1539,7 +1537,7 @@ fun SettingsScreen(state: DesktopAppState) {
                         CircularProgressIndicator(Modifier.size(14.dp))
                         Spacer(Modifier.width(6.dp))
                     }
-                    Text("Buscar actualizaciones")
+                    Text(tr("settings.updates.check"))
                 }
                 if (upd.info?.available == true && upd.info.downloadUrl != null && !upd.installed) {
                     Spacer(Modifier.width(10.dp))
@@ -1548,12 +1546,18 @@ fun SettingsScreen(state: DesktopAppState) {
                             CircularProgressIndicator(Modifier.size(14.dp))
                             Spacer(Modifier.width(6.dp))
                         }
-                        Text(if (upd.downloading) "Descargando…" else "Descargar e instalar v${upd.info.latestVersion}")
+                        Text(
+                            if (upd.downloading) {
+                                tr("common.downloading")
+                            } else {
+                                tr("settings.updates.download_install", upd.info.latestVersion)
+                            },
+                        )
                     }
                 }
                 if (upd.restartAvailable) {
                     Spacer(Modifier.width(10.dp))
-                    Button(onClick = state::restartApp) { Text("Reiniciar ahora") }
+                    Button(onClick = state::restartApp) { Text(tr("settings.updates.restart_now")) }
                 }
             }
             if (upd.downloading && upd.totalBytes > 0) {
@@ -1571,14 +1575,14 @@ fun SettingsScreen(state: DesktopAppState) {
             if (upd.info?.available == true && !upd.downloading) {
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "Nueva versión disponible: v${upd.info.latestVersion} (tienes v${upd.info.currentVersion})",
+                    tr("settings.updates.available", upd.info.latestVersion, upd.info.currentVersion),
                     style = MaterialTheme.typography.bodySmall,
                 )
                 // Changelog del release (cuerpo tal cual de GitHub)
                 if (upd.info.releaseNotes.isNotBlank()) {
                     var showNotes by remember { mutableStateOf(false) }
                     TextButton(onClick = { showNotes = !showNotes }) {
-                        Text(if (showNotes) "Ocultar novedades" else "Ver novedades")
+                        Text(if (showNotes) tr("settings.updates.hide_notes") else tr("settings.updates.show_notes"))
                     }
                     if (showNotes) {
                         Surface(
@@ -1597,10 +1601,10 @@ fun SettingsScreen(state: DesktopAppState) {
                     }
                 }
                 Spacer(Modifier.height(4.dp))
-                TextButton(onClick = state::skipUpdateVersion) { Text("Saltar esta versión") }
+                TextButton(onClick = state::skipUpdateVersion) { Text(tr("settings.updates.skip_version")) }
             }
-            if (upd.message?.contains("omitida") == true) {
-                TextButton(onClick = state::recheckSkippedUpdate) { Text("Volver a comprobar") }
+            if (upd.info?.available == true && upd.info.latestVersion == state.config.skippedVersion) {
+                TextButton(onClick = state::recheckSkippedUpdate) { Text(tr("settings.updates.recheck")) }
             }
             upd.message?.let {
                 Spacer(Modifier.height(6.dp))
@@ -1609,13 +1613,13 @@ fun SettingsScreen(state: DesktopAppState) {
         }
 
         // ── Acerca de ──
-        SettingsSection(icon = AppIcons.Gamepad, title = "Acerca de") {
+        SettingsSection(icon = AppIcons.Gamepad, title = tr("settings.about.title")) {
             Text(
-                "RomM Sync desktop v${DesktopConfig.appVersion}",
+                tr("settings.about.version", DesktopConfig.appVersion),
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
-                "Atajos: Ctrl+1…5 cambia de sección · F5 refresca la vista.",
+                tr("settings.about.shortcuts"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

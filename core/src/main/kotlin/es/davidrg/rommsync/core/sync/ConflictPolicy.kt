@@ -1,5 +1,7 @@
 package es.davidrg.rommsync.core.sync
 
+import es.davidrg.rommsync.core.i18n.tr
+
 /**
  * Política de resolución de conflictos de saves (copia local vs servidor
  * cambiaron ambas desde el último sync):
@@ -8,11 +10,13 @@ package es.davidrg.rommsync.core.sync
  * - PREFER_SERVER: se descarga la versión del servidor automáticamente
  *   (con backup previo de la copia local).
  */
-enum class ConflictPolicy(val id: String, val displayName: String) {
-    ASK("ask", "Preguntar"),
-    PREFER_LOCAL("local", "Siempre local"),
-    PREFER_SERVER("server", "Siempre servidor"),
+enum class ConflictPolicy(val id: String) {
+    ASK("ask"),
+    PREFER_LOCAL("local"),
+    PREFER_SERVER("server"),
     ;
+
+    val displayName: String get() = tr("conflict_policy.$id")
 
     companion object {
         fun fromId(id: String?): ConflictPolicy =

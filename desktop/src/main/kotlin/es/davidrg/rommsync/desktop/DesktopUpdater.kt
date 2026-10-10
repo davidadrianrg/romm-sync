@@ -1,5 +1,6 @@
 package es.davidrg.rommsync.desktop
 
+import es.davidrg.rommsync.core.i18n.tr
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -61,22 +62,24 @@ object DesktopUpdater {
             .trim()
     }
 
+    data class InstallResult(val message: String, val installed: Boolean = false)
+
     /**
      * Descarga el AppImage nuevo y reemplaza el actual atómicamente.
-     * @return mensaje descriptivo del resultado.
+     * @return mensaje descriptivo del resultado, e `installed` si se reemplazó.
      */
     fun downloadAndInstall(
         info: UpdateInfo,
         url: String,
         onProgress: (bytesRead: Long, total: Long) -> Unit = { _, _ -> },
-    ): String {
-        val current = currentAppImage() ?: return "No se encontró el AppImage en ejecución — descarga manual: $url"
+    ): InstallResult {
+        val current = currentAppImage() ?: return InstallResult(tr("update.appimage_not_found", url))
         val tmp = File(current.parentFile, ".${info.latestVersion}.download")
         val conn = URL(url).openConnection() as HttpURLConnection
         conn.connectTimeout = 15_000
         conn.readTimeout = 60_000
         try {
-            if (conn.responseCode != 200) return "Error HTTP ${conn.responseCode} descargando $url"
+            if (conn.responseCode != 200) return InstallResult(tr("update.http_error", conn.responseCode, url))
             val total = conn.contentLengthLong
             var read = 0L
             conn.inputStream.use { input ->
@@ -97,19 +100,19 @@ object DesktopUpdater {
             }
             if (!magic.contentEquals(byteArrayOf(0x7f, 'E'.code.toByte(), 'L'.code.toByte(), 'F'.code.toByte()))) {
                 tmp.delete()
-                return "El archivo descargado no es un AppImage válido"
+                return InstallResult(tr("update.invalid_appimage"))
             }
-            if (!tmp.setExecutable(true)) return "No se pudo dar permiso de ejecución a la actualización"
+            if (!tmp.setExecutable(true)) return InstallResult(tr("update.chmod_failed"))
             // Reemplazo atómico: renombrar sobre el original
             val backup = File(current.parentFile, ".${current.name}.old")
             backup.delete()
-            if (!current.renameTo(backup)) return "No se pudo mover el AppImage actual"
+            if (!current.renameTo(backup)) return InstallResult(tr("update.move_failed"))
             if (!tmp.renameTo(current)) {
                 backup.renameTo(current)
-                return "No se pudo instalar la actualización (permisos)"
+                return InstallResult(tr("update.install_failed"))
             }
             backup.delete()
-            return "Actualizado a v${info.latestVersion} — reinicia la app para aplicar"
+            return InstallResult(tr("update.installed", info.latestVersion), installed = true)
         } finally {
             conn.disconnect()
             tmp.delete()
