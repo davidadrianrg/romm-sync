@@ -241,6 +241,9 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
                 }
             }
         }
+
+        // ── Guardados y estados en el servidor (fecha + subida manual) ──
+        ServerAssetsPanel(rep.id, state)
     }
 
     if (showDeleteDialog) {

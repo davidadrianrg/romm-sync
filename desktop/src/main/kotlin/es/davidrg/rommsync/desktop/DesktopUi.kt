@@ -477,6 +477,7 @@ fun LibraryScreen(state: DesktopAppState) {
     val ratio = rememberMedianCoverRatio(remember(roms) { state.games() }, state.config.serverUrl)
 
     var showBatchDialog by remember { mutableStateOf(false) }
+    var showUploadGame by remember { mutableStateOf(false) }
     val missingCount = remember(roms, version) { state.missingGames().size }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
@@ -506,6 +507,10 @@ fun LibraryScreen(state: DesktopAppState) {
             Spacer(Modifier.width(8.dp))
             IconButton(onClick = state::refreshCurrentView, enabled = connected) {
                 Icon(AppIcons.Refresh, contentDescription = tr("library.refresh"))
+            }
+            Spacer(Modifier.width(8.dp))
+            OutlinedButton(onClick = { showUploadGame = true }, enabled = connected) {
+                Text(tr("library.upload.title"))
             }
             Spacer(Modifier.weight(1f))
             if (missingCount > 0) {
@@ -691,6 +696,14 @@ fun LibraryScreen(state: DesktopAppState) {
                 }
             }
         }
+    }
+
+    if (showUploadGame) {
+        UploadGameDialogDesktop(
+            state = state,
+            platforms = state.visiblePlatforms(),
+            onDismiss = { showUploadGame = false },
+        )
     }
 
     if (showBatchDialog) {

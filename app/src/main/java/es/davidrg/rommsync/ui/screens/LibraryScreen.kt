@@ -50,6 +50,7 @@ import androidx.compose.material.icons.outlined.Album
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.DownloadDone
+import androidx.compose.material.icons.outlined.Upload
 import androidx.compose.material.icons.outlined.SportsEsports
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -258,6 +259,9 @@ fun LibraryScreen() {
 
     // State for the batch download confirmation dialog.
     var showBatchDialog by remember { mutableStateOf(false) }
+
+    // State for the "upload game" dialog.
+    var showUploadGame by remember { mutableStateOf(false) }
 
     /**
      * Destino inicial de los chips del diálogo batch: el default de la
@@ -541,6 +545,11 @@ fun LibraryScreen() {
                     }
                 }
 
+                // Subir juego al servidor
+                IconButton(onClick = { showUploadGame = true }) {
+                    Icon(Icons.Outlined.Upload, contentDescription = tr("library.upload.title"))
+                }
+
                 // Filtro por región
                 if (availableRegions.isNotEmpty()) {
                     var regionMenu by remember { mutableStateOf(false) }
@@ -757,6 +766,8 @@ fun LibraryScreen() {
                     selectedRom = null
                 },
                 onClose = { selectedRom = null },
+                serverUrl = settings.serverUrl,
+                apiKey = settings.apiKey,
                 showMoveOption = settings.dualRomsPathsEnabled,
                 isOnSd = isOnSd,
                 isMoving = isMovingRom,
@@ -770,6 +781,15 @@ fun LibraryScreen() {
     }
 
     // ── Batch download confirmation dialog ────────────────────────────────
+    if (showUploadGame) {
+        es.davidrg.rommsync.ui.components.UploadGameDialog(
+            platforms = platforms,
+            serverUrl = settings.serverUrl,
+            apiKey = settings.apiKey,
+            onDismiss = { showUploadGame = false },
+        )
+    }
+
     if (showBatchDialog && missingRoms.isNotEmpty()) {
         val platformName = platforms.find { it.id == selectedPlatformId }?.name
             ?: tr("android.library.platform_fallback")
@@ -1148,6 +1168,8 @@ private fun RomDetailSheet(
     onDownload: () -> Unit,
     onDelete: () -> Unit,
     onClose: () -> Unit,
+    serverUrl: String = "",
+    apiKey: String = "",
     showMoveOption: Boolean = false,
     isOnSd: Boolean = false,
     isMoving: Boolean = false,
@@ -1329,6 +1351,13 @@ private fun RomDetailSheet(
         }
 
         Spacer(modifier = Modifier.size(20.dp))
+
+        // ── Guardados y estados en el servidor (con fecha + subida manual) ──
+        es.davidrg.rommsync.ui.components.ServerAssetsSection(
+            romId = rom.id,
+            serverUrl = serverUrl,
+            apiKey = apiKey,
+        )
 
         // Action button
         when {

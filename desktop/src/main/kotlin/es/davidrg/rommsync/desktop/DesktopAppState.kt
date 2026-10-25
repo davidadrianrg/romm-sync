@@ -1,6 +1,10 @@
 package es.davidrg.rommsync.desktop
 
 import es.davidrg.rommsync.core.i18n.tr
+import es.davidrg.rommsync.core.remote.dto.SaveDto
+import es.davidrg.rommsync.core.remote.dto.StateDto
+import es.davidrg.rommsync.core.upload.RomUploader
+import es.davidrg.rommsync.core.upload.UploadParts
 import es.davidrg.rommsync.core.library.DiscEntry
 import es.davidrg.rommsync.core.library.MultiDiscGrouper
 import es.davidrg.rommsync.core.remote.NetworkModule
@@ -367,6 +371,31 @@ class DesktopAppState(private val scope: CoroutineScope) {
         es.davidrg.rommsync.core.i18n.I18n.locale =
             if (tag.isBlank()) java.util.Locale.getDefault() else java.util.Locale.forLanguageTag(tag)
         language.value = tag
+    }
+
+    // ── Assets en el servidor ──────────────────────────────────────────
+
+    suspend fun serverSaves(romId: Int): List<SaveDto> =
+        runCatching { api?.getSaves(romId) ?: emptyList() }.getOrDefault(emptyList())
+
+    suspend fun serverStates(romId: Int): List<StateDto> =
+        runCatching { api?.getStates(romId) ?: emptyList() }.getOrDefault(emptyList())
+
+    suspend fun uploadServerSave(romId: Int, file: File): Result<Unit> = runCatching {
+        val svc = api ?: error(tr("common.server_not_configured"))
+        svc.uploadSave(
+            file = UploadParts.saveFile(file),
+            romId = romId,
+            emulator = null,
+            deviceId = null,
+            overwrite = true,
+        )
+        Unit
+    }
+
+    suspend fun uploadGameFile(file: File, platformId: Int, onProgress: (Int) -> Unit): Result<Unit> {
+        val svc = api ?: return Result.failure(IllegalStateException(tr("common.server_not_configured")))
+        return RomUploader(svc).upload(file, platformId, onProgress)
     }
 
     // ── Biblioteca: agrupado, filtro y búsqueda ─────────────────────────
