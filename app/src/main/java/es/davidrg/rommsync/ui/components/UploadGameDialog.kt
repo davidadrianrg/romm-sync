@@ -142,7 +142,7 @@ fun UploadGameDialog(
                 progress?.let { p ->
                     LinearProgressIndicator(progress = { p / 100f }, modifier = Modifier.fillMaxWidth())
                     Text(
-                        tr("library.upload.uploading", p),
+                        if (p >= 100) tr("library.upload.processing") else tr("library.upload.uploading", p),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
