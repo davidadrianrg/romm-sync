@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import es.davidrg.rommsync.core.i18n.tr
 import es.davidrg.rommsync.core.remote.dto.SearchRomDto
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /** "Buscar coincidencia" (desktop): por nombre o por ID de IGDB. */
@@ -40,10 +41,11 @@ fun MatchRomDialogDesktop(
 ) {
     val scope = rememberCoroutineScope()
     var term by remember { mutableStateOf(initialName) }
-    var byId by remember { mutableStateOf(false) }
+    var mode by remember { mutableStateOf(0) }
     var results by remember { mutableStateOf<List<SearchRomDto>>(emptyList()) }
     var searching by remember { mutableStateOf(false) }
     var applying by remember { mutableStateOf(false) }
+    var progressText by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
 
@@ -53,9 +55,20 @@ fun MatchRomDialogDesktop(
             searching = true
             error = null
             message = null
-            runCatching { state.searchRomMatch(romId, term.trim(), byId) }
-                .onSuccess { results = it }
+            progressText = null
+            runCatching {
+                when (mode) {
+                    1 -> state.searchRomMatch(romId, term.trim(), byId = true)
+                    2 -> state.searchRomMatchAll(term.trim()) { done, total ->
+                        scope.launch(Dispatchers.Main.immediate) {
+                            progressText = tr("library.match.searching_platforms", done, total)
+                        }
+                    }
+                    else -> state.searchRomMatch(romId, term.trim(), byId = false)
+                }
+            }.onSuccess { results = it }
                 .onFailure { error = tr("library.match.error", it.message ?: "") }
+            progressText = null
             searching = false
         }
     }
@@ -81,14 +94,19 @@ fun MatchRomDialogDesktop(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     FilterChip(
-                        selected = !byId,
-                        onClick = { byId = false },
+                        selected = mode == 0,
+                        onClick = { mode = 0 },
                         label = { Text(tr("library.match.by_name"), style = MaterialTheme.typography.labelSmall) },
                     )
                     FilterChip(
-                        selected = byId,
-                        onClick = { byId = true },
+                        selected = mode == 1,
+                        onClick = { mode = 1 },
                         label = { Text(tr("library.match.by_id"), style = MaterialTheme.typography.labelSmall) },
+                    )
+                    FilterChip(
+                        selected = mode == 2,
+                        onClick = { mode = 2 },
+                        label = { Text(tr("library.match.no_filter"), style = MaterialTheme.typography.labelSmall) },
                     )
                 }
                 OutlinedTextField(
@@ -102,6 +120,13 @@ fun MatchRomDialogDesktop(
                 if (searching || applying) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(Modifier.padding(4.dp), strokeWidth = 2.dp)
+                        progressText?.let {
+                            Text(
+                                "  $it",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
                 error?.let {
