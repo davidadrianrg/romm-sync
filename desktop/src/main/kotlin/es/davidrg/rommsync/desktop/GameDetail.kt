@@ -70,6 +70,7 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
 
     var expandedSummary by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showMatchDialog by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -254,6 +255,20 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
 
         // ── Guardados y estados en el servidor (fecha + subida manual) ──
         ServerAssetsPanel(rep.id, state)
+
+        // ── Buscar coincidencia (si el escaneo no reconoció el juego) ──
+        Spacer(Modifier.height(12.dp))
+        OutlinedButton(onClick = { showMatchDialog = true }) {
+            Text(tr("library.match.title"))
+        }
+        if (showMatchDialog) {
+            MatchRomDialogDesktop(
+                romId = rep.id,
+                initialName = rep.name,
+                state = state,
+                onDismiss = { showMatchDialog = false },
+            )
+        }
     }
 
     if (showDeleteDialog) {

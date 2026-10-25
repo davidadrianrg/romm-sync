@@ -2,9 +2,12 @@ package es.davidrg.rommsync.desktop
 
 import es.davidrg.rommsync.core.i18n.tr
 import es.davidrg.rommsync.core.remote.dto.SaveDto
+import es.davidrg.rommsync.core.remote.dto.SearchRomDto
 import es.davidrg.rommsync.core.remote.dto.StateDto
 import es.davidrg.rommsync.core.upload.RomUploader
 import es.davidrg.rommsync.core.upload.UploadParts
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import es.davidrg.rommsync.core.library.DiscEntry
 import es.davidrg.rommsync.core.library.MultiDiscGrouper
 import es.davidrg.rommsync.core.remote.NetworkModule
@@ -407,6 +410,31 @@ class DesktopAppState(private val scope: CoroutineScope) {
     suspend fun uploadGameFile(file: File, platformId: Int, onProgress: (Int) -> Unit): Result<Unit> {
         val svc = api ?: return Result.failure(IllegalStateException(tr("common.server_not_configured")))
         return RomUploader(svc).upload(file, platformId, onProgress)
+    }
+
+    /** Uploader con el cliente actual (para carpetas multi-fichero). */
+    fun romUploader(): RomUploader? = api?.let { RomUploader(it) }
+
+    // ── Buscar coincidencia (metadatos) ────────────────────────────────
+
+    suspend fun searchRomMatch(romId: Int, term: String, byId: Boolean): List<SearchRomDto> =
+        runCatching {
+            api?.searchRomMetadata(romId, term, if (byId) "id" else "name") ?: emptyList()
+        }.getOrDefault(emptyList())
+
+    suspend fun applyRomMatch(romId: Int, match: SearchRomDto): Result<Unit> = runCatching {
+        val svc = api ?: error(tr("common.server_not_configured"))
+        fun body(value: String?) = value?.toRequestBody("text/plain".toMediaType())
+        svc.updateRomMetadata(
+            romId = romId,
+            name = (match.name ?: error("name")).toRequestBody("text/plain".toMediaType()),
+            summary = body(match.summary),
+            slug = body(match.slug),
+            igdbId = body(match.igdbId?.toString()),
+            ssId = body(match.ssId?.toString()),
+            mobyId = body(match.mobyId?.toString()),
+        )
+        Unit
     }
 
     /** Escaneo rápido de la plataforma tras subir (best-effort). */
