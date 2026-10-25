@@ -130,6 +130,17 @@ class DesktopAppState(private val scope: CoroutineScope) {
     /** romId -> ruta local registrada en library.properties tras descargar. */
     private val downloadedIds: MutableSet<Int> = ConcurrentHashMap.newKeySet()
 
+    /** IDs marcados a mano como descargados (persistidos en prefs, sin fichero). */
+    private val manualIds: MutableSet<Int> = ConcurrentHashMap.newKeySet<Int>().apply {
+        DesktopConfig.manualDownloaded.split(',')
+            .mapNotNull { it.trim().toIntOrNull() }
+            .forEach { add(it) }
+    }
+
+    private fun persistManualIds() {
+        DesktopConfig.manualDownloaded = manualIds.joinToString(",")
+    }
+
     /** Se incrementa al completar descargas para recomponer la biblioteca. */
     private val _downloadedVersion = MutableStateFlow(0)
     val downloadedVersion: StateFlow<Int> = _downloadedVersion
@@ -398,6 +409,31 @@ class DesktopAppState(private val scope: CoroutineScope) {
         return RomUploader(svc).upload(file, platformId, onProgress)
     }
 
+    /** Escaneo rápido de la plataforma tras subir (best-effort). */
+    suspend fun triggerQuickScan(platformId: Int): Boolean {
+        val svc = api ?: return false
+        return RomUploader(svc).triggerQuickScan(platformId)
+    }
+
+    // ── Marca manual de descargado (desktop) ───────────────────────────
+
+    fun isManualDownloaded(card: GameCard): Boolean =
+        card.groupRoms.isNotEmpty() && card.groupRoms.all { it.id in manualIds }
+
+    fun markDownloadedManually(card: GameCard) {
+        card.groupRoms.forEach { manualIds.add(it.id) }
+        persistManualIds()
+        _downloadedVersion.value = _downloadedVersion.value + 1
+        showSnackbar(tr("library.marked_downloaded", card.rep.name))
+    }
+
+    fun unmarkDownloadedManually(card: GameCard) {
+        card.groupRoms.forEach { manualIds.remove(it.id) }
+        persistManualIds()
+        _downloadedVersion.value = _downloadedVersion.value + 1
+        showSnackbar(tr("library.unmarked_downloaded", card.rep.name))
+    }
+
     // ── Biblioteca: agrupado, filtro y búsqueda ─────────────────────────
 
     /** Una tarjeta por juego, con discos/variantes agrupados por [MultiDiscGrouper]. */
@@ -442,7 +478,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
                 rep = rep,
                 discCount = group.discCount,
                 groupRoms = group.downloadIds.mapNotNull { byId[it] },
-                downloaded = group.downloadIds.all { it in downloadedIds },
+                downloaded = group.downloadIds.all { it in downloadedIds || it in manualIds },
             )
         }
     }
@@ -623,6 +659,9 @@ class DesktopAppState(private val scope: CoroutineScope) {
                     library.removeRom(rom.id)
                     downloadedIds.remove(rom.id)
                 }
+                // Marca manual: al borrar solo se quita la marca (no hay fichero).
+                card.groupRoms.forEach { manualIds.remove(it.id) }
+                persistManualIds()
             }
             _downloadedVersion.value = _downloadedVersion.value + 1
             refreshLocalStats()

@@ -1,6 +1,7 @@
 package es.davidrg.rommsync.core.upload
 
 import es.davidrg.rommsync.core.remote.RomMApiService
+import es.davidrg.rommsync.core.remote.dto.ScanRequest
 import es.davidrg.rommsync.core.remote.dto.UploadStartRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -59,4 +60,14 @@ class RomUploader(private val api: RomMApiService) {
             onProgress(100)
         }
     }
+
+    /**
+     * Lanza un escaneo rápido de la plataforma tras subir (la web de RomM hace
+     * lo mismo por socket). Best-effort: si el server lo rechaza, el juego
+     * aparecerá en el siguiente escaneo.
+     */
+    suspend fun triggerQuickScan(platformId: Int): Boolean = runCatching {
+        api.startScan(ScanRequest(type = "quick", platforms = listOf(platformId)))
+        true
+    }.getOrDefault(false)
 }

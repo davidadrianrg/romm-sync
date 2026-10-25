@@ -34,8 +34,8 @@ android {
         applicationId = "es.davidrg.rommsync"
         minSdk = 26
         targetSdk = 35
-        versionCode = 72
-        versionName = "0.8.7"
+        versionCode = 73
+        versionName = "0.8.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

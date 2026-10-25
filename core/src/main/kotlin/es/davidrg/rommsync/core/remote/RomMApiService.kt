@@ -2,6 +2,7 @@ package es.davidrg.rommsync.core.remote
 
 import es.davidrg.rommsync.core.remote.dto.PlatformDto
 import es.davidrg.rommsync.core.remote.dto.RomResponse
+import es.davidrg.rommsync.core.remote.dto.ScanRequest
 import es.davidrg.rommsync.core.remote.dto.SaveDto
 import es.davidrg.rommsync.core.remote.dto.StateDto
 import es.davidrg.rommsync.core.remote.dto.UploadStartRequest
@@ -173,4 +174,8 @@ interface RomMApiService {
     /** POST /api/roms/upload/{upload_id}/cancel */
     @POST("api/roms/upload/{upload_id}/cancel")
     suspend fun cancelRomUpload(@Path("upload_id") uploadId: String): ResponseBody
+
+    /** POST /api/tasks/scan — escaneo rápido (202). */
+    @POST("api/tasks/scan")
+    suspend fun startScan(@Body payload: ScanRequest): ResponseBody
 }

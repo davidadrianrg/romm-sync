@@ -166,6 +166,12 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
                                 Spacer(Modifier.width(6.dp))
                                 Text(tr("game.delete_download"))
                             }
+                            if (state.isManualDownloaded(card)) {
+                                Spacer(Modifier.width(10.dp))
+                                OutlinedButton(onClick = { state.unmarkDownloadedManually(card) }) {
+                                    Text(tr("library.unmark_downloaded"))
+                                }
+                            }
                         }
                         downloading -> {
                             CircularProgressIndicator(Modifier.size(18.dp))
@@ -177,6 +183,10 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
                                 Icon(AppIcons.Download, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(8.dp))
                                 Text(tr("common.download"))
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            OutlinedButton(onClick = { state.markDownloadedManually(card) }) {
+                                Text(tr("library.mark_downloaded"))
                             }
                         }
                     }

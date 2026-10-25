@@ -27,9 +27,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.documentfile.provider.DocumentFile
 import es.davidrg.rommsync.core.i18n.tr
 import es.davidrg.rommsync.core.remote.NetworkModule
 import es.davidrg.rommsync.core.upload.RomUploader
+import es.davidrg.rommsync.data.storage.SafFolderZipper
 import es.davidrg.rommsync.domain.model.Platform
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -54,8 +56,11 @@ fun UploadGameDialog(
     var file by remember { mutableStateOf<File?>(null) }
     var fileName by remember { mutableStateOf("") }
     var progress by remember { mutableStateOf<Int?>(null) }
+    var zipProgress by remember { mutableStateOf<Int?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+
+    val busy = progress != null || zipProgress != null
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -79,8 +84,31 @@ fun UploadGameDialog(
         }
     }
 
+    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            zipProgress = 0
+            val folderName = DocumentFile.fromTreeUri(context, uri)?.name ?: "upload"
+            val zip = File(context.cacheDir, "$folderName.zip")
+            val ok = withContext(Dispatchers.IO) {
+                SafFolderZipper.zip(uri, zip, context) { p ->
+                    scope.launch(Dispatchers.Main.immediate) { zipProgress = p }
+                }
+            }
+            zipProgress = null
+            if (ok && zip.length() > 0) {
+                file = zip
+                fileName = "${zip.name} (${zip.length() / (1024 * 1024)} MB)"
+                error = null
+            } else {
+                error = tr("library.upload.error", "zip")
+                zip.delete()
+            }
+        }
+    }
+
     AlertDialog(
-        onDismissRequest = { if (progress == null) onDismiss() },
+        onDismissRequest = { if (!busy) onDismiss() },
         title = { Text(tr("library.upload.title")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -97,8 +125,19 @@ fun UploadGameDialog(
                         )
                     }
                 }
-                OutlinedButton(onClick = { picker.launch(arrayOf("*/*")) }, enabled = progress == null) {
+                OutlinedButton(onClick = { picker.launch(arrayOf("*/*")) }, enabled = !busy) {
                     Text(if (fileName.isBlank()) tr("library.upload.pick") else fileName)
+                }
+                OutlinedButton(onClick = { folderPicker.launch(null) }, enabled = !busy) {
+                    Text(tr("library.upload.folder"))
+                }
+                zipProgress?.let { p ->
+                    LinearProgressIndicator(progress = { p / 100f }, modifier = Modifier.fillMaxWidth())
+                    Text(
+                        tr("library.upload.zipping", p),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
                 progress?.let { p ->
                     LinearProgressIndicator(progress = { p / 100f }, modifier = Modifier.fillMaxWidth())
@@ -123,7 +162,7 @@ fun UploadGameDialog(
         },
         confirmButton = {
             TextButton(
-                enabled = progress == null && file != null && platformId != null,
+                enabled = !busy && file != null && platformId != null,
                 onClick = {
                     val picked = file ?: return@TextButton
                     val pid = platformId ?: return@TextButton
@@ -136,12 +175,18 @@ fun UploadGameDialog(
                         message = null
                         progress = 0
                         val api = NetworkModule.createApiService(serverUrl, apiKey)
-                        val result = RomUploader(api).upload(picked, pid) { p ->
+                        val uploader = RomUploader(api)
+                        val result = uploader.upload(picked, pid) { p ->
                             scope.launch(Dispatchers.Main.immediate) { progress = p }
                         }
                         progress = null
                         result.onSuccess {
-                            message = tr("library.upload.ok", picked.name)
+                            val scanned = uploader.triggerQuickScan(pid)
+                            message = if (scanned) {
+                                tr("library.upload.ok_scan", picked.name)
+                            } else {
+                                tr("library.upload.ok", picked.name)
+                            }
                             picked.delete()
                             file = null
                             fileName = ""
@@ -153,7 +198,7 @@ fun UploadGameDialog(
             ) { Text(tr("library.upload.start")) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, enabled = progress == null) { Text(tr("common.cancel")) }
+            TextButton(onClick = onDismiss, enabled = !busy) { Text(tr("common.cancel")) }
         },
     )
 }

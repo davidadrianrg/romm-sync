@@ -38,6 +38,7 @@ object SaveHandlerRegistry {
         EDEN("eden", "Eden"),
         AZAHAR("azahar", "Azahar"),
         CEMU("cemu", "Cemu"),
+        HAKUX("hakux", "hakuX"),
         ANDROID_NATIVE("android_native"),
         ;
 
@@ -59,6 +60,7 @@ object SaveHandlerRegistry {
             in N3DS_SLUGS -> listOf(EmulatorId.AZAHAR, EmulatorId.RETROARCH)
             in WIIU_SLUGS -> listOf(EmulatorId.CEMU)
             "switch" -> listOf(EmulatorId.EDEN)
+            "xbox" -> listOf(EmulatorId.HAKUX)
             in ANDROID_SLUGS -> listOf(EmulatorId.ANDROID_NATIVE)
             else -> listOf(EmulatorId.RETROARCH)
         }
@@ -71,12 +73,13 @@ object SaveHandlerRegistry {
         return when (platformSlug.lowercase()) {
             "nds", "ds" -> EmulatorId.MELONDS
             "psp" -> EmulatorId.PPSSPP
-            "ps2" -> EmulatorId.AETHERSX2
+            "ps2" -> EmulatorId.ARMSX2
             "ps3" -> EmulatorId.ARMSX3
             "gc", "gamecube", "ngc", "wii" -> EmulatorId.DOLPHIN
             in N3DS_SLUGS -> EmulatorId.AZAHAR
             in WIIU_SLUGS -> EmulatorId.CEMU
             "switch" -> EmulatorId.EDEN
+            "xbox" -> EmulatorId.HAKUX
             in ANDROID_SLUGS -> EmulatorId.ANDROID_NATIVE
             else -> EmulatorId.RETROARCH
         }
@@ -98,6 +101,7 @@ object SaveHandlerRegistry {
             EmulatorId.EDEN.id -> switchHandler
             EmulatorId.AZAHAR.id -> n3dsHandler
             EmulatorId.CEMU.id -> cemuHandler
+            EmulatorId.HAKUX.id -> androidHandler
             EmulatorId.ANDROID_NATIVE.id -> androidHandler
             EmulatorId.RETROARCH.id -> retroArchHandler
             else -> retroArchHandler
@@ -126,6 +130,7 @@ object SaveHandlerRegistry {
             EmulatorId.EDEN.id -> SwitchSaveHandler.DEFAULT_SAVES_PATH
             EmulatorId.AZAHAR.id -> N3dsSaveHandler.DEFAULT_SAVES_PATH
             EmulatorId.CEMU.id -> CemuSaveHandler.DEFAULT_SAVES_PATH
+            EmulatorId.HAKUX.id -> HAKUX_SAVES_PATH
             EmulatorId.ANDROID_NATIVE.id -> AndroidSaveHandler.DEFAULT_SAVES_PATH
             else -> retroArchBase
         }
@@ -139,4 +144,12 @@ object SaveHandlerRegistry {
 
     /** Slugs de plataforma que corresponden a juegos nativos Android. */
     private val ANDROID_SLUGS = setOf("android", "android-games")
+
+    /**
+     * hakuX guarda los savestates y la HDD (con los saves Xbox dentro) en su
+     * almacenamiento privado (`/data/data/com.rfandango.haku_x/files/native`).
+     * Solo accesible con root; con override por juego se puede apuntar a una
+     * carpeta exportada (hakuX tiene su propio import/export de zips UDATA).
+     */
+    const val HAKUX_SAVES_PATH = "/data/data/com.rfandango.haku_x/files/native/states"
 }

@@ -22,6 +22,10 @@ interface RomDao {
     @Query("SELECT romId FROM downloaded_roms")
     fun getAllDownloadedRomIds(): Flow<List<Int>>
 
+    /** IDs marcados como descargados a mano (sin fichero gestionado: localPath vacío). */
+    @Query("SELECT romId FROM downloaded_roms WHERE localPath = ''")
+    fun getManualDownloadedRomIds(): Flow<List<Int>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDownloadedRom(rom: DownloadedRomEntity)
 

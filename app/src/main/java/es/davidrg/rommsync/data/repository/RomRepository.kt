@@ -207,6 +207,10 @@ class RomRepository(
     fun getDownloadedRomIds(): Flow<Set<Int>> =
         romDao.getAllDownloadedRomIds().map { it.toSet() }
 
+    /** IDs marcados como descargados manualmente (sin fichero en disco). */
+    fun getManualDownloadedRomIds(): Flow<Set<Int>> =
+        romDao.getManualDownloadedRomIds().map { it.toSet() }
+
     fun getDownloadedRomsForPlatform(platformId: Int): Flow<List<DownloadedRomEntity>> =
         romDao.getDownloadedRomsForPlatform(platformId)
 

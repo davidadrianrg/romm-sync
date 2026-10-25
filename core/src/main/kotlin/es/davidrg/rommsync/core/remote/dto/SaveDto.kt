@@ -39,3 +39,10 @@ data class UploadStartRequest(
 data class UploadStartResponse(
     @Json(name = "upload_id") val uploadId: String,
 )
+
+/** Body de POST /api/tasks/scan (escaneo rápido de plataformas concretas). */
+@JsonClass(generateAdapter = true)
+data class ScanRequest(
+    val type: String = "quick",
+    val platforms: List<Int> = emptyList(),
+)
