@@ -244,9 +244,16 @@ fun LibraryScreen() {
         }
     }
 
-    // Visible NOT_DOWNLOADED ROMs — used by the batch download action.
-    val missingRoms by remember(filteredRoms) {
-        derivedStateOf { filteredRoms.filter { it.status == DownloadStatus.NOT_DOWNLOADED } }
+    // Missing across the WHOLE platform (all server pages), not only the pages
+    // scrolled so far. Fallback to the local list while the full fetch runs.
+    val platformMissing by viewModel.platformMissingRoms.collectAsState()
+    val localMissing = remember(filteredRoms) {
+        filteredRoms.filter { it.status == DownloadStatus.NOT_DOWNLOADED }.map { it.rom }
+    }
+    val missingRoms: List<Rom> = platformMissing.ifEmpty { localMissing }
+
+    LaunchedEffect(selectedPlatformId, settings.serverUrl, settings.apiKey) {
+        if (selectedPlatformId != null) viewModel.loadAllPlatformRoms()
     }
 
     // State for the batch download confirmation dialog.
@@ -808,7 +815,7 @@ fun LibraryScreen() {
                 TextButton(
                     onClick = {
                         viewModel.enqueueBatchDownload(
-                            roms = missingRoms.map { it.rom },
+                            roms = missingRoms,
                             serverUrl = settings.serverUrl,
                             romsRootPath = batchSelectedRoot,
                         )

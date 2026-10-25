@@ -26,9 +26,11 @@ class SettingsRepository(private val dataStore: SettingsDataStore) {
     suspend fun setSkippedVersion(version: String) = dataStore.setSkippedVersion(version)
     suspend fun setConflictPolicy(policyId: String) = dataStore.setConflictPolicy(policyId)
     suspend fun setRetroArchBasePath(path: String) = dataStore.setRetroArchBasePath(path)
+    suspend fun setLanguage(tag: String) = dataStore.setLanguage(tag)
     suspend fun setSaveSyncEnabled(enabled: Boolean) = dataStore.setSaveSyncEnabled(enabled)
 
     val retroArchBasePath: Flow<String> = dataStore.retroArchBasePath
+    val language: Flow<String> = dataStore.language
     val saveSyncEnabled: Flow<Boolean> = dataStore.saveSyncEnabled
     val saveSyncIntervalMinutes: Flow<Int> = dataStore.saveSyncIntervalMinutes
     val lastSyncTimestamp: Flow<Long> = dataStore.lastSyncTimestamp

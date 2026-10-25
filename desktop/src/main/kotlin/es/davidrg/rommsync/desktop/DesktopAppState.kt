@@ -359,6 +359,16 @@ class DesktopAppState(private val scope: CoroutineScope) {
     fun openGame(card: GameCard) { _selectedGame.value = card }
     fun closeGame() { _selectedGame.value = null }
 
+    // ── Idioma ("": sistema) ───────────────────────────────────────────
+    val language = MutableStateFlow(DesktopConfig.languageTag)
+
+    fun setLanguage(tag: String) {
+        DesktopConfig.languageTag = tag
+        es.davidrg.rommsync.core.i18n.I18n.locale =
+            if (tag.isBlank()) java.util.Locale.getDefault() else java.util.Locale.forLanguageTag(tag)
+        language.value = tag
+    }
+
     // ── Biblioteca: agrupado, filtro y búsqueda ─────────────────────────
 
     /** Una tarjeta por juego, con discos/variantes agrupados por [MultiDiscGrouper]. */

@@ -208,6 +208,16 @@ class ConfigViewModel(
         viewModelScope.launch { settingsRepository.setRetroArchBasePath(path) }
     }
 
+    /** Idioma: "" = sistema, "en", "es". Aplica en caliente vía LocaleController. */
+    val language = settingsRepository.language
+
+    fun setLanguage(tag: String) {
+        viewModelScope.launch {
+            settingsRepository.setLanguage(tag)
+            es.davidrg.rommsync.util.LocaleController.apply(tag)
+        }
+    }
+
     /**
      * Activa/desactiva la función de sincronización de saves. Al desactivar
      * cancela cualquier trabajo de sync encolado; al reactivar restaura el

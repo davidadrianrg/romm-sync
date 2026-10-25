@@ -228,6 +228,7 @@ class LibraryViewModel(
     fun selectPlatform(platformId: Int, serverUrl: String, apiKey: String) {
         _selectedPlatformId.value = platformId
         currentSearch = null
+        _platformAllRoms.value = emptyList()
         loadRoms(serverUrl, apiKey, reset = true)
     }
 
@@ -238,6 +239,7 @@ class LibraryViewModel(
      */
     fun searchRoms(query: String, serverUrl: String, apiKey: String) {
         currentSearch = query.ifBlank { null }
+        _platformAllRoms.value = emptyList()
         loadRoms(serverUrl, apiKey, reset = true)
     }
 
@@ -327,6 +329,29 @@ class LibraryViewModel(
                 manager.enqueueDownload(rom = rom, serverUrl = serverUrl, romsRootPath = romsRootPath)
             }
             _events.emit(LibraryEvent.BatchDownloadStarted(toEnqueue.size))
+        }
+    }
+
+    private val _platformAllRoms = MutableStateFlow<List<Rom>>(emptyList())
+    private val _allPlatformLoading = MutableStateFlow(false)
+    val allPlatformLoading: StateFlow<Boolean> = _allPlatformLoading
+
+    /** ROMs de TODA la plataforma que aún no están descargadas (todas las páginas). */
+    val platformMissingRoms: StateFlow<List<Rom>> = combine(_platformAllRoms, downloadedIds) { all, downloaded ->
+        all.filter { it.id !in downloaded }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Carga todas las páginas de la plataforma seleccionada (para el batch). */
+    fun loadAllPlatformRoms() {
+        val platformId = _selectedPlatformId.value ?: return
+        if (_allPlatformLoading.value) return
+        viewModelScope.launch {
+            _allPlatformLoading.value = true
+            when (val result = romRepository.fetchAllRomsForPlatform(platformId, currentSearch)) {
+                is ApiResult.Success -> _platformAllRoms.value = result.data
+                is ApiResult.Error -> _events.emit(LibraryEvent.Error(result.message))
+            }
+            _allPlatformLoading.value = false
         }
     }
 

@@ -58,6 +58,7 @@ class SettingsDataStore(private val context: Context) {
         val CONFLICT_POLICY = stringPreferencesKey("conflict_policy")
         val ESDE_DATA_DIR = stringPreferencesKey("esde_data_dir")
         val RETROHRAI_MEDIA_PATH = stringPreferencesKey("retrohrai_media_path")
+        val LANGUAGE = stringPreferencesKey("language")
 
         // Toggles de funciones opcionales (opt-out: ausencia = activado)
         val ESDE_EXPORT_ENABLED = booleanPreferencesKey("esde_export_enabled")
@@ -144,6 +145,8 @@ class SettingsDataStore(private val context: Context) {
     val retroArchBasePath: Flow<String> = context.dataStore.data.map {
         it[RETROARCH_BASE_PATH] ?: DEFAULT_RETROARCH_PATH
     }
+    /** "" = idioma del sistema; "en"/"es" = forzado. */
+    val language: Flow<String> = context.dataStore.data.map { it[LANGUAGE] ?: "" }
     val syncDeviceId: Flow<Int?> = context.dataStore.data.map { it[DEVICE_ID] }
     val syncDeviceIdString: Flow<String?> = context.dataStore.data.map { it[DEVICE_ID_STRING] }
     val saveSyncEnabled: Flow<Boolean> = context.dataStore.data.map {
@@ -276,6 +279,14 @@ class SettingsDataStore(private val context: Context) {
 
     suspend fun setRetroArchBasePath(path: String) {
         context.dataStore.edit { it[RETROARCH_BASE_PATH] = path.trimEnd('/') }
+    }
+
+    suspend fun setLanguage(tag: String) {
+        context.dataStore.edit { it[LANGUAGE] = tag }
+    }
+
+    fun getLanguageBlocking(): String = runBlocking {
+        context.dataStore.data.first()[LANGUAGE] ?: ""
     }
 
     suspend fun setSyncDeviceId(id: Int) {

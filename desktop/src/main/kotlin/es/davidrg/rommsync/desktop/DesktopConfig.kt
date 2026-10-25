@@ -77,6 +77,11 @@ object DesktopConfig {
         get() = prefs.get("skipped_version", "")
         set(v) = prefs.put("skipped_version", v)
 
+    /** Idioma: "" = sistema, "en", "es". */
+    var languageTag: String
+        get() = prefs.get("language", "")
+        set(v) = prefs.put("language", v)
+
     /** Versión de la app desktop (para el comprobador de actualizaciones). */
     const val appVersion: String = "0.8.6"
 }
