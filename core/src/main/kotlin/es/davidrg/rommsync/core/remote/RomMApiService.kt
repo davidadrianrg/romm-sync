@@ -203,6 +203,7 @@ interface RomMApiService {
         @Part("name") name: RequestBody,
         @Part("summary") summary: RequestBody? = null,
         @Part("slug") slug: RequestBody? = null,
+        @Part("fs_name") fsName: RequestBody? = null,
         @Part("igdb_id") igdbId: RequestBody? = null,
         @Part("ss_id") ssId: RequestBody? = null,
         @Part("moby_id") mobyId: RequestBody? = null,

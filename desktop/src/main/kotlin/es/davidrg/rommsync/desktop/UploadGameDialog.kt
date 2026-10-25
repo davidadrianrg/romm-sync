@@ -24,7 +24,9 @@ import androidx.compose.ui.unit.dp
 import es.davidrg.rommsync.core.i18n.tr
 import es.davidrg.rommsync.core.remote.dto.PlatformDto
 import es.davidrg.rommsync.core.upload.RomUploader
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.File
 import javax.swing.JFileChooser
@@ -47,6 +49,8 @@ fun UploadGameDialogDesktop(
     var folderName by remember { mutableStateOf("") }
     var selection by remember { mutableStateOf("") }
     var progress by remember { mutableStateOf<Int?>(null) }
+    var phase by remember { mutableStateOf<String?>(null) }
+    var job by remember { mutableStateOf<Job?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -56,29 +60,41 @@ fun UploadGameDialogDesktop(
         val entries = folderFiles
         val total = entries.sumOf { it.length() }.coerceAtLeast(1)
         var done = 0L
+        val count = entries.size
+
+        // La ROM nueva se detecta por id (RomM puede renombrarla al promocionar).
+        val maxBefore = uploader.maxRomId(pid)
 
         val first = entries.first()
-        var romId = uploader.findRomId(pid, first.name)
-        if (romId == null) {
-            uploader.upload(first, pid) { p ->
-                scope.launch(Dispatchers.Main.immediate) {
-                    progress = ((done + first.length() * p / 100) * 100 / total).toInt()
-                }
-            }.getOrThrow()
-            done += first.length()
-            romId = uploader.awaitRomId(pid, first.name) ?: error(tr("library.upload.timeout"))
-        } else {
-            done += first.length()
-        }
+        phase = tr("library.upload.phase_file", 1, count, 0)
+        uploader.upload(first, pid) { p ->
+            scope.launch(Dispatchers.Main.immediate) {
+                progress = ((done + first.length() * p / 100) * 100 / total).toInt()
+                phase = tr("library.upload.phase_file", 1, count, p)
+            }
+        }.getOrThrow()
+        done += first.length()
 
-        for (file in entries.drop(1)) {
+        phase = tr("library.upload.phase_scan", 0)
+        val romId = uploader.awaitNewRomId(pid, maxBefore) { seconds ->
+            scope.launch(Dispatchers.Main.immediate) {
+                phase = tr("library.upload.phase_scan", seconds)
+            }
+        } ?: error(tr("library.upload.timeout"))
+
+        for ((index, file) in entries.drop(1).withIndex()) {
+            val number = index + 2
             uploader.uploadIntoRom(file, romId, pid) { p ->
                 scope.launch(Dispatchers.Main.immediate) {
                     progress = ((done + file.length() * p / 100) * 100 / total).toInt()
+                    phase = tr("library.upload.phase_file", number, count, p)
                 }
             }.getOrThrow()
             done += file.length()
         }
+
+        phase = tr("library.upload.phase_rename")
+        uploader.renameRom(romId, folderName)
 
         progress = 100
         val scanned = uploader.triggerQuickScan(pid)
@@ -95,7 +111,7 @@ fun UploadGameDialogDesktop(
             error = tr("common.server_not_configured")
             return
         }
-        scope.launch {
+        job = scope.launch {
             error = null
             message = null
             progress = 0
@@ -118,10 +134,13 @@ fun UploadGameDialogDesktop(
                 singleFile = null
                 folderFiles = emptyList()
                 folderName = ""
+            } catch (e: CancellationException) {
+                message = tr("library.upload.cancelled")
             } catch (e: Exception) {
                 error = tr("library.upload.error", e.message ?: "")
             } finally {
                 progress = null
+                phase = null
             }
         }
     }
@@ -198,6 +217,15 @@ fun UploadGameDialogDesktop(
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
+                if (busy) {
+                    phase?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 error?.let {
                     Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 }
@@ -218,7 +246,11 @@ fun UploadGameDialogDesktop(
             ) { Text(tr("library.upload.start")) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !busy) { Text(tr("common.cancel")) }
+            if (busy) {
+                TextButton(onClick = { job?.cancel() }) { Text(tr("common.cancel")) }
+            } else {
+                TextButton(onClick = onDismiss) { Text(tr("common.close")) }
+            }
         },
     )
 }
