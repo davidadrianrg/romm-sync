@@ -186,6 +186,7 @@ fun LibraryScreen() {
 
     // Bottom sheet state for long-press game details
     var selectedRom by remember { mutableStateOf<Rom?>(null) }
+    val manualIds by viewModel.manualDownloadedIds.collectAsState()
     // ROM pendiente de confirmación de borrado
     var romToDelete by remember { mutableStateOf<Rom?>(null) }
     val sheetState = rememberModalBottomSheetState()
@@ -235,12 +236,16 @@ fun LibraryScreen() {
     }
 
     // Filter ROMs by download status only (search is server-side)
-    val filteredRoms by remember(romsWithStatus, selectedFilter) {
+    val platformDownloaded by viewModel.platformDownloadedCards.collectAsState()
+    val filteredRoms by remember(romsWithStatus, selectedFilter, platformDownloaded) {
         derivedStateOf {
             when (selectedFilter) {
                 RomFilter.ALL -> romsWithStatus
                 RomFilter.MISSING -> romsWithStatus.filter { it.status == DownloadStatus.NOT_DOWNLOADED }
-                RomFilter.DOWNLOADED -> romsWithStatus.filter { it.status == DownloadStatus.DOWNLOADED }
+                // Descargados de TODA la plataforma, no solo las páginas cargadas.
+                RomFilter.DOWNLOADED -> platformDownloaded.ifEmpty {
+                    romsWithStatus.filter { it.status == DownloadStatus.DOWNLOADED }
+                }
             }
         }
     }
@@ -768,6 +773,15 @@ fun LibraryScreen() {
                 onClose = { selectedRom = null },
                 serverUrl = settings.serverUrl,
                 apiKey = settings.apiKey,
+                isManualDownloaded = romStatus?.groupRomIds?.all { it in manualIds } == true,
+                onMarkDownloaded = {
+                    viewModel.markDownloadedManually(rom, romStatus?.groupRomIds ?: listOf(rom.id))
+                    selectedRom = null
+                },
+                onUnmarkDownloaded = {
+                    viewModel.unmarkDownloadedManually(rom, romStatus?.groupRomIds ?: listOf(rom.id))
+                    selectedRom = null
+                },
                 showMoveOption = settings.dualRomsPathsEnabled,
                 isOnSd = isOnSd,
                 isMoving = isMovingRom,
@@ -1170,6 +1184,9 @@ private fun RomDetailSheet(
     onClose: () -> Unit,
     serverUrl: String = "",
     apiKey: String = "",
+    isManualDownloaded: Boolean = false,
+    onMarkDownloaded: () -> Unit = {},
+    onUnmarkDownloaded: () -> Unit = {},
     showMoveOption: Boolean = false,
     isOnSd: Boolean = false,
     isMoving: Boolean = false,
@@ -1398,6 +1415,14 @@ private fun RomDetailSheet(
                         )
                         Text("  " + tr("game.delete_download"))
                     }
+                    if (isManualDownloaded) {
+                        OutlinedButton(
+                            onClick = onUnmarkDownloaded,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(tr("library.unmark_downloaded"))
+                        }
+                    }
                     // ── Mover entre almacenamientos (modo dos rutas) ─────
                     // Solo para juegos descargados con el modo dual activo.
                     if (showMoveOption) {
@@ -1469,12 +1494,24 @@ private fun RomDetailSheet(
                 }
             }
             else -> {
-                androidx.compose.material3.Button(
-                    onClick = onDownload,
+                Column(
                     modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Icon(Icons.Filled.Download, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Text("  " + tr("common.download"))
+                    androidx.compose.material3.Button(
+                        onClick = onDownload,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(Icons.Filled.Download, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Text("  " + tr("common.download"))
+                    }
+                    OutlinedButton(
+                        onClick = onMarkDownloaded,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(Icons.Filled.DownloadDone, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Text("  " + tr("library.mark_downloaded"))
+                    }
                 }
             }
         }

@@ -82,6 +82,11 @@ object DesktopConfig {
         get() = prefs.get("language", "")
         set(v) = prefs.put("language", v)
 
+    /** IDs marcados como descargados a mano (CSV), sin fichero gestionado. */
+    var manualDownloaded: String
+        get() = prefs.get("manual_downloaded", "")
+        set(v) = prefs.put("manual_downloaded", v)
+
     /** Versión de la app desktop (para el comprobador de actualizaciones). */
     const val appVersion: String = "0.8.7"
 }

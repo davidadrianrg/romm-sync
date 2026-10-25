@@ -107,6 +107,10 @@ object AndroidSavePathResolver {
             SaveHandlerRegistry.EmulatorId.CEMU.id -> listOf(
                 "$EXT/Android/data/info.cemu.cemu/files/mlc01/usr/save/00050000",
             )
+            SaveHandlerRegistry.EmulatorId.HAKUX.id -> listOf(
+                SaveHandlerRegistry.HAKUX_SAVES_PATH,
+                "$EXT/Android/data/com.rfandango.haku_x/files/native/states",
+            )
             SaveHandlerRegistry.EmulatorId.ANDROID_NATIVE.id -> listOf("$EXT/Android/data")
             else -> emptyList()
         }

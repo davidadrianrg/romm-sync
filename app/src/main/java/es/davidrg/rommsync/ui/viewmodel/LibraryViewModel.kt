@@ -125,6 +125,13 @@ class LibraryViewModel(
             initialValue = emptySet(),
         )
 
+    val manualDownloadedIds: StateFlow<Set<Int>> = romRepository.getManualDownloadedRomIds()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptySet(),
+        )
+
     /**
      * Live set of ROM IDs currently downloading (ENQUEUED or RUNNING).
      * Driven by WorkManager observeDownloads() — auto-updates when downloads
@@ -243,6 +250,15 @@ class LibraryViewModel(
         loadRoms(serverUrl, apiKey, reset = true)
     }
 
+    /** Adaptador Rom → DiscEntry para [MultiDiscGrouper]. */
+    private fun Rom.toDiscEntry(): DiscEntry = DiscEntry(
+        id = id,
+        name = name,
+        platformSlug = platformSlug,
+        igdbId = igdbId,
+        fileNames = files.map { it.filename }.ifEmpty { listOf(fileName) },
+    )
+
     /** Called by infinite scroll when user nears the bottom. */
     fun loadMore(serverUrl: String, apiKey: String) {
         if (_isLoadingMore.value || !_hasMore.value || _isLoading.value) return
@@ -352,6 +368,49 @@ class LibraryViewModel(
                 is ApiResult.Error -> _events.emit(LibraryEvent.Error(result.message))
             }
             _allPlatformLoading.value = false
+        }
+    }
+
+    /** Cards de TODO lo descargado de la plataforma (no solo las páginas cargadas). */
+    val platformDownloadedCards: StateFlow<List<RomWithStatus>> =
+        combine(_platformAllRoms, downloadedIds) { all, downloaded ->
+            val groups = MultiDiscGrouper.group(all.map { it.toDiscEntry() })
+            val byId = all.associateBy { it.id }
+            groups.mapNotNull { group ->
+                val rom = byId[group.representativeId] ?: return@mapNotNull null
+                if (group.downloadIds.none { it in downloaded }) return@mapNotNull null
+                RomWithStatus(
+                    rom = rom,
+                    status = DownloadStatus.DOWNLOADED,
+                    discCount = group.discCount,
+                    groupRomIds = group.downloadIds,
+                )
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Marca el juego (y su grupo) como descargado sin fichero gestionado. */
+    fun markDownloadedManually(rom: Rom, groupRomIds: List<Int>) {
+        viewModelScope.launch {
+            groupRomIds.forEach { id ->
+                romRepository.markRomDownloaded(
+                    romId = id,
+                    name = rom.name,
+                    fileName = rom.fileName,
+                    platformId = rom.platformId,
+                    platformSlug = rom.platformSlug,
+                    localPath = "",
+                    fileSizeBytes = rom.fileSizeBytes,
+                )
+            }
+            _events.emit(LibraryEvent.Error(tr("library.marked_downloaded", rom.name)))
+        }
+    }
+
+    /** Quita la marca manual (no borra ficheros: no hay ruta gestionada). */
+    fun unmarkDownloadedManually(rom: Rom, groupRomIds: List<Int>) {
+        viewModelScope.launch {
+            groupRomIds.forEach { id -> romRepository.removeDownloadedRom(id) }
+            _events.emit(LibraryEvent.Error(tr("library.unmarked_downloaded", rom.name)))
         }
     }
 
