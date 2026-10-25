@@ -9,7 +9,13 @@ import java.io.File
  * @param viaSaf true si la copia la creó [es.davidrg.rommsync.data.sync.SafStaging]
  *   vía ContentResolver (app) en lugar de root (core).
  */
-data class StagedPath(val original: String, val dir: File, val viaSaf: Boolean = false) {
+data class StagedPath(
+    val original: String,
+    val dir: File,
+    val viaSaf: Boolean = false,
+    /** Copia gestionada vía DocumentsContract manage=true (Android/data sin root). */
+    val viaManaged: Boolean = false,
+) {
     /** true si [dir] es una copia temporal y no la propia ruta original. */
     val isCopy: Boolean get() = dir.path != original
 }
