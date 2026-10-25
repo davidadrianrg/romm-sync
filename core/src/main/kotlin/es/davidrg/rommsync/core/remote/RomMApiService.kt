@@ -1,9 +1,11 @@
 package es.davidrg.rommsync.core.remote
 
 import es.davidrg.rommsync.core.remote.dto.PlatformDto
+import es.davidrg.rommsync.core.remote.dto.RomDto
 import es.davidrg.rommsync.core.remote.dto.RomResponse
 import es.davidrg.rommsync.core.remote.dto.ScanRequest
 import es.davidrg.rommsync.core.remote.dto.SaveDto
+import es.davidrg.rommsync.core.remote.dto.SearchRomDto
 import es.davidrg.rommsync.core.remote.dto.StateDto
 import es.davidrg.rommsync.core.remote.dto.UploadStartRequest
 import es.davidrg.rommsync.core.remote.dto.UploadStartResponse
@@ -50,6 +52,10 @@ interface RomMApiService {
     suspend fun getRoms(
         @QueryMap params: Map<String, String>,
     ): RomResponse
+
+    /** GET /api/roms/{id} — detalle (para verificar ficheros de una ROM). */
+    @GET("api/roms/{id}")
+    suspend fun getRom(@Path("id") romId: Int): RomDto
 
     /**
      * Download ROM content — returns a streaming response body.
@@ -178,4 +184,27 @@ interface RomMApiService {
     /** POST /api/tasks/scan — escaneo rápido (202). */
     @POST("api/tasks/scan")
     suspend fun startScan(@Body payload: ScanRequest): ResponseBody
+
+    // ── Buscar coincidencia (metadatos) ─────────────────────────────────
+
+    /** GET /api/search/roms?rom_id&search_term&search_by=name|id */
+    @GET("api/search/roms")
+    suspend fun searchRomMetadata(
+        @Query("rom_id") romId: Int,
+        @Query("search_term") searchTerm: String,
+        @Query("search_by") searchBy: String = "name",
+    ): List<SearchRomDto>
+
+    /** PUT /api/roms/{id} (multipart) — fija name/summary/ids y rematchea. */
+    @Multipart
+    @PUT("api/roms/{id}")
+    suspend fun updateRomMetadata(
+        @Path("id") romId: Int,
+        @Part("name") name: RequestBody,
+        @Part("summary") summary: RequestBody? = null,
+        @Part("slug") slug: RequestBody? = null,
+        @Part("igdb_id") igdbId: RequestBody? = null,
+        @Part("ss_id") ssId: RequestBody? = null,
+        @Part("moby_id") mobyId: RequestBody? = null,
+    ): ResponseBody
 }

@@ -23,16 +23,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import es.davidrg.rommsync.core.i18n.tr
 import es.davidrg.rommsync.core.remote.dto.PlatformDto
-import es.davidrg.rommsync.core.upload.FolderZipper
+import es.davidrg.rommsync.core.upload.RomUploader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.io.File
 import javax.swing.JFileChooser
 
 /**
- * Subida de un juego (ROM) al servidor desde desktop: fichero suelto o carpeta
- * (se empaqueta en zip → ROM multi-fichero en RomM) + escaneo rápido al acabar.
+ * Subida de un juego desde desktop: fichero suelto o carpeta (multi-fichero
+ * real: el primer fichero crea la ROM y el resto se sube dentro). Nunca toca
+ * los ficheros originales del usuario.
  */
 @Composable
 fun UploadGameDialogDesktop(
@@ -42,13 +42,89 @@ fun UploadGameDialogDesktop(
 ) {
     val scope = rememberCoroutineScope()
     var platformId by remember { mutableStateOf(platforms.firstOrNull()?.id) }
-    var file by remember { mutableStateOf<File?>(null) }
+    var singleFile by remember { mutableStateOf<File?>(null) }
+    var folderFiles by remember { mutableStateOf<List<File>>(emptyList()) }
+    var folderName by remember { mutableStateOf("") }
+    var selection by remember { mutableStateOf("") }
     var progress by remember { mutableStateOf<Int?>(null) }
-    var zipProgress by remember { mutableStateOf<Int?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    val busy = progress != null || zipProgress != null
+    val busy = progress != null
+
+    suspend fun uploadFolder(uploader: RomUploader, pid: Int) {
+        val entries = folderFiles
+        val total = entries.sumOf { it.length() }.coerceAtLeast(1)
+        var done = 0L
+
+        val first = entries.first()
+        var romId = uploader.findRomId(pid, first.name)
+        if (romId == null) {
+            uploader.upload(first, pid) { p ->
+                scope.launch(Dispatchers.Main.immediate) {
+                    progress = ((done + first.length() * p / 100) * 100 / total).toInt()
+                }
+            }.getOrThrow()
+            done += first.length()
+            romId = uploader.awaitRomId(pid, first.name) ?: error(tr("library.upload.timeout"))
+        } else {
+            done += first.length()
+        }
+
+        for (file in entries.drop(1)) {
+            uploader.uploadIntoRom(file, romId, pid) { p ->
+                scope.launch(Dispatchers.Main.immediate) {
+                    progress = ((done + file.length() * p / 100) * 100 / total).toInt()
+                }
+            }.getOrThrow()
+            done += file.length()
+        }
+
+        progress = 100
+        val scanned = uploader.triggerQuickScan(pid)
+        message = if (scanned) {
+            tr("library.upload.ok_scan", folderName)
+        } else {
+            tr("library.upload.ok", folderName)
+        }
+    }
+
+    fun runUpload() {
+        val pid = platformId ?: return
+        val uploader: RomUploader = state.romUploader() ?: run {
+            error = tr("common.server_not_configured")
+            return
+        }
+        scope.launch {
+            error = null
+            message = null
+            progress = 0
+            try {
+                if (folderFiles.isNotEmpty()) {
+                    uploadFolder(uploader, pid)
+                } else {
+                    val picked = singleFile ?: return@launch
+                    uploader.upload(picked, pid) { p ->
+                        scope.launch(Dispatchers.Main.immediate) { progress = p }
+                    }.getOrThrow()
+                    val scanned = uploader.triggerQuickScan(pid)
+                    message = if (scanned) {
+                        tr("library.upload.ok_scan", picked.name)
+                    } else {
+                        tr("library.upload.ok", picked.name)
+                    }
+                }
+                selection = ""
+                singleFile = null
+                folderFiles = emptyList()
+                folderName = ""
+            } catch (e: Exception) {
+                error = tr("library.upload.error", e.message ?: "")
+            } finally {
+                progress = null
+            }
+        }
+    }
 
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
@@ -77,46 +153,41 @@ fun UploadGameDialogDesktop(
                     enabled = !busy,
                     onClick = {
                         val picked = pickFile(tr("library.upload.pick")) ?: return@OutlinedButton
-                        file = picked
+                        singleFile = picked
+                        folderFiles = emptyList()
+                        folderName = ""
+                        selection = "${picked.name} (${picked.length() / (1024 * 1024)} MB)"
                         error = null
                     },
-                ) {
-                    Text(file?.let { "${it.name} (${it.length() / (1024 * 1024)} MB)" } ?: tr("library.upload.pick"))
-                }
+                ) { Text(tr("library.upload.pick")) }
                 OutlinedButton(
                     enabled = !busy,
                     onClick = {
                         val folder = pickDirectory(tr("library.upload.folder")) ?: return@OutlinedButton
-                        scope.launch {
-                            zipProgress = 0
-                            val zip = File(
-                                System.getProperty("java.io.tmpdir"),
-                                "${folder.name}-${System.currentTimeMillis()}.zip",
-                            )
-                            val ok = withContext(Dispatchers.IO) {
-                                FolderZipper.zip(folder, zip) { p ->
-                                    scope.launch(Dispatchers.Main.immediate) { zipProgress = p }
-                                }
-                            }
-                            zipProgress = null
-                            if (ok && zip.length() > 0) {
-                                file = zip
-                                error = null
-                            } else {
-                                error = tr("library.upload.error", "zip")
-                                zip.delete()
-                            }
+                        val files = folder.walkTopDown()
+                            .filter { it.isFile && it.length() > 0 }
+                            .sortedBy { it.name.lowercase() }
+                            .toList()
+                        if (files.isEmpty()) {
+                            error = tr("library.upload.error", "empty folder")
+                            return@OutlinedButton
                         }
+                        singleFile = null
+                        folderFiles = files
+                        folderName = folder.name
+                        selection = tr(
+                            "library.upload.folder_summary",
+                            files.size,
+                            files.sumOf { it.length() } / (1024 * 1024),
+                        )
+                        error = null
                     },
-                ) {
-                    Text(tr("library.upload.folder"))
-                }
-                zipProgress?.let { p ->
-                    LinearProgressIndicator(progress = { p / 100f }, modifier = Modifier.fillMaxWidth())
+                ) { Text(tr("library.upload.folder")) }
+                if (selection.isNotBlank()) {
                     Text(
-                        tr("library.upload.zipping", p),
+                        selection,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 progress?.let { p ->
@@ -134,7 +205,7 @@ fun UploadGameDialogDesktop(
                     Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                 }
                 Text(
-                    tr("library.upload.note"),
+                    tr("library.upload.folder_hint"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -142,30 +213,8 @@ fun UploadGameDialogDesktop(
         },
         confirmButton = {
             TextButton(
-                enabled = !busy && file != null && platformId != null,
-                onClick = {
-                    val picked = file ?: return@TextButton
-                    val pid = platformId ?: return@TextButton
-                    scope.launch {
-                        error = null
-                        message = null
-                        progress = 0
-                        val result = state.uploadGameFile(picked, pid) { p ->
-                            scope.launch(Dispatchers.Main.immediate) { progress = p }
-                        }
-                        progress = null
-                        result.onSuccess {
-                            val scanned = state.triggerQuickScan(pid)
-                            message = if (scanned) {
-                                tr("library.upload.ok_scan", picked.name)
-                            } else {
-                                tr("library.upload.ok", picked.name)
-                            }
-                            picked.delete()
-                            file = null
-                        }.onFailure { error = tr("library.upload.error", it.message ?: "") }
-                    }
-                },
+                enabled = !busy && (singleFile != null || folderFiles.isNotEmpty()) && platformId != null,
+                onClick = { runUpload() },
             ) { Text(tr("library.upload.start")) }
         },
         dismissButton = {

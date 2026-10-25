@@ -1195,6 +1195,7 @@ private fun RomDetailSheet(
 ) {
     var expanded by remember { mutableStateOf(false) }
     var showFolderPicker by remember { mutableStateOf(false) }
+    var showMatchDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -1375,6 +1376,22 @@ private fun RomDetailSheet(
             serverUrl = serverUrl,
             apiKey = apiKey,
         )
+
+        // ── Buscar coincidencia (si el escaneo no reconoció el juego) ──
+        Spacer(modifier = Modifier.size(12.dp))
+        OutlinedButton(
+            onClick = { showMatchDialog = true },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text(tr("library.match.title")) }
+        if (showMatchDialog) {
+            es.davidrg.rommsync.ui.components.MatchRomDialog(
+                romId = rom.id,
+                initialName = rom.name,
+                serverUrl = serverUrl,
+                apiKey = apiKey,
+                onDismiss = { showMatchDialog = false },
+            )
+        }
 
         // Action button
         when {
