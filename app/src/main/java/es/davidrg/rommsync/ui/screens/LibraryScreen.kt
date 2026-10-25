@@ -50,6 +50,7 @@ import androidx.compose.material.icons.outlined.Album
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.DownloadDone
+import androidx.compose.material.icons.outlined.Upload
 import androidx.compose.material.icons.outlined.SportsEsports
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -244,13 +245,23 @@ fun LibraryScreen() {
         }
     }
 
-    // Visible NOT_DOWNLOADED ROMs — used by the batch download action.
-    val missingRoms by remember(filteredRoms) {
-        derivedStateOf { filteredRoms.filter { it.status == DownloadStatus.NOT_DOWNLOADED } }
+    // Missing across the WHOLE platform (all server pages), not only the pages
+    // scrolled so far. Fallback to the local list while the full fetch runs.
+    val platformMissing by viewModel.platformMissingRoms.collectAsState()
+    val localMissing = remember(filteredRoms) {
+        filteredRoms.filter { it.status == DownloadStatus.NOT_DOWNLOADED }.map { it.rom }
+    }
+    val missingRoms: List<Rom> = platformMissing.ifEmpty { localMissing }
+
+    LaunchedEffect(selectedPlatformId, settings.serverUrl, settings.apiKey) {
+        if (selectedPlatformId != null) viewModel.loadAllPlatformRoms()
     }
 
     // State for the batch download confirmation dialog.
     var showBatchDialog by remember { mutableStateOf(false) }
+
+    // State for the "upload game" dialog.
+    var showUploadGame by remember { mutableStateOf(false) }
 
     /**
      * Destino inicial de los chips del diálogo batch: el default de la
@@ -534,6 +545,11 @@ fun LibraryScreen() {
                     }
                 }
 
+                // Subir juego al servidor
+                IconButton(onClick = { showUploadGame = true }) {
+                    Icon(Icons.Outlined.Upload, contentDescription = tr("library.upload.title"))
+                }
+
                 // Filtro por región
                 if (availableRegions.isNotEmpty()) {
                     var regionMenu by remember { mutableStateOf(false) }
@@ -750,6 +766,8 @@ fun LibraryScreen() {
                     selectedRom = null
                 },
                 onClose = { selectedRom = null },
+                serverUrl = settings.serverUrl,
+                apiKey = settings.apiKey,
                 showMoveOption = settings.dualRomsPathsEnabled,
                 isOnSd = isOnSd,
                 isMoving = isMovingRom,
@@ -763,6 +781,15 @@ fun LibraryScreen() {
     }
 
     // ── Batch download confirmation dialog ────────────────────────────────
+    if (showUploadGame) {
+        es.davidrg.rommsync.ui.components.UploadGameDialog(
+            platforms = platforms,
+            serverUrl = settings.serverUrl,
+            apiKey = settings.apiKey,
+            onDismiss = { showUploadGame = false },
+        )
+    }
+
     if (showBatchDialog && missingRoms.isNotEmpty()) {
         val platformName = platforms.find { it.id == selectedPlatformId }?.name
             ?: tr("android.library.platform_fallback")
@@ -808,7 +835,7 @@ fun LibraryScreen() {
                 TextButton(
                     onClick = {
                         viewModel.enqueueBatchDownload(
-                            roms = missingRoms.map { it.rom },
+                            roms = missingRoms,
                             serverUrl = settings.serverUrl,
                             romsRootPath = batchSelectedRoot,
                         )
@@ -1141,6 +1168,8 @@ private fun RomDetailSheet(
     onDownload: () -> Unit,
     onDelete: () -> Unit,
     onClose: () -> Unit,
+    serverUrl: String = "",
+    apiKey: String = "",
     showMoveOption: Boolean = false,
     isOnSd: Boolean = false,
     isMoving: Boolean = false,
@@ -1322,6 +1351,13 @@ private fun RomDetailSheet(
         }
 
         Spacer(modifier = Modifier.size(20.dp))
+
+        // ── Guardados y estados en el servidor (con fecha + subida manual) ──
+        es.davidrg.rommsync.ui.components.ServerAssetsSection(
+            romId = rom.id,
+            serverUrl = serverUrl,
+            apiKey = apiKey,
+        )
 
         // Action button
         when {

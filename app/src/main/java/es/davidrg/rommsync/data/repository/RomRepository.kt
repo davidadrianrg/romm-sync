@@ -180,6 +180,29 @@ class RomRepository(
         }
     }
 
+    /**
+     * Fetch EVERY ROM of a platform (all pages) — used by "descargar
+     * faltantes" so the count covers the whole platform and not only the
+     * pages the library has scrolled through.
+     */
+    suspend fun fetchAllRomsForPlatform(
+        platformId: Int,
+        search: String? = null,
+    ): ApiResult<List<Rom>> {
+        val all = mutableListOf<Rom>()
+        var offset = 0
+        while (true) {
+            when (val page = fetchRoms(platformId = platformId, limit = 500, offset = offset, search = search)) {
+                is ApiResult.Success -> {
+                    all += page.data
+                    if (page.data.size < 500) return ApiResult.Success(all)
+                    offset += page.data.size
+                }
+                is ApiResult.Error -> return page
+            }
+        }
+    }
+
     /** Reactive set of all downloaded ROM IDs for quick UI status lookup. */
     fun getDownloadedRomIds(): Flow<Set<Int>> =
         romDao.getAllDownloadedRomIds().map { it.toSet() }

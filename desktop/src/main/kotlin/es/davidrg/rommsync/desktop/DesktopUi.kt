@@ -63,6 +63,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -81,6 +82,15 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun DesktopApp(state: DesktopAppState) {
+    val langTag by state.language.collectAsState()
+    // key(langTag) recrea el árbol al cambiar idioma: todos los tr() se reevalúan.
+    key(langTag) {
+        DesktopAppContent(state)
+    }
+}
+
+@Composable
+private fun DesktopAppContent(state: DesktopAppState) {
     val section by state.section.collectAsState()
     val snackbar by state.snackbar.collectAsState()
 
@@ -467,6 +477,7 @@ fun LibraryScreen(state: DesktopAppState) {
     val ratio = rememberMedianCoverRatio(remember(roms) { state.games() }, state.config.serverUrl)
 
     var showBatchDialog by remember { mutableStateOf(false) }
+    var showUploadGame by remember { mutableStateOf(false) }
     val missingCount = remember(roms, version) { state.missingGames().size }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
@@ -496,6 +507,10 @@ fun LibraryScreen(state: DesktopAppState) {
             Spacer(Modifier.width(8.dp))
             IconButton(onClick = state::refreshCurrentView, enabled = connected) {
                 Icon(AppIcons.Refresh, contentDescription = tr("library.refresh"))
+            }
+            Spacer(Modifier.width(8.dp))
+            OutlinedButton(onClick = { showUploadGame = true }, enabled = connected) {
+                Text(tr("library.upload.title"))
             }
             Spacer(Modifier.weight(1f))
             if (missingCount > 0) {
@@ -681,6 +696,14 @@ fun LibraryScreen(state: DesktopAppState) {
                 }
             }
         }
+    }
+
+    if (showUploadGame) {
+        UploadGameDialogDesktop(
+            state = state,
+            platforms = state.visiblePlatforms(),
+            onDismiss = { showUploadGame = false },
+        )
     }
 
     if (showBatchDialog) {
@@ -1299,6 +1322,30 @@ fun SettingsScreen(state: DesktopAppState) {
     ) {
         Text(tr("nav.settings"), style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(12.dp))
+
+        // ── Idioma ──
+        SettingsSection(icon = AppIcons.Storage, title = tr("config.language.title")) {
+            val langTag by state.language.collectAsState()
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(
+                    "" to tr("config.language.system"),
+                    "en" to tr("config.language.en"),
+                    "es" to tr("config.language.es"),
+                ).forEach { (tag, label) ->
+                    FilterChip(
+                        selected = langTag == tag,
+                        onClick = { state.setLanguage(tag) },
+                        label = { Text(label, style = MaterialTheme.typography.labelMedium) },
+                    )
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                tr("config.language.hint"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
 
         // ── Servidor ──
         SettingsSection(icon = AppIcons.Storage, title = tr("settings.server.title")) {

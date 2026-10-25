@@ -74,6 +74,33 @@ class RetroArchSaveHandler : SaveHandler {
             }
         }
 
+        // Subcarpeta por core (saves/{core}/) o por contenido: un nivel dentro
+        // de saves/ y states/. Cubre RetroArch con «ordenar saves por core» y
+        // el caso en que savesBasePath ya es el propio directorio de saves
+        // (savefile_directory del retroarch.cfg).
+        for (dir in subDirsOf(savesBasePath, "saves")) {
+            dir.listFiles()?.filter { file ->
+                file.isFile && file.nameWithoutExtension.equals(romBaseName, ignoreCase = true) &&
+                    SAVE_EXTENSIONS.any { ext -> file.name.endsWith(ext, ignoreCase = true) }
+            }?.forEach { file ->
+                if (seenNames.add(file.name.lowercase())) {
+                    results.add(file.toLocalSave(romId))
+                }
+            }
+        }
+
+        for (dir in subDirsOf(savesBasePath, "states")) {
+            dir.listFiles()?.filter { file ->
+                file.isFile &&
+                    file.name.startsWith("$romBaseName.state", ignoreCase = true) &&
+                    STATE_PATTERN.matches(file.name)
+            }?.forEach { file ->
+                if (seenNames.add(file.name.lowercase())) {
+                    results.add(file.toLocalSave(romId))
+                }
+            }
+        }
+
         // Fallback: si la ruta configurada apunta DIRECTAMENTE a la carpeta
         // que contiene los saves del juego (típico en override por juego o
         // cuando el usuario selecciona la carpeta real del .srm), escanear
@@ -159,14 +186,26 @@ class RetroArchSaveHandler : SaveHandler {
         val parts = (
             scan(File(savesBasePath, "saves/$platformSlug"), isSave) +
                 scan(File(savesBasePath, "saves"), isSave) +
+                subDirsOf(savesBasePath, "saves").flatMap { scan(it, isSave) } +
                 scan(File(savesBasePath, "states/$platformSlug"), isState) +
                 scan(File(savesBasePath, "states"), isState) +
+                subDirsOf(savesBasePath, "states").flatMap { scan(it, isState) } +
                 // Mismos ficheros que el fallback directo de findSaves: la
                 // huella debe cambiar si cambian, o el atajo por fingerprint
                 // se los saltaría.
                 scan(File(savesBasePath)) { name -> isSave(name) || isState(name) }
             ).sorted()
         if (parts.isEmpty()) null else parts.joinToString("|")
+    }
+
+    /**
+     * Subdirectorios de `base/saves|states` (layout por core), o de `base`
+     * cuando `base` ya ES el directorio de saves/states.
+     */
+    private fun subDirsOf(base: String, child: String): List<File> {
+        val named = File(base, child)
+        val dir = if (named.isDirectory) named else File(base)
+        return dir.listFiles()?.filter { it.isDirectory } ?: emptyList()
     }
 
     companion object {

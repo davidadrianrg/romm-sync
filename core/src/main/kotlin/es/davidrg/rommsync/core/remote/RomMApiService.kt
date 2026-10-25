@@ -2,12 +2,17 @@ package es.davidrg.rommsync.core.remote
 
 import es.davidrg.rommsync.core.remote.dto.PlatformDto
 import es.davidrg.rommsync.core.remote.dto.RomResponse
+import es.davidrg.rommsync.core.remote.dto.SaveDto
+import es.davidrg.rommsync.core.remote.dto.StateDto
+import es.davidrg.rommsync.core.remote.dto.UploadStartRequest
+import es.davidrg.rommsync.core.remote.dto.UploadStartResponse
 import es.davidrg.rommsync.core.remote.dto.DeviceRegistrationRequest
 import es.davidrg.rommsync.core.remote.dto.DeviceRegistrationResponse
 import es.davidrg.rommsync.core.remote.dto.NegotiateRequest
 import es.davidrg.rommsync.core.remote.dto.NegotiateResponse
 import es.davidrg.rommsync.core.remote.dto.SessionCompleteRequest
 import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.Body
@@ -15,6 +20,7 @@ import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.Multipart
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -114,4 +120,57 @@ interface RomMApiService {
         @Path("session_id") sessionId: Int,
         @Body request: SessionCompleteRequest,
     ): ResponseBody
+
+    // ── Assets en el servidor (listado + subida manual) ─────────────────
+
+    /** GET /api/saves?rom_id=... → guardados subidos del juego. */
+    @GET("api/saves")
+    suspend fun getSaves(
+        @Query("rom_id") romId: Int,
+        @Query("limit") limit: Int = 200,
+    ): List<SaveDto>
+
+    /** GET /api/states?rom_id=... → save states subidos del juego. */
+    @GET("api/states")
+    suspend fun getStates(
+        @Query("rom_id") romId: Int,
+        @Query("limit") limit: Int = 200,
+    ): List<StateDto>
+
+    /** POST /api/states?rom_id=... (multipart stateFile). */
+    @Multipart
+    @POST("api/states")
+    suspend fun uploadState(
+        @Part file: MultipartBody.Part,
+        @Query("rom_id") romId: Int,
+        @Query("emulator") emulator: String? = null,
+    ): ResponseBody
+
+    // ── Subida de ROMs (chunked) ────────────────────────────────────────
+
+    /** POST /api/roms/upload/start — cabeceras x-upload-*. */
+    @POST("api/roms/upload/start")
+    suspend fun startRomUpload(
+        @Header("x-upload-platform") platformId: String,
+        @Header("x-upload-filename") filename: String,
+        @Header("x-upload-total-size") totalSize: Long,
+        @Header("x-upload-total-chunks") totalChunks: Int,
+        @Body target: UploadStartRequest? = null,
+    ): UploadStartResponse
+
+    /** PUT /api/roms/upload/{upload_id} — cabecera x-chunk-index. */
+    @PUT("api/roms/upload/{upload_id}")
+    suspend fun uploadRomChunk(
+        @Path("upload_id") uploadId: String,
+        @Header("x-chunk-index") chunkIndex: Int,
+        @Body chunk: RequestBody,
+    ): ResponseBody
+
+    /** POST /api/roms/upload/{upload_id}/complete */
+    @POST("api/roms/upload/{upload_id}/complete")
+    suspend fun completeRomUpload(@Path("upload_id") uploadId: String): ResponseBody
+
+    /** POST /api/roms/upload/{upload_id}/cancel */
+    @POST("api/roms/upload/{upload_id}/cancel")
+    suspend fun cancelRomUpload(@Path("upload_id") uploadId: String): ResponseBody
 }

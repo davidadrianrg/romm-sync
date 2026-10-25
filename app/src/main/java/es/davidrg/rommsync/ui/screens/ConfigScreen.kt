@@ -24,6 +24,7 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.DownloadForOffline
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.SystemUpdateAlt
@@ -654,6 +655,33 @@ fun ConfigScreen() {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+            }
+
+            // ── Idioma ─────────────────────────────────────────────────
+            SettingsSection(
+                icon = Icons.Outlined.Language,
+                title = tr("config.language.title"),
+            ) {
+                val languageTag by viewModel.language.collectAsState(initial = "")
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(
+                        "" to tr("config.language.system"),
+                        "en" to tr("config.language.en"),
+                        "es" to tr("config.language.es"),
+                    ).forEach { (tag, label) ->
+                        FilterChip(
+                            selected = languageTag == tag,
+                            onClick = { viewModel.setLanguage(tag) },
+                            label = { Text(label, style = MaterialTheme.typography.labelMedium) },
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    tr("config.language.hint"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             // ── Actualizaciones ────────────────────────────────────────

@@ -567,13 +567,18 @@ class SyncCoordinator(
         rom: es.davidrg.rommsync.data.local.entity.DownloadedRomEntity,
         config: es.davidrg.rommsync.data.local.entity.PlatformEntity?,
         retroArchBase: String,
-    ): String {        rom.savesPathOverride?.takeIf { it.isNotBlank() }?.let { return it }
+    ): String {
+        rom.savesPathOverride?.takeIf { it.isNotBlank() }?.let { return it }
         config?.savesPathOverride?.takeIf { it.isNotBlank() }?.let { return it }
-        return SaveHandlerRegistry.getDefaultSavesPath(
-            emulatorId = config?.emulatorId
-                ?: SaveHandlerRegistry.getDefaultEmulator(rom.platformSlug).id,
+        val emulatorId = config?.emulatorId
+            ?: SaveHandlerRegistry.getDefaultEmulator(rom.platformSlug).id
+        // Varias rutas candidatas por emulador (paquetes alternativos, layouts
+        // por core, retroarch.cfg): elegir la que existe y tiene contenido.
+        return AndroidSavePathResolver.resolveDefault(
+            emulatorId = emulatorId,
             platformSlug = rom.platformSlug,
             retroArchBase = retroArchBase,
+            context = appContext,
         )
     }
 

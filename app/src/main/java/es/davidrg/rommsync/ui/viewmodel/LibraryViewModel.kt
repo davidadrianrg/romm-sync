@@ -3,6 +3,8 @@ package es.davidrg.rommsync.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import es.davidrg.rommsync.core.i18n.tr
+import es.davidrg.rommsync.core.library.DiscEntry
+import es.davidrg.rommsync.core.library.MultiDiscGrouper
 import es.davidrg.rommsync.data.repository.RomRepository
 import es.davidrg.rommsync.domain.model.ApiResult
 import es.davidrg.rommsync.domain.model.DownloadStatus
@@ -160,10 +162,13 @@ class LibraryViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /**
-     * ROMs de la plataforma tal como los devuelve la API de RomM: cada disco
-     * de un multi-disc es una ROM separada (mismo igdbId). Se agrupan aquí
-     * para que la UI muestre UNA card por juego, igual que la web de RomM —
-     * antes cada disco salía como juego repetido.
+     * ROMs de la plataforma tal como los devuelve la API de RomM, agrupadas
+     * con [MultiDiscGrouper]: una card por juego, con los discos sueltos y
+     * los supersets/duplicados colapsados (p. ej. MGS Twin Snakes tenía 3
+     * entradas en RomM: Disc 1, Disc 2 y el multi-disco completo).
+     *
+     * NO se agrupa solo por igdbId: Golden Sun 1 y 2 comparten igdb_id y
+     * deben seguir siendo juegos distintos.
      *
      * Se aplica además el filtro por región y el orden elegidos en la barra
      * de la biblioteca (client-side sobre las páginas ya cargadas).
@@ -171,21 +176,30 @@ class LibraryViewModel(
     val romsWithStatus: StateFlow<List<RomWithStatus>> = combine(
         _roms, downloadedIds, activeDownloads, sort, regionFilter,
     ) { roms, downloaded, downloading, sortType, region ->
-        // UNA card por entrada de la API: los multidisco reales vienen ya
-        // agrupados (isMulti, varios files). NO agrupar por igdbId — Golden
-        // Sun 1 y 2 comparten igdb_id y se fusionaban.
-        roms.map { rom ->
-            val discCount = if (rom.isMulti) rom.files.size.coerceAtLeast(2) else 1
+        val groups = MultiDiscGrouper.group(
+            roms.map { rom ->
+                DiscEntry(
+                    id = rom.id,
+                    name = rom.name,
+                    platformSlug = rom.platformSlug,
+                    igdbId = rom.igdbId,
+                    fileNames = rom.files.map { it.filename }.ifEmpty { listOf(rom.fileName) },
+                )
+            }
+        )
+        val byId = roms.associateBy { it.id }
+        groups.mapNotNull { group ->
+            val rom = byId[group.representativeId] ?: return@mapNotNull null
             val status = when {
-                rom.id in downloaded -> DownloadStatus.DOWNLOADED
-                rom.id in downloading -> DownloadStatus.DOWNLOADING
+                group.downloadIds.all { it in downloaded } -> DownloadStatus.DOWNLOADED
+                group.downloadIds.any { it in downloading } -> DownloadStatus.DOWNLOADING
                 else -> DownloadStatus.NOT_DOWNLOADED
             }
             RomWithStatus(
                 rom = rom,
                 status = status,
-                discCount = discCount,
-                groupRomIds = listOf(rom.id),
+                discCount = group.discCount,
+                groupRomIds = group.downloadIds,
             )
         }
             // Filtro por región y orden elegidos
@@ -214,6 +228,7 @@ class LibraryViewModel(
     fun selectPlatform(platformId: Int, serverUrl: String, apiKey: String) {
         _selectedPlatformId.value = platformId
         currentSearch = null
+        _platformAllRoms.value = emptyList()
         loadRoms(serverUrl, apiKey, reset = true)
     }
 
@@ -224,6 +239,7 @@ class LibraryViewModel(
      */
     fun searchRoms(query: String, serverUrl: String, apiKey: String) {
         currentSearch = query.ifBlank { null }
+        _platformAllRoms.value = emptyList()
         loadRoms(serverUrl, apiKey, reset = true)
     }
 
@@ -313,6 +329,29 @@ class LibraryViewModel(
                 manager.enqueueDownload(rom = rom, serverUrl = serverUrl, romsRootPath = romsRootPath)
             }
             _events.emit(LibraryEvent.BatchDownloadStarted(toEnqueue.size))
+        }
+    }
+
+    private val _platformAllRoms = MutableStateFlow<List<Rom>>(emptyList())
+    private val _allPlatformLoading = MutableStateFlow(false)
+    val allPlatformLoading: StateFlow<Boolean> = _allPlatformLoading
+
+    /** ROMs de TODA la plataforma que aún no están descargadas (todas las páginas). */
+    val platformMissingRoms: StateFlow<List<Rom>> = combine(_platformAllRoms, downloadedIds) { all, downloaded ->
+        all.filter { it.id !in downloaded }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Carga todas las páginas de la plataforma seleccionada (para el batch). */
+    fun loadAllPlatformRoms() {
+        val platformId = _selectedPlatformId.value ?: return
+        if (_allPlatformLoading.value) return
+        viewModelScope.launch {
+            _allPlatformLoading.value = true
+            when (val result = romRepository.fetchAllRomsForPlatform(platformId, currentSearch)) {
+                is ApiResult.Success -> _platformAllRoms.value = result.data
+                is ApiResult.Error -> _events.emit(LibraryEvent.Error(result.message))
+            }
+            _allPlatformLoading.value = false
         }
     }
 

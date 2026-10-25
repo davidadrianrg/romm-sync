@@ -1,6 +1,12 @@
 package es.davidrg.rommsync.desktop
 
 import es.davidrg.rommsync.core.i18n.tr
+import es.davidrg.rommsync.core.remote.dto.SaveDto
+import es.davidrg.rommsync.core.remote.dto.StateDto
+import es.davidrg.rommsync.core.upload.RomUploader
+import es.davidrg.rommsync.core.upload.UploadParts
+import es.davidrg.rommsync.core.library.DiscEntry
+import es.davidrg.rommsync.core.library.MultiDiscGrouper
 import es.davidrg.rommsync.core.remote.NetworkModule
 import es.davidrg.rommsync.core.remote.RomMApiService
 import es.davidrg.rommsync.core.remote.dto.PlatformDto
@@ -357,25 +363,48 @@ class DesktopAppState(private val scope: CoroutineScope) {
     fun openGame(card: GameCard) { _selectedGame.value = card }
     fun closeGame() { _selectedGame.value = null }
 
+    // ── Idioma ("": sistema) ───────────────────────────────────────────
+    val language = MutableStateFlow(DesktopConfig.languageTag)
+
+    fun setLanguage(tag: String) {
+        DesktopConfig.languageTag = tag
+        es.davidrg.rommsync.core.i18n.I18n.locale =
+            if (tag.isBlank()) java.util.Locale.getDefault() else java.util.Locale.forLanguageTag(tag)
+        language.value = tag
+    }
+
+    // ── Assets en el servidor ──────────────────────────────────────────
+
+    suspend fun serverSaves(romId: Int): List<SaveDto> =
+        runCatching { api?.getSaves(romId) ?: emptyList() }.getOrDefault(emptyList())
+
+    suspend fun serverStates(romId: Int): List<StateDto> =
+        runCatching { api?.getStates(romId) ?: emptyList() }.getOrDefault(emptyList())
+
+    suspend fun uploadServerSave(romId: Int, file: File): Result<Unit> = runCatching {
+        val svc = api ?: error(tr("common.server_not_configured"))
+        svc.uploadSave(
+            file = UploadParts.saveFile(file),
+            romId = romId,
+            emulator = null,
+            deviceId = null,
+            overwrite = true,
+        )
+        Unit
+    }
+
+    suspend fun uploadGameFile(file: File, platformId: Int, onProgress: (Int) -> Unit): Result<Unit> {
+        val svc = api ?: return Result.failure(IllegalStateException(tr("common.server_not_configured")))
+        return RomUploader(svc).upload(file, platformId, onProgress)
+    }
+
     // ── Biblioteca: agrupado, filtro y búsqueda ─────────────────────────
 
-    /** Una tarjeta por entrada de la API con filtro, región, búsqueda y orden.
-     *  Los multidisco reales vienen ya agrupados (multi/hasMultipleFiles);
-     *  NO agrupar por igdbId (Golden Sun 1 y 2 comparten igdb_id y se fusionaban). */
+    /** Una tarjeta por juego, con discos/variantes agrupados por [MultiDiscGrouper]. */
     fun games(): List<GameCard> {
-        val romsList = _roms.value
         val q = _search.value.trim().lowercase()
         val region = _regionFilter.value
-        val rep = romsList
-            .map { rom ->
-                val isMulti = rom.multi || rom.hasMultipleFiles
-                GameCard(
-                    rep = rom,
-                    discCount = if (isMulti) rom.files.size.coerceAtLeast(2) else 1,
-                    groupRoms = listOf(rom),
-                    downloaded = rom.id in downloadedIds,
-                )
-            }
+        val rep = buildCards(_roms.value)
             .filter { card ->
                 val match = q.isEmpty() || card.rep.name.lowercase().contains(q)
                 val regionMatch = region == null || card.rep.regions.any { it.equals(region, ignoreCase = true) }
@@ -387,6 +416,35 @@ class DesktopAppState(private val scope: CoroutineScope) {
                 match && regionMatch && f
             }
         return sorted(rep)
+    }
+
+    /**
+     * Colapsa entradas de la API que son el mismo juego (discos sueltos,
+     * supersets multidisco o duplicados) manteniendo Golden Sun 1/2 separados
+     * pese a compartir igdb_id.
+     */
+    private fun buildCards(roms: List<RomDto>): List<GameCard> {
+        val groups = MultiDiscGrouper.group(
+            roms.map { rom ->
+                DiscEntry(
+                    id = rom.id,
+                    name = rom.name,
+                    platformSlug = rom.platformSlug.orEmpty(),
+                    igdbId = rom.igdbId,
+                    fileNames = rom.files.map { it.filename }.ifEmpty { listOf(rom.fileName) },
+                )
+            }
+        )
+        val byId = roms.associateBy { it.id }
+        return groups.mapNotNull { group ->
+            val rep = byId[group.representativeId] ?: return@mapNotNull null
+            GameCard(
+                rep = rep,
+                discCount = group.discCount,
+                groupRoms = group.downloadIds.mapNotNull { byId[it] },
+                downloaded = group.downloadIds.all { it in downloadedIds },
+            )
+        }
     }
 
     private fun sorted(cards: List<GameCard>): List<GameCard> = when (_sort.value) {
@@ -409,16 +467,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
     /** Juegos no descargados de la vista actual, SIN aplicar búsqueda. */
     fun missingGames(): List<GameCard> {
         val region = _regionFilter.value
-        return _roms.value
-            .map { rom ->
-                val isMulti = rom.multi || rom.hasMultipleFiles
-                GameCard(
-                    rep = rom,
-                    discCount = if (isMulti) rom.files.size.coerceAtLeast(2) else 1,
-                    groupRoms = listOf(rom),
-                    downloaded = rom.id in downloadedIds,
-                )
-            }
+        return buildCards(_roms.value)
             .filter { !it.downloaded && (region == null || it.rep.regions.any { r -> r.equals(region, ignoreCase = true) }) }
             .sortedBy { it.rep.name.lowercase() }
     }

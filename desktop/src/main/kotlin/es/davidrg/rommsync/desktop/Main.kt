@@ -12,6 +12,7 @@ import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import es.davidrg.rommsync.core.i18n.I18n
 import es.davidrg.rommsync.core.i18n.tr
 import es.davidrg.rommsync.desktop.theme.RomMSyncDesktopTheme
 import java.awt.Dimension
@@ -19,10 +20,15 @@ import java.awt.KeyEventDispatcher
 import java.awt.KeyboardFocusManager
 import java.awt.SystemTray
 import java.awt.event.KeyEvent
+import java.util.Locale
 import javax.swing.UIManager
 import kotlin.system.exitProcess
 
-fun main() = application {
+fun main() {
+    // El idioma guardado debe estar fijado antes de componer el primer frame.
+    val languageTag = DesktopConfig.languageTag
+    I18n.locale = if (languageTag.isBlank()) Locale.getDefault() else Locale.forLanguageTag(languageTag)
+    application {
     // Look & feel del sistema para que JFileChooser (selectores de carpeta)
     // no se vea como Metal/AWT clásico en Linux.
     runCatching { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()) }
@@ -106,4 +112,5 @@ fun main() = application {
             Item(tr("window.tray.quit")) { exitApplication() }
         }
     }
+}
 }
