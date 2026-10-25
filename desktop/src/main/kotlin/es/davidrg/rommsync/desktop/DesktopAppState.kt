@@ -11,6 +11,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import es.davidrg.rommsync.core.library.DiscEntry
 import es.davidrg.rommsync.core.library.MultiDiscGrouper
 import es.davidrg.rommsync.core.remote.NetworkModule
+import es.davidrg.rommsync.core.remote.RomMatcher
 import es.davidrg.rommsync.core.remote.RomMApiService
 import es.davidrg.rommsync.core.remote.dto.PlatformDto
 import es.davidrg.rommsync.core.remote.dto.RomDto
@@ -421,6 +422,9 @@ class DesktopAppState(private val scope: CoroutineScope) {
         runCatching {
             api?.searchRomMetadata(romId, term, if (byId) "id" else "name") ?: emptyList()
         }.getOrDefault(emptyList())
+
+    suspend fun searchRomMatchAll(term: String, onProgress: (Int, Int) -> Unit): List<SearchRomDto> =
+        api?.let { RomMatcher(it).searchAllPlatforms(term, onProgress) } ?: emptyList()
 
     suspend fun applyRomMatch(romId: Int, match: SearchRomDto): Result<Unit> = runCatching {
         val svc = api ?: error(tr("common.server_not_configured"))
