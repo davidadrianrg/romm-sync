@@ -32,7 +32,9 @@ import es.davidrg.rommsync.core.remote.NetworkModule
 import es.davidrg.rommsync.core.upload.RomUploader
 import es.davidrg.rommsync.data.storage.SafFolder
 import es.davidrg.rommsync.domain.model.Platform
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -57,6 +59,8 @@ fun UploadGameDialog(
     var folderName by remember { mutableStateOf("") }
     var selection by remember { mutableStateOf("") }
     var progress by remember { mutableStateOf<Int?>(null) }
+    var phase by remember { mutableStateOf<String?>(null) }
+    var job by remember { mutableStateOf<Job?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -130,36 +134,49 @@ fun UploadGameDialog(
         val entries = folderFiles
         val total = entries.sumOf { it.length() }.coerceAtLeast(1)
         var done = 0L
+        val count = entries.size
+
+        // Id máximo ANTES de subir: la ROM nueva se detecta por id, no por
+        // nombre (RomM puede renombrarla al promocionarla a carpeta).
+        val maxBefore = uploader.maxRomId(pid)
 
         val first = entries.first()
         val firstName = first.name ?: error("name")
-        var romId = uploader.findRomId(pid, firstName)
-        if (romId == null) {
-            val tmp = SafFolder.copyToCache(context, first, context.cacheDir) ?: error("read")
-            trackTemp(tmp)
-            uploader.upload(tmp, pid) { p ->
-                scope.launch(Dispatchers.Main.immediate) {
-                    progress = ((done + first.length() * p / 100) * 100 / total).toInt()
-                }
-            }.getOrThrow()
-            discardTemp(tmp)
-            done += first.length()
-            romId = uploader.awaitRomId(pid, firstName) ?: error(tr("library.upload.timeout"))
-        } else {
-            done += first.length()
-        }
+        phase = tr("library.upload.phase_file", 1, count, 0)
+        val tmp = SafFolder.copyToCache(context, first, context.cacheDir) ?: error("read")
+        trackTemp(tmp)
+        uploader.upload(tmp, pid) { p ->
+            scope.launch(Dispatchers.Main.immediate) {
+                progress = ((done + first.length() * p / 100) * 100 / total).toInt()
+                phase = tr("library.upload.phase_file", 1, count, p)
+            }
+        }.getOrThrow()
+        discardTemp(tmp)
+        done += first.length()
 
-        for (doc in entries.drop(1)) {
-            val tmp = SafFolder.copyToCache(context, doc, context.cacheDir) ?: error("read")
-            trackTemp(tmp)
-            uploader.uploadIntoRom(tmp, romId, pid) { p ->
+        phase = tr("library.upload.phase_scan", 0)
+        val romId = uploader.awaitNewRomId(pid, maxBefore) { seconds ->
+            scope.launch(Dispatchers.Main.immediate) {
+                phase = tr("library.upload.phase_scan", seconds)
+            }
+        } ?: error(tr("library.upload.timeout"))
+
+        for ((index, doc) in entries.drop(1).withIndex()) {
+            val number = index + 2
+            val tmp2 = SafFolder.copyToCache(context, doc, context.cacheDir) ?: error("read")
+            trackTemp(tmp2)
+            uploader.uploadIntoRom(tmp2, romId, pid) { p ->
                 scope.launch(Dispatchers.Main.immediate) {
                     progress = ((done + doc.length() * p / 100) * 100 / total).toInt()
+                    phase = tr("library.upload.phase_file", number, count, p)
                 }
             }.getOrThrow()
-            discardTemp(tmp)
+            discardTemp(tmp2)
             done += doc.length()
         }
+
+        phase = tr("library.upload.phase_rename")
+        uploader.renameRom(romId, folderName)
 
         progress = 100
         val scanned = uploader.triggerQuickScan(pid)
@@ -176,7 +193,7 @@ fun UploadGameDialog(
             error = tr("common.server_not_configured")
             return
         }
-        scope.launch {
+        job = scope.launch {
             error = null
             message = null
             progress = 0
@@ -200,11 +217,14 @@ fun UploadGameDialog(
                 singleFile = null
                 folderFiles = emptyList()
                 folderName = ""
+            } catch (e: CancellationException) {
+                message = tr("library.upload.cancelled")
             } catch (e: Exception) {
                 error = tr("library.upload.error", e.message ?: "")
             } finally {
                 cleanupTemps()
                 progress = null
+                phase = null
             }
         }
     }
@@ -248,6 +268,15 @@ fun UploadGameDialog(
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
+                if (busy) {
+                    phase?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 error?.let {
                     Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 }
@@ -268,7 +297,11 @@ fun UploadGameDialog(
             ) { Text(tr("library.upload.start")) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !busy) { Text(tr("common.cancel")) }
+            if (busy) {
+                TextButton(onClick = { job?.cancel() }) { Text(tr("common.cancel")) }
+            } else {
+                TextButton(onClick = onDismiss) { Text(tr("common.close")) }
+            }
         },
     )
 }

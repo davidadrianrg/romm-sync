@@ -145,17 +145,89 @@ class RomUploader(private val api: RomMApiService) {
     /** Busca una ROM por nombre de fichero (fs_name o dentro de files). */
     suspend fun findRomId(platformId: Int, fileName: String): Int? = runCatching {
         val baseName = fileName.substringBeforeLast('.')
-        api.getRoms(
+        val items = api.getRoms(
             mapOf(
                 "platform_ids" to platformId.toString(),
                 "search_term" to baseName,
                 "limit" to "50",
             ),
-        ).items.firstOrNull { rom ->
-            rom.fileName.equals(fileName, ignoreCase = true) ||
-                rom.files.any { it.filename.equals(fileName, ignoreCase = true) }
+        ).items
+        items.firstOrNull { rom ->
+            namesMatch(rom.fileName, fileName) ||
+                namesMatch(rom.fileName.substringBeforeLast('.'), baseName) ||
+                rom.files.any { namesMatch(it.filename, fileName) }
         }?.id
     }.getOrNull()
+
+    /** Id de la ROM más reciente de la plataforma (0 si no hay). */
+    suspend fun maxRomId(platformId: Int): Int = runCatching {
+        api.getRoms(
+            mapOf(
+                "platform_ids" to platformId.toString(),
+                "order_by" to "id",
+                "order_dir" to "desc",
+                "limit" to "1",
+            ),
+        ).items.firstOrNull()?.id ?: 0
+    }.getOrDefault(0)
+
+    /**
+     * Espera a que el escaneo registre una ROM nueva. Se detecta por id
+     * (los ids crecen): más fiable que comparar nombres, porque RomM puede
+     * renombrar la ROM al promocionarla a carpeta.
+     */
+    suspend fun awaitNewRomId(
+        platformId: Int,
+        maxIdBefore: Int,
+        onElapsed: (seconds: Int) -> Unit = {},
+    ): Int? {
+        triggerQuickScan(platformId)
+        val started = System.currentTimeMillis()
+        for (attempt in 0 until SCAN_ATTEMPTS) {
+            delay(SCAN_POLL_MS)
+            onElapsed(((System.currentTimeMillis() - started) / 1000).toInt())
+            if (attempt > 0 && attempt % 20 == 0) triggerQuickScan(platformId)
+            val newest = maxRomId(platformId)
+            if (newest > maxIdBefore) return newest
+        }
+        return null
+    }
+
+    /**
+     * Renombra la ROM al nombre de la carpeta elegida (visible y carpeta en
+     * disco). Si el fs_name choca con otra carpeta, al menos fija el nombre.
+     */
+    suspend fun renameRom(romId: Int, folderName: String): Boolean {
+        val name = folderName.toRequestBody("text/plain".toMediaType())
+        return try {
+            api.updateRomMetadata(
+                romId = romId,
+                name = name,
+                fsName = folderName.toRequestBody("text/plain".toMediaType()),
+            )
+            true
+        } catch (e: HttpException) {
+            runCatching { api.updateRomMetadata(romId = romId, name = name); true }.getOrDefault(false)
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun normalize(value: String): String =
+        value.lowercase().replace(Regex("[^a-z0-9]"), "")
+
+    /**
+     * RomM puede renombrar la ROM al promocionarla a carpeta (p. ej. el
+     * fichero "CTR-Nitro-Fueled-v0.4.0.apk" pasa a fs_name "CTR Nitro Fueled"),
+     * así que además de igualdad se acepta prefijo/contención normalizados.
+     */
+    private fun namesMatch(a: String, b: String): Boolean {
+        val na = normalize(a)
+        val nb = normalize(b)
+        if (na.isEmpty() || nb.isEmpty()) return false
+        if (na == nb) return true
+        return na.length >= 6 && nb.length >= 6 && (na.contains(nb) || nb.contains(na))
+    }
 
     /** Escanea y espera a que la ROM aparezca; devuelve su id. */
     suspend fun awaitRomId(platformId: Int, fileName: String): Int? {
@@ -202,5 +274,9 @@ class RomUploader(private val api: RomMApiService) {
         const val VERIFY_ATTEMPTS = 30
         const val VERIFY_DELAY_MS = 10_000L
         const val CHUNK_TARGET = 8L * 1024 * 1024
+
+        /** Escaneo: 180 × 2 s ≈ 6 min máximo, comprobando el id nuevo. */
+        const val SCAN_ATTEMPTS = 180
+        const val SCAN_POLL_MS = 2_000L
     }
 }
