@@ -160,6 +160,11 @@ class SyncViewModel(
         saveSyncManager.triggerSync()
     }
 
+    /** Cancela el sync en curso (el usuario puede relanzarlo cuando quiera). */
+    fun cancelSync() {
+        saveSyncManager.cancelCurrentSync()
+    }
+
     fun scanLocalSaves() {
         viewModelScope.launch {
             _isScanning.value = true

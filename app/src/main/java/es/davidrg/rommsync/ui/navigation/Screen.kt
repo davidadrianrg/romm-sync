@@ -2,11 +2,13 @@ package es.davidrg.rommsync.ui.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SportsEsports
 import androidx.compose.material.icons.outlined.Storage
@@ -33,6 +35,11 @@ enum class Screen(
         route = "library",
         icon = Icons.Outlined.SportsEsports,
         selectedIcon = Icons.Filled.SportsEsports,
+    ),
+    Shelf(
+        route = "shelf",
+        icon = Icons.Outlined.GridView,
+        selectedIcon = Icons.Filled.GridView,
     ),
     Downloads(
         route = "downloads",

@@ -223,6 +223,13 @@ class RomRepository(
         localPath: String,
         fileSizeBytes: Long,
     ) {
+        // Los juegos Android y de PC no tienen una ruta de saves estándar
+        // detectables: requieren configurar la ruta a mano juego a juego.
+        // Se excluyen del sync por defecto para no generar fallos ni
+        // conflictos; el usuario puede activarlo explícitamente.
+        val manualOnlyPlatforms = setOf(
+            "android", "android-games", "pc", "windows", "dos", "msdos",
+        )
         romDao.insertDownloadedRom(
             DownloadedRomEntity(
                 romId = romId,
@@ -232,6 +239,7 @@ class RomRepository(
                 platformSlug = platformSlug,
                 localPath = localPath,
                 fileSizeBytes = fileSizeBytes,
+                excludedFromSync = platformSlug.lowercase() in manualOnlyPlatforms,
             )
         )
     }

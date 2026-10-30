@@ -43,6 +43,7 @@ import es.davidrg.rommsync.ui.screens.ConfigScreen
 import es.davidrg.rommsync.ui.screens.DownloadQueueScreen
 import es.davidrg.rommsync.ui.screens.LibraryScreen
 import es.davidrg.rommsync.ui.screens.PlatformsScreen
+import es.davidrg.rommsync.ui.screens.ShelfScreen
 import es.davidrg.rommsync.ui.screens.SyncScreen
 import es.davidrg.rommsync.util.hasAllFilesAccess
 
@@ -194,6 +195,12 @@ private fun AppNavHost(
         popExitTransition = { fadeOut(tween(180)) + slideOutHorizontally(tween(220)) { it / 8 } },
     ) {
         composable(Screen.Library.route) { LibraryScreen() }
+        composable(Screen.Shelf.route) {
+            ShelfScreen(onOpen = { platformId, romId ->
+                ShelfOpen.request.value = platformId to romId
+                navigateTo(Screen.Library.route, navController)
+            })
+        }
         composable(Screen.Platforms.route) { PlatformsScreen() }
         composable(Screen.Downloads.route) { DownloadQueueScreen() }
         composable(Screen.Sync.route) { SyncScreen() }
@@ -217,6 +224,7 @@ private fun navigateTo(route: String, navController: NavHostController) {
 // Order: Library (home) → Platforms → Downloads → Sync → Config
 private val bottomNavItems = listOf(
     Screen.Library,
+    Screen.Shelf,
     Screen.Platforms,
     Screen.Downloads,
     Screen.Sync,

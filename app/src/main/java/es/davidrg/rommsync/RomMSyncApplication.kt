@@ -8,6 +8,13 @@ import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import coil.request.CachePolicy
 import es.davidrg.rommsync.data.AppContainer
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
 import java.io.File
 
 class RomMSyncApplication : Application(), Configuration.Provider, ImageLoaderFactory {
@@ -15,10 +22,35 @@ class RomMSyncApplication : Application(), Configuration.Provider, ImageLoaderFa
     lateinit var container: AppContainer
         private set
 
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
         restorePeriodicSync()
+        startForegroundFastSync()
+    }
+
+    /**
+     * Sincronización rápida (1 y 5 minutos) mientras la app está en primer
+     * plano: WorkManager no permite periodos menores de 15 minutos, así que
+     * estos intervalos se cubren con un temporizador en proceso. Al salir de
+     * la app queda el trabajo periódico de WorkManager (mínimo 15 min).
+     */
+    private fun startForegroundFastSync() {
+        appScope.launch {
+            combine(
+                container.settingsDataStore.saveSyncEnabled,
+                container.settingsDataStore.saveSyncIntervalMinutes,
+            ) { enabled, minutes -> enabled to minutes }
+                .collectLatest { (enabled, minutes) ->
+                    if (!enabled || minutes !in 1..14) return@collectLatest
+                    while (true) {
+                        delay(minutes * 60_000L)
+                        container.saveSyncManager.triggerSync()
+                    }
+                }
+        }
     }
 
     /**

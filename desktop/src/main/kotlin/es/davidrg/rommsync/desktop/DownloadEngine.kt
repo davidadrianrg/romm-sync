@@ -138,6 +138,9 @@ class DownloadEngine(
     }
 
     private fun registerInLibrary(rom: RomDto, localPath: File) {
+        // Android/PC nativos requieren ruta de saves manual juego a juego:
+        // se excluyen del sync por defecto (el usuario puede activarlo).
+        val manualOnly = setOf("android", "android-games", "pc", "windows", "dos", "msdos")
         library?.upsertRom(
             DesktopLibrary.RomEntry(
                 romId = rom.id,
@@ -145,6 +148,7 @@ class DownloadEngine(
                 fileName = rom.fileName,
                 platformSlug = rom.platformSlug ?: "unknown",
                 localPath = localPath.absolutePath,
+                excludedFromSync = (rom.platformSlug ?: "").lowercase() in manualOnly,
             ),
         )
     }

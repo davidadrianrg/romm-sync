@@ -76,6 +76,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import es.davidrg.rommsync.core.i18n.tr
 import es.davidrg.rommsync.core.remote.dto.PlatformDto
+import es.davidrg.rommsync.core.remote.dto.RomDto
 import es.davidrg.rommsync.core.sync.platform.SaveHandlerRegistry
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -108,6 +109,7 @@ private fun DesktopAppContent(state: DesktopAppState) {
                 when (section) {
                     Section.PLATFORMS -> PlatformsScreen(state)
                     Section.LIBRARY -> LibraryScreen(state)
+                    Section.SHELF -> ShelfScreen(state)
                     Section.DOWNLOADS -> DownloadsScreen(state)
                     Section.SAVES -> SavesScreen(state)
                     Section.SETTINGS -> SettingsScreen(state)
@@ -158,6 +160,7 @@ private fun AppNavigationRail(state: DesktopAppState, section: Section) {
         Spacer(Modifier.height(12.dp))
         RailItem(state, Section.PLATFORMS, section, AppIcons.Storage, tr("nav.platforms"))
         RailItem(state, Section.LIBRARY, section, AppIcons.Gamepad, tr("nav.library"))
+        RailItem(state, Section.SHELF, section, AppIcons.Shelf, tr("nav.shelf"))
         RailItem(
             state, Section.DOWNLOADS, section, AppIcons.Download, tr("nav.downloads"),
             badge = activeDownloads.takeIf { it > 0 },
@@ -1063,6 +1066,18 @@ fun SavesScreen(state: DesktopAppState) {
             }
             Text(if (syncing) tr("saves.sync_button.syncing") else tr("saves.sync_button.sync_now"))
         }
+        if (syncing) {
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = state::cancelSync,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(14.dp),
+            ) {
+                Icon(AppIcons.Cancel, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(tr("common.cancel"))
+            }
+        }
         Spacer(Modifier.height(16.dp))
 
         // ── Fallos del último ciclo ──
@@ -1223,7 +1238,7 @@ fun SavesScreen(state: DesktopAppState) {
         )
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(0, 5, 15, 30, 60).forEach { m ->
+            listOf(0, 1, 5, 15).forEach { m ->
                 FilterChip(
                     selected = autoMin == m,
                     onClick = { state.setAutoSyncMinutes(m) },
@@ -1670,6 +1685,102 @@ fun SettingsScreen(state: DesktopAppState) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+    }
+}
+
+
+// ── Estantería (desktop) ─────────────────────────────────────────────
+
+/**
+ * Estantería retro: todos los juegos descargados con carátula y badge de
+ * plataforma. Al pulsar uno se abre en la Biblioteca con el mismo detalle.
+ */
+@Composable
+fun ShelfScreen(state: DesktopAppState) {
+    var items by remember { mutableStateOf<List<Pair<DesktopLibrary.RomEntry, RomDto>>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        val loaded = state.library.roms().mapNotNull { entry ->
+            state.fetchRomMeta(entry.romId)?.let { dto -> entry to dto }
+        }
+        items = loaded.sortedBy { it.second.name.lowercase() }
+        loading = false
+    }
+
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Text(tr("nav.shelf"), style = MaterialTheme.typography.headlineSmall)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            tr("shelf.subtitle"),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(12.dp))
+
+        when {
+            loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+            items.isEmpty() -> EmptyState(
+                icon = AppIcons.Shelf,
+                title = tr("shelf.empty"),
+                description = "",
+            )
+            else -> LazyVerticalGrid(
+                columns = GridCells.Adaptive(150.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                gridItems(items, key = { it.second.id }) { (entry, dto) ->
+                    val slug = dto.platformSlug ?: entry.platformSlug
+                    val platformLabel = state.platforms.value
+                        .firstOrNull { it.slug == slug }?.name ?: slug.uppercase()
+                    Card(
+                        modifier = Modifier.fillMaxWidth().clickable { state.openFromShelf(dto) },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp, MaterialTheme.colorScheme.outlineVariant,
+                        ),
+                    ) {
+                        Column {
+                            Box {
+                                CoverImage(
+                                    coverUrl = dto.urlCover,
+                                    pathCover = dto.pathCoverSmall ?: dto.pathCoverLarge,
+                                    serverUrl = state.config.serverUrl,
+                                    aspectRatio = 0.72f,
+                                )
+                                Text(
+                                    platformLabel,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier
+                                        .align(Alignment.TopStart)
+                                        .padding(6.dp)
+                                        .background(Color.Black.copy(alpha = 0.68f), RoundedCornerShape(6.dp))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                                )
+                            }
+                            Text(
+                                dto.name,
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                            )
+                            Box(Modifier.fillMaxWidth().height(7.dp).background(Color(0xFF6B4A2F)))
+                        }
+                    }
+                }
+            }
         }
     }
 }

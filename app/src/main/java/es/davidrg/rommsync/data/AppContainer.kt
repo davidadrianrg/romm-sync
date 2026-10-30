@@ -28,6 +28,10 @@ class AppContainer(private val appContext: Context) {
 
     val settingsRepository = SettingsRepository(settingsDataStore)
 
+    /** DAOs expuestos para pantallas que leen directamente de Room (Estantería). */
+    val romDao = database.romDao()
+    val platformDao = database.platformDao()
+
     val romRepository = RomRepository(
         platformDao = database.platformDao(),
         romDao = database.romDao(),

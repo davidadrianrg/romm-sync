@@ -31,7 +31,7 @@ import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
 /** Sección activa de la navegación desktop. */
-enum class Section { PLATFORMS, LIBRARY, DOWNLOADS, SAVES, SETTINGS }
+enum class Section { PLATFORMS, LIBRARY, SHELF, DOWNLOADS, SAVES, SETTINGS }
 
 /** Filtro de la biblioteca. */
 enum class LibraryFilter { ALL, MISSING, DOWNLOADED }
@@ -774,6 +774,9 @@ class DesktopAppState(private val scope: CoroutineScope) {
                                         fileName = rom.fileName,
                                         platformSlug = p.slug,
                                         localPath = File(dir, matched).absolutePath,
+                                        excludedFromSync = p.slug.lowercase() in setOf(
+                                            "android", "android-games", "pc", "windows", "dos", "msdos",
+                                        ),
                                     ),
                                 )
                             }
@@ -889,6 +892,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
     // ── Sync automático cada X minutos ─────────────────────────────────
 
     private var autoSyncJob: Job? = null
+    private var syncJob: Job? = null
     private val _autoSyncMinutes = MutableStateFlow(DesktopConfig.autoSyncMinutes)
     val autoSyncMinutes: StateFlow<Int> = _autoSyncMinutes
 
@@ -927,7 +931,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
         if (_syncing.value) return
         _syncing.value = true
         _syncStatus.value = tr("sync.in_progress")
-        scope.launch {
+        syncJob = scope.launch {
             try {
                 val coordinator = makeSyncCoordinator()
                 val result = coordinator.runSync()
@@ -951,12 +955,40 @@ class DesktopAppState(private val scope: CoroutineScope) {
                 }
                 // Refrescar el informe de pendientes tras el ciclo.
                 scanSaves()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _syncStatus.value = tr("common.error_detail", e.message)
             } finally {
                 _syncing.value = false
+                syncJob = null
             }
         }
+    }
+
+    /** Cancela la sincronización en curso sin tocar la programación automática. */
+    fun cancelSync() {
+        syncJob?.cancel()
+        syncJob = null
+        _syncing.value = false
+        _syncStatus.value = tr("sync.cancelled")
+    }
+
+    private val romMetaCache = mutableMapOf<Int, RomDto>()
+
+    /** Metadatos de un ROM por id (cacheado). Para la Estantería. */
+    suspend fun fetchRomMeta(romId: Int): RomDto? {
+        romMetaCache[romId]?.let { return it }
+        val dto = runCatching { api?.getRom(romId) }.getOrNull() ?: return null
+        romMetaCache[romId] = dto
+        return dto
+    }
+
+    /** Abre un juego de la Estantería en la Biblioteca con su detalle. */
+    fun openFromShelf(dto: RomDto) {
+        _section.value = Section.LIBRARY
+        selectPlatformBySlug(dto.platformSlug)
+        _selectedGame.value = GameCard(dto, 1, listOf(dto), true)
     }
 
     // ── Exportar metadata a ES-DE ──────────────────────────────────────

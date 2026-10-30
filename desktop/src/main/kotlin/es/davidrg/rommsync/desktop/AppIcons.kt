@@ -21,6 +21,11 @@ object AppIcons {
         "M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z" to "M11 13H8v3H6v-3H3v-2h3V8h2v3h3v2z"
     }
 
+    /** Estantería: cuadrícula de juegos descargados. */
+    val Shelf: ImageVector = icon("shelf") {
+        "M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z" to null
+    }
+
     /** Flecha hacia bandeja: descarga de ROM. */
     val Download: ImageVector = icon("download") {
         "M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" to null

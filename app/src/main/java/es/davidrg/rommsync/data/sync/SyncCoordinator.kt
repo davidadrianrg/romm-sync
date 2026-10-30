@@ -178,6 +178,8 @@ class SyncCoordinator(
 
         val negotiateResponse = try {
             api.negotiateSync(negotiateRequest)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.w(TAG, "Negotiate failed", e)
             return@withContext SyncResult(error = tr("sync.error.negotiation", e.message))
@@ -475,6 +477,8 @@ class SyncCoordinator(
                 }
                 val negotiateResponse = try {
                     api.negotiateSync(NegotiateRequest(deviceId = deviceId, saves = clientSaves))
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     return@withContext SyncResult(error = tr("sync.error.negotiation", e.message))
                 }

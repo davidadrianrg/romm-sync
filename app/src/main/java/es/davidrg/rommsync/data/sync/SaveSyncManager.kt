@@ -113,7 +113,9 @@ class SaveSyncManager(
             .build()
 
         val request = PeriodicWorkRequestBuilder<SaveSyncWorker>(
-            intervalMinutes.toLong(), TimeUnit.MINUTES,
+            // WorkManager impone un mínimo de 15 min para trabajo periódico.
+            // Para 1/5 min la app usa un temporizador en primer plano.
+            intervalMinutes.coerceAtLeast(15).toLong(), TimeUnit.MINUTES,
         )
             .setConstraints(constraints)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
@@ -169,6 +171,14 @@ class SaveSyncManager(
 
     companion object {
         private const val PERIODIC_WORK_NAME = "save_sync_periodic"
+    }
+
+    /**
+     * Cancela la sincronización en curso (o en cola) sin tocar la
+     * programación periódica.
+     */
+    fun cancelCurrentSync() {
+        workManager.cancelUniqueWork(SaveSyncWorker.WORK_NAME)
     }
 
     /**

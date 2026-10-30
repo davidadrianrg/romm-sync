@@ -186,6 +186,25 @@ fun LibraryScreen() {
 
     // Bottom sheet state for long-press game details
     var selectedRom by remember { mutableStateOf<Rom?>(null) }
+
+    // ── Estantería → abrir el mismo detalle que en la Biblioteca ──
+    val shelfRequest by es.davidrg.rommsync.ui.navigation.ShelfOpen.request.collectAsState()
+    LaunchedEffect(shelfRequest, selectedPlatformId) {
+        val req = shelfRequest ?: return@LaunchedEffect
+        if (selectedPlatformId != req.first) {
+            viewModel.selectPlatform(req.first, settings.serverUrl, settings.apiKey)
+        }
+    }
+    LaunchedEffect(shelfRequest, romsWithStatus) {
+        val req = shelfRequest ?: return@LaunchedEffect
+        val card = romsWithStatus.firstOrNull {
+            it.rom.id == req.second || req.second in it.groupRomIds
+        }
+        if (card != null) {
+            selectedRom = card.rom
+            es.davidrg.rommsync.ui.navigation.ShelfOpen.request.value = null
+        }
+    }
     val manualIds by viewModel.manualDownloadedIds.collectAsState()
     // ROM pendiente de confirmación de borrado
     var romToDelete by remember { mutableStateOf<Rom?>(null) }

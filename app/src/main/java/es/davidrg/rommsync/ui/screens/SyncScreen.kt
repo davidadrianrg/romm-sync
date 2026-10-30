@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Error
@@ -34,6 +35,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -154,7 +156,7 @@ fun SyncScreen() {
             contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 16.dp),
         ) {
             // -- Estado actual
-            item { StatusCard(syncState, lastTimestamp, lastSummary) }
+            item { StatusCard(syncState, lastTimestamp, lastSummary, onCancel = viewModel::cancelSync) }
 
             // -- Conflictos pendientes de resolución
             if (conflicts.isNotEmpty()) {
@@ -272,8 +274,8 @@ fun SyncScreen() {
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        val options = listOf(0, 15, 30, 60, 120)
-                        val labels = listOf(tr("saves.auto_sync.off_chip"), "15m", "30m", "1h", "2h")
+                        val options = listOf(0, 1, 5, 15)
+                        val labels = listOf(tr("saves.auto_sync.off_chip"), "1m", "5m", "15m")
                         options.forEachIndexed { index, minutes ->
                             FilterChip(
                                 selected = syncInterval == minutes,
@@ -283,6 +285,14 @@ fun SyncScreen() {
                         }
                     }
                     Spacer(modifier = Modifier.height(4.dp))
+                    if (syncInterval in 1..14) {
+                        Text(
+                            tr("saves.auto_sync.fast_hint"),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
                     Text(
                         tr("android.sync.auto_sync.hint"),
                         style = MaterialTheme.typography.bodySmall,
@@ -480,6 +490,7 @@ private fun StatusCard(
     syncState: SyncState,
     lastTimestamp: Long,
     lastSummary: String,
+    onCancel: () -> Unit,
 ) {
     val (icon, iconTint, title, subtitle) = when (syncState) {
         SyncState.Idle -> {
@@ -564,6 +575,18 @@ private fun StatusCard(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
                 )
+            }
+
+            if (syncState is SyncState.Running || syncState is SyncState.Pending) {
+                Spacer(modifier = Modifier.height(4.dp))
+                OutlinedButton(
+                    onClick = onCancel,
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Icon(Icons.Filled.Close, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Text(tr("common.cancel"))
+                }
             }
 
             if (syncState is SyncState.Idle && lastSummary.isNotBlank() && lastTimestamp > 0) {
