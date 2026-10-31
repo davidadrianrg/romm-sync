@@ -195,12 +195,7 @@ private fun AppNavHost(
         popExitTransition = { fadeOut(tween(180)) + slideOutHorizontally(tween(220)) { it / 8 } },
     ) {
         composable(Screen.Library.route) { LibraryScreen() }
-        composable(Screen.Shelf.route) {
-            ShelfScreen(onOpen = { platformId, romId ->
-                ShelfOpen.request.value = platformId to romId
-                navigateTo(Screen.Library.route, navController)
-            })
-        }
+        composable(Screen.Shelf.route) { ShelfScreen() }
         composable(Screen.Platforms.route) { PlatformsScreen() }
         composable(Screen.Downloads.route) { DownloadQueueScreen() }
         composable(Screen.Sync.route) { SyncScreen() }

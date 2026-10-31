@@ -2,6 +2,7 @@ package es.davidrg.rommsync.desktop
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -70,6 +72,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -1690,97 +1694,201 @@ fun SettingsScreen(state: DesktopAppState) {
 }
 
 
+
 // ── Estantería (desktop) ─────────────────────────────────────────────
 
+private val ShelfBgTopD = Color(0xFF1D130C)
+private val ShelfBgBottomD = Color(0xFF0A0705)
+private val WoodLightD = Color(0xFF9A6636)
+private val WoodMidD = Color(0xFF5E3A1E)
+private val WoodDarkD = Color(0xFF351E0E)
+private val ShelfCreamD = Color(0xFFF4E4C9)
+private val ShelfAmberD = Color(0xFFD9A15B)
+
 /**
- * Estantería retro: todos los juegos descargados con carátula y badge de
- * plataforma. Al pulsar uno se abre en la Biblioteca con el mismo detalle.
+ * Estantería retro (desktop): todos los juegos descargados sobre baldas de
+ * madera. El detalle se abre dentro de la propia sección, igual que Android.
  */
 @Composable
 fun ShelfScreen(state: DesktopAppState) {
     var items by remember { mutableStateOf<List<Pair<DesktopLibrary.RomEntry, RomDto>>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
+    val selectedGame by state.selectedGame.collectAsState()
+    var detailDto by remember { mutableStateOf<RomDto?>(null) }
+
+    // El botón "Volver" de GameDetailPanel limpia selectedGame: cerramos el detalle.
+    LaunchedEffect(selectedGame) {
+        if (selectedGame == null) detailDto = null
+    }
 
     LaunchedEffect(Unit) {
-        val loaded = state.library.roms().mapNotNull { entry ->
-            state.fetchRomMeta(entry.romId)?.let { dto -> entry to dto }
+        val loaded = state.library.roms().map { entry ->
+            val dto = state.fetchRomMeta(entry.romId) ?: RomDto(
+                id = entry.romId,
+                name = entry.name,
+                fileName = entry.fileName,
+                platformId = 0,
+                platformSlug = entry.platformSlug,
+            )
+            entry to dto
         }
         items = loaded.sortedBy { it.second.name.lowercase() }
         loading = false
     }
 
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text(tr("nav.shelf"), style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.height(4.dp))
-        Text(
-            tr("shelf.subtitle"),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(12.dp))
+    Box(
+        Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(ShelfBgTopD, ShelfBgBottomD))),
+    ) {
+        val dto = detailDto
+        if (dto != null) {
+            GameDetailPanel(GameCard(dto, 1, listOf(dto), true), state)
+        } else {
+            Column(Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            tr("nav.shelf"),
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = ShelfCreamD,
+                        )
+                        Text(
+                            tr("shelf.subtitle"),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = ShelfCreamD.copy(alpha = 0.55f),
+                        )
+                    }
+                    if (items.isNotEmpty()) {
+                        Text(
+                            tr("shelf.count", items.size.toString()),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color(0xFF241407),
+                            modifier = Modifier
+                                .background(ShelfAmberD, RoundedCornerShape(50))
+                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                        )
+                    }
+                }
 
-        when {
-            loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-            items.isEmpty() -> EmptyState(
-                icon = AppIcons.Shelf,
-                title = tr("shelf.empty"),
-                description = "",
-            )
-            else -> LazyVerticalGrid(
-                columns = GridCells.Adaptive(150.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                gridItems(items, key = { it.second.id }) { (entry, dto) ->
-                    val slug = dto.platformSlug ?: entry.platformSlug
-                    val platformLabel = state.platforms.value
-                        .firstOrNull { it.slug == slug }?.name ?: slug.uppercase()
-                    Card(
-                        modifier = Modifier.fillMaxWidth().clickable { state.openFromShelf(dto) },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        ),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp, MaterialTheme.colorScheme.outlineVariant,
-                        ),
-                    ) {
-                        Column {
-                            Box {
-                                CoverImage(
-                                    coverUrl = dto.urlCover,
-                                    pathCover = dto.pathCoverSmall ?: dto.pathCoverLarge,
-                                    serverUrl = state.config.serverUrl,
-                                    aspectRatio = 0.72f,
-                                )
-                                Text(
-                                    platformLabel,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier
-                                        .align(Alignment.TopStart)
-                                        .padding(6.dp)
-                                        .background(Color.Black.copy(alpha = 0.68f), RoundedCornerShape(6.dp))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                                )
+                when {
+                    loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = ShelfAmberD)
+                    }
+                    items.isEmpty() -> Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            tr("shelf.empty"),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = ShelfCreamD.copy(alpha = 0.65f),
+                        )
+                    }
+                    else -> BoxWithConstraints(Modifier.fillMaxSize()) {
+                        val columns = ((maxWidth - 32.dp) / 170.dp).toInt().coerceAtLeast(2)
+                        LazyColumn(
+                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 28.dp),
+                            verticalArrangement = Arrangement.spacedBy(20.dp),
+                            modifier = Modifier.fillMaxSize(),
+                        ) {
+                            items(items.chunked(columns)) { rowItems ->
+                                Column {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                        verticalAlignment = Alignment.Bottom,
+                                    ) {
+                                        rowItems.forEach { (entry, romDto) ->
+                                            DesktopShelfCard(
+                                                entry = entry,
+                                                dto = romDto,
+                                                state = state,
+                                                modifier = Modifier.weight(1f),
+                                                onClick = {
+                                                    state.openGame(GameCard(romDto, 1, listOf(romDto), true))
+                                                    detailDto = romDto
+                                                },
+                                            )
+                                        }
+                                        repeat(columns - rowItems.size) { Spacer(Modifier.weight(1f)) }
+                                    }
+                                    Spacer(Modifier.height(6.dp))
+                                    DesktopWoodPlank()
+                                }
                             }
-                            Text(
-                                dto.name,
-                                style = MaterialTheme.typography.bodySmall,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                            )
-                            Box(Modifier.fillMaxWidth().height(7.dp).background(Color(0xFF6B4A2F)))
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun DesktopWoodPlank() {
+    Column(Modifier.fillMaxWidth()) {
+        Box(Modifier.fillMaxWidth().height(2.dp).background(Color(0xFFB07C46)))
+        Box(
+            Modifier.fillMaxWidth().height(14.dp).background(
+                Brush.verticalGradient(listOf(WoodLightD, WoodMidD, WoodDarkD)),
+            ),
+        )
+        Box(Modifier.fillMaxWidth().height(3.dp).background(Color.Black.copy(alpha = 0.45f)))
+    }
+}
+
+@Composable
+private fun DesktopShelfCard(
+    entry: DesktopLibrary.RomEntry,
+    dto: RomDto,
+    state: DesktopAppState,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val platformLabel = state.platforms.value
+        .firstOrNull { it.slug == (dto.platformSlug ?: entry.platformSlug) }?.name
+        ?: (dto.platformSlug ?: entry.platformSlug).uppercase()
+
+    Box(
+        modifier = modifier
+            .shadow(8.dp, RoundedCornerShape(4.dp))
+            .clip(RoundedCornerShape(4.dp))
+            .background(Color(0xFF241A12))
+            .border(1.dp, Color(0x55FFD9A0), RoundedCornerShape(4.dp))
+            .clickable(onClick = onClick),
+    ) {
+        Box(Modifier.fillMaxWidth().aspectRatio(0.70f)) {
+            CoverImage(
+                coverUrl = dto.urlCover,
+                pathCover = dto.pathCoverLarge ?: dto.pathCoverSmall,
+                serverUrl = state.config.serverUrl,
+                aspectRatio = 0.70f,
+            )
+            Box(
+                Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(40.dp)
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.82f)))),
+            )
+            Text(
+                dto.name,
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = 6.dp, vertical = 4.dp),
+            )
+            Text(
+                platformLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = ShelfCreamD,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(5.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color(0xCC1A110A))
+                    .border(1.dp, Color(0x66D9A15B), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 5.dp, vertical = 1.dp),
+            )
         }
     }
 }
