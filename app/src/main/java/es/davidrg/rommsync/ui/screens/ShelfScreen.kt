@@ -19,11 +19,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -100,7 +102,22 @@ fun ShelfScreen() {
 
     var selectedRomId by remember { mutableStateOf<Int?>(null) }
     var pendingDelete by remember { mutableStateOf<ShelfItem?>(null) }
+    var platformFilter by remember { mutableStateOf<String?>(null) }
     val selected = items.firstOrNull { it.rom.id == selectedRomId }
+
+    val platformsInShelf = remember(items) {
+        items.map { it.rom.platformSlug to it.platformLabel }
+            .distinctBy { it.first }
+            .sortedBy { it.second }
+    }
+    LaunchedEffect(platformsInShelf) {
+        if (platformFilter != null && platformsInShelf.none { it.first == platformFilter }) {
+            platformFilter = null
+        }
+    }
+    val visibleItems = items.filter {
+        platformFilter == null || it.rom.platformSlug == platformFilter
+    }
 
     LaunchedEffect(Unit) {
         viewModel.messages.collect { msg ->
@@ -114,7 +131,31 @@ fun ShelfScreen() {
             .background(Brush.verticalGradient(listOf(ShelfBgTop, ShelfBgBottom))),
     ) {
         Column(Modifier.fillMaxSize()) {
-            ShelfHeader(count = items.size)
+            ShelfHeader(count = visibleItems.size)
+
+            if (platformsInShelf.size > 1) {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    item {
+                        ShelfFilterChip(
+                            label = tr("shelf.filter.all"),
+                            selected = platformFilter == null,
+                            onClick = { platformFilter = null },
+                        )
+                    }
+                    items(platformsInShelf, key = { it.first }) { (slug, label) ->
+                        ShelfFilterChip(
+                            label = label,
+                            selected = platformFilter == slug,
+                            onClick = { platformFilter = slug },
+                        )
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+            }
 
             when {
                 loading && items.isEmpty() -> Box(
@@ -143,7 +184,7 @@ fun ShelfScreen() {
                         verticalArrangement = Arrangement.spacedBy(20.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        items(items.chunked(columns)) { rowItems ->
+                        items(visibleItems.chunked(columns)) { rowItems ->
                             Column {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -262,6 +303,24 @@ private fun ShelfHeader(count: Int) {
             )
         }
     }
+}
+
+/** Chip de filtro por plataforma, con la paleta de la estantería. */
+@Composable
+private fun ShelfFilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = {
+            Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        },
+        colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+            containerColor = Color(0x331D130C),
+            labelColor = ShelfCream,
+            selectedContainerColor = ShelfAmber,
+            selectedLabelColor = Color(0xFF241407),
+        ),
+    )
 }
 
 /** Balda de madera con brillo superior y sombra inferior. */

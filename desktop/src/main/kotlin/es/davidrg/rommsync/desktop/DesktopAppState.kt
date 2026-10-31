@@ -975,6 +975,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
     }
 
     private val romMetaCache = mutableMapOf<Int, RomDto>()
+    private val platformMetaCache = mutableMapOf<String, Map<Int, RomDto>>()
 
     /** Metadatos de un ROM por id (cacheado). Para la Estantería. */
     suspend fun fetchRomMeta(romId: Int): RomDto? {
@@ -982,6 +983,39 @@ class DesktopAppState(private val scope: CoroutineScope) {
         val dto = runCatching { api?.getRom(romId) }.getOrNull() ?: return null
         romMetaCache[romId] = dto
         return dto
+    }
+
+    /**
+     * Metadatos de todos los ROMs de una plataforma (misma fuente que la
+     * Biblioteca) para que las carátulas de la Estantería coincidan.
+     */
+    suspend fun fetchPlatformRomMeta(slug: String): Map<Int, RomDto> {
+        platformMetaCache[slug]?.let { return it }
+        val svc = api ?: return emptyMap()
+        val platformId = _platforms.value.firstOrNull { it.slug == slug }?.id ?: return emptyMap()
+        val result = mutableMapOf<Int, RomDto>()
+        var offset = 0
+        val pageSize = 500
+        while (true) {
+            val response = runCatching {
+                svc.getRoms(
+                    mapOf(
+                        "platform_ids" to platformId.toString(),
+                        "limit" to pageSize.toString(),
+                        "offset" to offset.toString(),
+                        "order_by" to "name",
+                        "order_dir" to "asc",
+                    ),
+                )
+            }.getOrNull() ?: break
+            response.items.forEach { result[it.id] = it }
+            if (response.items.size < pageSize) break
+            offset += pageSize
+            if (offset >= 10_000) break
+        }
+        platformMetaCache[slug] = result
+        result.forEach { (id, dto) -> romMetaCache[id] = dto }
+        return result
     }
 
     /** Abre un juego de la Estantería en la Biblioteca con su detalle. */

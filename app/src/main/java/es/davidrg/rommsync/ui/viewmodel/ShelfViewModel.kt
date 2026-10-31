@@ -92,21 +92,68 @@ class ShelfViewModel(
                     } else null
                     val semaphore = Semaphore(4)
 
-                    val dtos = coroutineScope {
-                        downloaded.map { entity ->
-                            async(Dispatchers.IO) {
-                                semaphore.withPermit {
-                                    dtoCache[entity.romId] ?: api?.let {
-                                        runCatching { it.getRom(entity.romId) }.getOrNull()
-                                    }?.also { dto -> dtoCache[entity.romId] = dto }
+                    // Hidratación por LISTADO de plataforma (la misma fuente que
+                    // usa la Biblioteca): así las carátulas coinciden siempre.
+                    // Luego, para ids que no aparezcan, se pide el detalle.
+                    val dtoById = mutableMapOf<Int, RomDto>()
+                    dtoCache.forEach { (id, dto) -> dtoById[id] = dto }
+
+                    if (api != null) {
+                        val platformIds = downloaded
+                            .mapNotNull { platforms[it.platformSlug]?.id }
+                            .distinct()
+                        coroutineScope {
+                            platformIds.map { platformId ->
+                                async(Dispatchers.IO) {
+                                    semaphore.withPermit {
+                                        var offset = 0
+                                        val pageSize = 500
+                                        while (true) {
+                                            val response = runCatching {
+                                                api.getRoms(
+                                                    mapOf(
+                                                        "platform_ids" to platformId.toString(),
+                                                        "limit" to pageSize.toString(),
+                                                        "offset" to offset.toString(),
+                                                        "order_by" to "name",
+                                                        "order_dir" to "asc",
+                                                    ),
+                                                )
+                                            }.getOrNull() ?: break
+                                            response.items.forEach { dto ->
+                                                dtoById[dto.id] = dto
+                                                dtoCache[dto.id] = dto
+                                            }
+                                            if (response.items.size < pageSize) break
+                                            offset += pageSize
+                                            if (offset >= 10_000) break
+                                        }
+                                    }
                                 }
+                            }.awaitAll()
+                        }
+
+                        val missing = downloaded.map { it.romId }.filter { it !in dtoById }
+                        if (missing.isNotEmpty()) {
+                            coroutineScope {
+                                missing.map { romId ->
+                                    async(Dispatchers.IO) {
+                                        semaphore.withPermit {
+                                            val dto = runCatching { api.getRom(romId) }.getOrNull()
+                                            if (dto != null) {
+                                                dtoById[romId] = dto
+                                                dtoCache[romId] = dto
+                                            }
+                                        }
+                                    }
+                                }.awaitAll()
                             }
-                        }.awaitAll()
+                        }
                     }
 
-                    val romsById = downloaded.mapIndexed { index, entity ->
-                        entity.romId to buildRom(entity, dtos[index], baseCoverUrl)
-                    }.toMap()
+                    val romsById = downloaded.associate { entity ->
+                        entity.romId to buildRom(entity, dtoById[entity.romId], baseCoverUrl)
+                    }
 
                     val discEntries = romsById.values.map { rom ->
                         DiscEntry(

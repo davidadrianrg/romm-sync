@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -1715,6 +1716,7 @@ fun ShelfScreen(state: DesktopAppState) {
     var loading by remember { mutableStateOf(true) }
     val selectedGame by state.selectedGame.collectAsState()
     var detailDto by remember { mutableStateOf<RomDto?>(null) }
+    var platformFilter by remember { mutableStateOf<String?>(null) }
 
     // El botón "Volver" de GameDetailPanel limpia selectedGame: cerramos el detalle.
     LaunchedEffect(selectedGame) {
@@ -1722,18 +1724,39 @@ fun ShelfScreen(state: DesktopAppState) {
     }
 
     LaunchedEffect(Unit) {
-        val loaded = state.library.roms().map { entry ->
-            val dto = state.fetchRomMeta(entry.romId) ?: RomDto(
-                id = entry.romId,
-                name = entry.name,
-                fileName = entry.fileName,
-                platformId = 0,
-                platformSlug = entry.platformSlug,
-            )
+        val entries = state.library.roms()
+        // Metadatos por plataforma (misma fuente que la Biblioteca).
+        val platformMeta = entries.map { it.platformSlug }.distinct().associateWith { slug ->
+            runCatching { state.fetchPlatformRomMeta(slug) }.getOrDefault(emptyMap())
+        }
+        val loaded = entries.map { entry ->
+            val dto = platformMeta[entry.platformSlug]?.get(entry.romId)
+                ?: state.fetchRomMeta(entry.romId)
+                ?: RomDto(
+                    id = entry.romId,
+                    name = entry.name,
+                    fileName = entry.fileName,
+                    platformId = 0,
+                    platformSlug = entry.platformSlug,
+                )
             entry to dto
         }
         items = loaded.sortedBy { it.second.name.lowercase() }
         loading = false
+    }
+
+    val platformsInShelf = remember(items) {
+        items.map { (entry, dto) -> (dto.platformSlug ?: entry.platformSlug) to shelfPlatformLabel(state, dto, entry) }
+            .distinctBy { it.first }
+            .sortedBy { it.second }
+    }
+    LaunchedEffect(platformsInShelf) {
+        if (platformFilter != null && platformsInShelf.none { it.first == platformFilter }) {
+            platformFilter = null
+        }
+    }
+    val visibleItems = items.filter { (entry, dto) ->
+        platformFilter == null || (dto.platformSlug ?: entry.platformSlug) == platformFilter
     }
 
     Box(
@@ -1760,9 +1783,9 @@ fun ShelfScreen(state: DesktopAppState) {
                             color = ShelfCreamD.copy(alpha = 0.55f),
                         )
                     }
-                    if (items.isNotEmpty()) {
+                    if (visibleItems.isNotEmpty() || items.isNotEmpty()) {
                         Text(
-                            tr("shelf.count", items.size.toString()),
+                            tr("shelf.count", visibleItems.size.toString()),
                             style = MaterialTheme.typography.labelMedium,
                             color = Color(0xFF241407),
                             modifier = Modifier
@@ -1770,6 +1793,30 @@ fun ShelfScreen(state: DesktopAppState) {
                                 .padding(horizontal = 10.dp, vertical = 4.dp),
                         )
                     }
+                }
+
+                if (platformsInShelf.size > 1) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        FilterChip(
+                            selected = platformFilter == null,
+                            onClick = { platformFilter = null },
+                            label = { Text(tr("shelf.filter.all")) },
+                        )
+                        platformsInShelf.forEach { (slug, label) ->
+                            FilterChip(
+                                selected = platformFilter == slug,
+                                onClick = { platformFilter = slug },
+                                label = { Text(label) },
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
                 }
 
                 when {
@@ -1790,7 +1837,7 @@ fun ShelfScreen(state: DesktopAppState) {
                             verticalArrangement = Arrangement.spacedBy(20.dp),
                             modifier = Modifier.fillMaxSize(),
                         ) {
-                            items(items.chunked(columns)) { rowItems ->
+                            items(visibleItems.chunked(columns)) { rowItems ->
                                 Column {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
@@ -1836,6 +1883,11 @@ private fun DesktopWoodPlank() {
     }
 }
 
+private fun shelfPlatformLabel(state: DesktopAppState, dto: RomDto, entry: DesktopLibrary.RomEntry): String {
+    val slug = dto.platformSlug ?: entry.platformSlug
+    return state.platforms.value.firstOrNull { it.slug == slug }?.name ?: slug.uppercase()
+}
+
 @Composable
 private fun DesktopShelfCard(
     entry: DesktopLibrary.RomEntry,
@@ -1844,9 +1896,7 @@ private fun DesktopShelfCard(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    val platformLabel = state.platforms.value
-        .firstOrNull { it.slug == (dto.platformSlug ?: entry.platformSlug) }?.name
-        ?: (dto.platformSlug ?: entry.platformSlug).uppercase()
+    val platformLabel = shelfPlatformLabel(state, dto, entry)
 
     Box(
         modifier = modifier
