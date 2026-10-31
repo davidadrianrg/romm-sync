@@ -23,6 +23,7 @@
 
     <!-- Battery optimization exemption for reliable periodic sync -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- In-app self-update: download APK to cache + system installer -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
@@ -59,6 +60,21 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
+
+        <!-- Vigilancia de saves en tiempo real (FileObserver + notificación fija) -->
+        <service
+            android:name=".data.sync.SaveSyncWatchService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <receiver
+            android:name=".data.sync.BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
         <!-- WorkManager foreground service with dataSync type (Android 14+) -->
         <service

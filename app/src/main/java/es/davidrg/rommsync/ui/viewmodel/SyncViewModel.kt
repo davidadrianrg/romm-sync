@@ -63,6 +63,9 @@ class SyncViewModel(
     val syncIntervalMinutes: StateFlow<Int> = settingsRepository.saveSyncIntervalMinutes
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
+    val watchEnabled: StateFlow<Boolean> = settingsRepository.saveSyncWatchEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     private val _localSaves = MutableStateFlow<List<SavePreviewItem>>(emptyList())
     val localSaves: StateFlow<List<SavePreviewItem>> = _localSaves.asStateFlow()
 
@@ -158,6 +161,14 @@ class SyncViewModel(
 
     fun triggerSync() {
         saveSyncManager.triggerSync()
+    }
+
+    /** Activa/desactiva la vigilancia en tiempo real de carpetas de saves. */
+    fun setWatchEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setSaveSyncWatchEnabled(enabled)
+            if (enabled) saveSyncManager.startWatchService() else saveSyncManager.stopWatchService()
+        }
     }
 
     /** Cancela el sync en curso (el usuario puede relanzarlo cuando quiera). */

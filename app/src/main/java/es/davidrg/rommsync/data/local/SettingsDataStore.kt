@@ -47,6 +47,8 @@ class SettingsDataStore(private val context: Context) {
         val DEVICE_ID = intPreferencesKey("sync_device_id")
         val DEVICE_ID_STRING = stringPreferencesKey("sync_device_id_string")
         val SAVE_SYNC_ENABLED = stringPreferencesKey("save_sync_enabled")
+        /** Vigilancia en tiempo real de carpetas de saves (foreground service). */
+        val SAVE_SYNC_WATCH_ENABLED = booleanPreferencesKey("save_sync_watch_enabled")
         val LAST_SYNC_TIMESTAMP = longPreferencesKey("last_sync_timestamp")
         val LAST_SYNC_SUMMARY = stringPreferencesKey("last_sync_summary")
         val LAST_SYNC_CONFLICTS_JSON = stringPreferencesKey("last_sync_conflicts_json")
@@ -157,6 +159,10 @@ class SettingsDataStore(private val context: Context) {
     }
     val saveSyncIntervalMinutes: Flow<Int> = context.dataStore.data.map {
         it[SAVE_SYNC_INTERVAL_MINUTES] ?: 0
+    }
+    /** Sincronización al detectar cambios (FileObserver + foreground service). */
+    val saveSyncWatchEnabled: Flow<Boolean> = context.dataStore.data.map {
+        it[SAVE_SYNC_WATCH_ENABLED] ?: false
     }
     val lastSyncTimestamp: Flow<Long> = context.dataStore.data.map {
         it[LAST_SYNC_TIMESTAMP] ?: 0L
@@ -329,6 +335,10 @@ class SettingsDataStore(private val context: Context) {
         context.dataStore.edit { it[SAVE_SYNC_INTERVAL_MINUTES] = minutes }
     }
 
+    suspend fun setSaveSyncWatchEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[SAVE_SYNC_WATCH_ENABLED] = enabled }
+    }
+
     suspend fun setEsdeDataDir(path: String) {
         context.dataStore.edit { it[ESDE_DATA_DIR] = path.trimEnd('/') }
     }
@@ -423,6 +433,13 @@ class SettingsDataStore(private val context: Context) {
         return runCatching {
             runBlocking { context.dataStore.data.first()[SAVE_SYNC_INTERVAL_MINUTES] ?: 0 }
         }.getOrDefault(0)
+    }
+
+    /** Lectura síncrona de la vigilancia en tiempo real (para el servicio y BootReceiver). */
+    fun getSaveSyncWatchEnabledBlocking(): Boolean {
+        return runCatching {
+            runBlocking { context.dataStore.data.first()[SAVE_SYNC_WATCH_ENABLED] ?: false }
+        }.getOrDefault(false)
     }
 
     /** Lectura síncrona del toggle de sync de saves (para Workers y Application). */

@@ -234,6 +234,10 @@ class ConfigViewModel(
                 }
             } else {
                 manager.cancelAllSyncWork()
+                manager.stopWatchService()
+            }
+            if (enabled && settingsRepository.saveSyncWatchEnabled.first()) {
+                manager.startWatchService()
             }
         }
     }

@@ -181,6 +181,16 @@ class SaveSyncManager(
         workManager.cancelUniqueWork(SaveSyncWorker.WORK_NAME)
     }
 
+    /** Arranca la vigilancia en tiempo real (foreground service + FileObserver). */
+    fun startWatchService() {
+        runCatching { SaveSyncWatchService.start(context) }
+    }
+
+    /** Detiene la vigilancia en tiempo real. */
+    fun stopWatchService() {
+        runCatching { SaveSyncWatchService.stop(context) }
+    }
+
     /**
      * Cancela todos los trabajos de sync (periódico, único y resolución de
      * conflictos). Se llama cuando el usuario desactiva el sync de saves.

@@ -3,7 +3,13 @@ package es.davidrg.rommsync.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -39,6 +45,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -53,6 +60,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -106,6 +114,7 @@ fun SyncScreen() {
     val lastSummary by viewModel.lastSyncSummary.collectAsState()
     val retroArchBasePath by viewModel.retroArchBasePath.collectAsState()
     val syncInterval by viewModel.syncIntervalMinutes.collectAsState()
+    val watchEnabled by viewModel.watchEnabled.collectAsState()
     val localSaves by viewModel.localSaves.collectAsState()
     val isScanning by viewModel.isScanning.collectAsState()
     val pathWarnings by viewModel.pathWarnings.collectAsState()
@@ -116,6 +125,12 @@ fun SyncScreen() {
 
     var retroArchPath by remember { mutableStateOf("") }
     var showFolderPicker by remember { mutableStateOf(false) }
+
+    // Android 13+ exige POST_NOTIFICATIONS para mostrar la notificación fija
+    // del servicio de vigilancia.
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted -> if (granted) viewModel.setWatchEnabled(true) }
 
     LaunchedEffect(retroArchBasePath) {
         if (retroArchPath.isEmpty() && retroArchBasePath.isNotEmpty()) {
@@ -300,7 +315,7 @@ fun SyncScreen() {
                     )
 
                     // Aviso de optimización de batería
-                    if (syncInterval > 0 && !isIgnoringBatteryOptimizations(context)) {
+                    if ((syncInterval > 0 || watchEnabled) && !isIgnoringBatteryOptimizations(context)) {
                         Spacer(modifier = Modifier.height(12.dp))
                         Card(
                             shape = RoundedCornerShape(12.dp),
@@ -329,6 +344,51 @@ fun SyncScreen() {
                             }
                         }
                     }
+                }
+            }
+
+            // -- Vigilancia en tiempo real (FileObserver + foreground service)
+            item {
+                SyncSection(
+                    icon = Icons.Filled.Sync,
+                    title = tr("android.sync.watch.title"),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            tr("android.sync.watch.description"),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Switch(
+                            checked = watchEnabled,
+                            onCheckedChange = { enabled ->
+                                val needsPermission =
+                                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                        ContextCompat.checkSelfPermission(
+                                            context,
+                                            Manifest.permission.POST_NOTIFICATIONS,
+                                        ) != PackageManager.PERMISSION_GRANTED
+                                if (enabled && needsPermission) {
+                                    notificationPermissionLauncher.launch(
+                                        Manifest.permission.POST_NOTIFICATIONS,
+                                    )
+                                } else {
+                                    viewModel.setWatchEnabled(enabled)
+                                }
+                            },
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        tr("android.sync.watch.limit"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
 

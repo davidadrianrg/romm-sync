@@ -29,6 +29,7 @@ class RomMSyncApplication : Application(), Configuration.Provider, ImageLoaderFa
         container = AppContainer(this)
         restorePeriodicSync()
         startForegroundFastSync()
+        restoreSaveWatch()
     }
 
     /**
@@ -70,6 +71,15 @@ class RomMSyncApplication : Application(), Configuration.Provider, ImageLoaderFa
         val interval = container.settingsDataStore.getSyncIntervalMinutesBlocking()
         if (interval > 0) {
             container.saveSyncManager.schedulePeriodicSync(interval)
+        }
+    }
+
+    /** Reanuda la vigilancia de saves si el usuario la tenía activada. */
+    private fun restoreSaveWatch() {
+        if (container.settingsDataStore.getSaveSyncWatchEnabledBlocking() &&
+            container.settingsDataStore.getSaveSyncEnabledBlocking()
+        ) {
+            container.saveSyncManager.startWatchService()
         }
     }
 
