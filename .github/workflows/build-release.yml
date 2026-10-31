@@ -138,12 +138,10 @@ jobs:
             | `RomM-Sync-v${{ steps.version.outputs.version }}-android.apk` | Android (R8 minified) |
             | `RomM-Sync-v${{ steps.version.outputs.version }}-linux-x86_64.AppImage` | Linux x86_64 (SteamOS, Steam Deck, most PCs) |
             | `RomM-Sync-v${{ steps.version.outputs.version }}-linux-aarch64.AppImage` | Linux ARM64 (Raspberry Pi 5, ARM handhelds) |
-            | `RomM-Sync-v${{ steps.version.outputs.version }}-linux-x86_64.tar.gz` | Linux x86_64 portable (no FUSE needed) |
-            | `RomM-Sync-v${{ steps.version.outputs.version }}-linux-aarch64.tar.gz` | Linux ARM64 portable (no FUSE needed) |
 
             ### 🔄 How to update
 
             - **Android:** Settings → Updates → *Check for updates*, or download the attached APK and open it — it installs over the previous version without losing data.
             - **Linux:** download the AppImage for your architecture, give it execute permission (`chmod +x`) and run it. Replaces the previous file.
-            - **If the AppImage does not start** (`libfuse.so.2` missing or nothing happens): use the `.tar.gz` instead — extract it and run `./AppRun`. It needs no FUSE.
+            - **If the AppImage does not start** (`libfuse.so.2` missing): run `APPIMAGE_EXTRACT_AND_RUN=1 ./RomM-Sync-...AppImage` or install `libfuse2`.
           files: app/build/outputs/apk/release/RomM-Sync-v${{ steps.version.outputs.version }}-android.apk
