@@ -88,5 +88,5 @@ object DesktopConfig {
         set(v) = prefs.put("manual_downloaded", v)
 
     /** Versión de la app desktop (para el comprobador de actualizaciones). */
-    const val appVersion: String = "0.8.15"
+    const val appVersion: String = "0.8.16"
 }
