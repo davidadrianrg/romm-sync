@@ -37,6 +37,7 @@ fun ServerAssetsPanel(romId: Int, state: DesktopAppState) {
     var states by remember { mutableStateOf<List<StateDto>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var uploading by remember { mutableStateOf(false) }
+    var downloadingId by remember { mutableStateOf<Int?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
@@ -85,7 +86,25 @@ fun ServerAssetsPanel(romId: Int, state: DesktopAppState) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Text(tr("saves.server.save"), style = MaterialTheme.typography.labelSmall)
+                if (downloadingId == save.id) {
+                    CircularProgressIndicator(Modifier.height(14.dp), strokeWidth = 2.dp)
+                } else {
+                    TextButton(
+                        enabled = downloadingId == null,
+                        onClick = {
+                            downloadingId = save.id
+                            message = null
+                            scope.launch {
+                                val result = state.downloadServerSave(romId, save.id, save.fileName)
+                                downloadingId = null
+                                message = result.fold(
+                                    { tr("saves.server.download_ok") },
+                                    { tr("saves.server.download_error", it.message ?: "") },
+                                )
+                            }
+                        },
+                    ) { Text(tr("saves.server.download"), style = MaterialTheme.typography.labelSmall) }
+                }
             }
         }
         states.forEach { st ->

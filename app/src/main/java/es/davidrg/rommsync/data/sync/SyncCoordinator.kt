@@ -163,6 +163,7 @@ class SyncCoordinator(
                     ClientSaveState(
                         romId = romId,
                         fileName = save.fileName,
+                        slot = es.davidrg.rommsync.core.sync.SyncSlots.DEFAULT,
                         contentHash = save.sha1,
                         updatedAt = formatIso8601(save.lastModified),
                         fileSizeBytes = save.file.length().toInt(),
@@ -238,8 +239,12 @@ class SyncCoordinator(
                         val config = platformConfigs[rom.platformSlug]
                         val rawBasePath = resolveSavesBasePath(rom, config, retroArchBase)
                         val effectiveBasePath = stageFor(rawBasePath)
+                        // El servidor etiqueta las versiones con slot; el fichero
+                        // local debe conservar el nombre canónico del emulador.
+                        val localFileName = es.davidrg.rommsync.core.sync.SaveNames
+                            .stripVersionTag(op.fileName)
                         // Copia de seguridad de la copia local antes de pisarla
-                        backupLocalSave(op.romId, op.fileName, localSavesMap[op.romId], handler)
+                        backupLocalSave(op.romId, localFileName, localSavesMap[op.romId], handler)
                         val ok = executeDownload(
                             api = api,
                             saveId = opSaveId,
@@ -255,7 +260,7 @@ class SyncCoordinator(
                             commitStaged(rawBasePath)
                             // Tras un download exitoso, el hash local es el del servidor
                             op.serverContentHash?.let { hash ->
-                                syncedHashStore?.setSyncedHash(op.romId, op.fileName, hash)
+                                syncedHashStore?.setSyncedHash(op.romId, localFileName, hash)
                             }
                         } else {
                             failed++
@@ -470,6 +475,7 @@ class SyncCoordinator(
                     ClientSaveState(
                         romId = rom.romId,
                         fileName = save.fileName,
+                        slot = es.davidrg.rommsync.core.sync.SyncSlots.DEFAULT,
                         contentHash = save.sha1,
                         updatedAt = formatIso8601(save.lastModified),
                         fileSizeBytes = save.file.length().toInt(),
@@ -624,6 +630,7 @@ class SyncCoordinator(
                 file = filePart,
                 romId = romId,
                 deviceId = deviceId,
+                slot = es.davidrg.rommsync.core.sync.SyncSlots.DEFAULT,
                 overwrite = true,
             )
             true
@@ -656,7 +663,7 @@ class SyncCoordinator(
                 romFileName = rom.fileName,
                 platformSlug = rom.platformSlug,
                 savesBasePath = savesBasePath,
-                targetFileName = fileName,
+                targetFileName = es.davidrg.rommsync.core.sync.SaveNames.stripVersionTag(fileName),
             )
             tempFile.delete()
             ok

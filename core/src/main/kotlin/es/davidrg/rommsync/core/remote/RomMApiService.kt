@@ -104,6 +104,7 @@ interface RomMApiService {
         @Query("rom_id") romId: Int,
         @Query("emulator") emulator: String? = null,
         @Query("device_id") deviceId: String? = null,
+        @Query("slot") slot: String? = null,
         @Query("overwrite") overwrite: Boolean = true,
     ): ResponseBody
 

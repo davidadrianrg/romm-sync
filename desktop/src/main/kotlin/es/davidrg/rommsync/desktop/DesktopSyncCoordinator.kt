@@ -118,6 +118,7 @@ class DesktopSyncCoordinator(
                     ClientSaveState(
                         romId = romId,
                         fileName = save.fileName,
+                        slot = es.davidrg.rommsync.core.sync.SyncSlots.DEFAULT,
                         contentHash = save.sha1,
                         updatedAt = formatIso8601(save.lastModified),
                         fileSizeBytes = save.file.length().toInt(),
@@ -384,6 +385,7 @@ class DesktopSyncCoordinator(
                     ClientSaveState(
                         romId = romId,
                         fileName = save.fileName,
+                        slot = es.davidrg.rommsync.core.sync.SyncSlots.DEFAULT,
                         contentHash = save.sha1,
                         updatedAt = formatIso8601(save.lastModified),
                         fileSizeBytes = save.file.length().toInt(),
@@ -503,6 +505,7 @@ class DesktopSyncCoordinator(
                     ClientSaveState(
                         romId = rom.romId,
                         fileName = save.fileName,
+                        slot = es.davidrg.rommsync.core.sync.SyncSlots.DEFAULT,
                         contentHash = save.sha1,
                         updatedAt = formatIso8601(save.lastModified),
                         fileSizeBytes = save.file.length().toInt(),
@@ -603,7 +606,8 @@ class DesktopSyncCoordinator(
                     romFileName = rom.fileName,
                     platformSlug = rom.platformSlug,
                     savesBasePath = base,
-                    targetFileName = fileName,
+                    targetFileName = es.davidrg.rommsync.core.sync.SaveNames
+                        .stripVersionTag(fileName),
                 )
             }.getOrDefault(false)
         }
@@ -646,6 +650,7 @@ class DesktopSyncCoordinator(
                 file = filePart,
                 romId = romId,
                 deviceId = deviceId,
+                slot = es.davidrg.rommsync.core.sync.SyncSlots.DEFAULT,
                 overwrite = true,
             )
             true
@@ -678,7 +683,8 @@ class DesktopSyncCoordinator(
                 romFileName = rom.fileName,
                 platformSlug = rom.platformSlug,
                 savesBasePath = savesBasePath,
-                targetFileName = fileName,
+                targetFileName = es.davidrg.rommsync.core.sync.SaveNames
+                    .stripVersionTag(fileName),
             )
             tempFile.delete()
             ok

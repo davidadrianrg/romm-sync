@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
@@ -37,6 +38,7 @@ import es.davidrg.rommsync.core.remote.NetworkModule
 import es.davidrg.rommsync.core.remote.dto.SaveDto
 import es.davidrg.rommsync.core.remote.dto.StateDto
 import es.davidrg.rommsync.core.upload.UploadParts
+import es.davidrg.rommsync.data.sync.ManualSaveDownloader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.File
@@ -58,6 +60,7 @@ fun ServerAssetsSection(
     var states by remember { mutableStateOf<List<StateDto>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var uploading by remember { mutableStateOf(false) }
+    var downloadingId by remember { mutableStateOf<Int?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
 
     fun reload() {
@@ -91,6 +94,7 @@ fun ServerAssetsSection(
                     romId = romId,
                     emulator = null,
                     deviceId = null,
+                    slot = es.davidrg.rommsync.core.sync.SyncSlots.DEFAULT,
                     overwrite = true,
                 )
                 tmp.delete()
@@ -135,6 +139,36 @@ fun ServerAssetsSection(
                 label = tr("saves.server.save"),
                 fileName = save.fileName,
                 meta = listOfNotNull(save.emulator, formatServerDate(save.updatedAt)).joinToString(" · "),
+                trailing = {
+                    if (downloadingId == save.id) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        IconButton(
+                            onClick = {
+                                downloadingId = save.id
+                                message = null
+                                scope.launch {
+                                    val result = ManualSaveDownloader(context)
+                                        .download(romId, save.id, save.fileName)
+                                    downloadingId = null
+                                    message = result.fold(
+                                        { tr("saves.server.download_ok") },
+                                        { tr("saves.server.download_error", it.message ?: "") },
+                                    )
+                                }
+                            },
+                            enabled = downloadingId == null,
+                        ) {
+                            Icon(
+                                Icons.Filled.Download,
+                                contentDescription = tr("saves.server.download"),
+                            )
+                        }
+                    }
+                },
             )
         }
         states.forEach { state ->
@@ -171,7 +205,12 @@ fun ServerAssetsSection(
 }
 
 @Composable
-private fun AssetRow(label: String, fileName: String, meta: String) {
+private fun AssetRow(
+    label: String,
+    fileName: String,
+    meta: String,
+    trailing: (@Composable () -> Unit)? = null,
+) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
             Text(fileName, style = MaterialTheme.typography.bodySmall)
@@ -181,11 +220,15 @@ private fun AssetRow(label: String, fileName: String, meta: String) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary,
-        )
+        if (trailing != null) {
+            trailing()
+        } else {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
     }
 }
 

@@ -396,6 +396,48 @@ class DesktopAppState(private val scope: CoroutineScope) {
     suspend fun serverStates(romId: Int): List<StateDto> =
         runCatching { api?.getStates(romId) ?: emptyList() }.getOrDefault(emptyList())
 
+    /** Descarga un save concreto del servidor a la carpeta local del juego. */
+    suspend fun downloadServerSave(romId: Int, saveId: Int, fileName: String): Result<Unit> =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching {
+                val svc = api ?: error(tr("common.server_not_configured"))
+                val entry = library.rom(romId)
+                    ?: error(tr("saves.server.download_not_downloaded"))
+                val platform = library.platform(entry.platformSlug)
+                val emulatorId = platform.emulatorId
+                    ?: es.davidrg.rommsync.core.sync.platform.SaveHandlerRegistry
+                        .getDefaultEmulator(entry.platformSlug).id
+                val base = entry.savesPathOverride?.takeIf { it.isNotBlank() }
+                    ?: platform.savesPathOverride?.takeIf { it.isNotBlank() }
+                    ?: es.davidrg.rommsync.core.sync.platform.SaveHandlerRegistry
+                        .getDefaultSavesPath(emulatorId, entry.platformSlug, "")
+                val body = svc.downloadSave(saveId, config.deviceId)
+                val temp = File(
+                    System.getProperty("java.io.tmpdir") ?: ".",
+                    "romm-sync-dl-$saveId",
+                )
+                try {
+                    body.byteStream().use { input ->
+                        temp.outputStream().use { output -> input.copyTo(output) }
+                    }
+                    val handler = es.davidrg.rommsync.core.sync.platform.SaveHandlerRegistry
+                        .getHandler(entry.platformSlug, platform.emulatorId)
+                    val ok = handler.extractDownload(
+                        tempFile = temp,
+                        romFileName = entry.fileName,
+                        platformSlug = entry.platformSlug,
+                        savesBasePath = base,
+                        targetFileName = es.davidrg.rommsync.core.sync.SaveNames
+                            .stripVersionTag(fileName),
+                    )
+                    if (!ok) error(tr("saves.server.download_error", "extract"))
+                    Unit
+                } finally {
+                    temp.delete()
+                }
+            }
+        }
+
     suspend fun uploadServerSave(romId: Int, file: File): Result<Unit> = runCatching {
         val svc = api ?: error(tr("common.server_not_configured"))
         svc.uploadSave(
@@ -403,6 +445,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
             romId = romId,
             emulator = null,
             deviceId = null,
+            slot = es.davidrg.rommsync.core.sync.SyncSlots.DEFAULT,
             overwrite = true,
         )
         Unit
