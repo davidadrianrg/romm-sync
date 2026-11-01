@@ -128,7 +128,12 @@ class SyncViewModel(
     }
 
     private fun parseConflictsJson(json: String): List<ConflictInfo> = try {
-        conflictMoshiAdapter.fromJson(json).orEmpty()
+        conflictMoshiAdapter.fromJson(json).orEmpty().map { conflict ->
+            conflict.copy(
+                fileName = es.davidrg.rommsync.core.sync.SaveNames
+                    .stripVersionTag(conflict.fileName),
+            )
+        }
     } catch (_: Exception) {
         emptyList()
     }

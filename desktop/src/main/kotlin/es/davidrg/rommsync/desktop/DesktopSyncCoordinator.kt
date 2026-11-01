@@ -150,7 +150,7 @@ class DesktopSyncCoordinator(
         for (op in negotiateResponse.operations) {
             when (op.action) {
                 "upload" -> {
-                    val save = localSavesMap[op.romId]?.find { it.fileName == op.fileName }
+                    val save = localSavesMap[op.romId]?.find { it.fileName == es.davidrg.rommsync.core.sync.SaveNames.stripVersionTag(op.fileName) }
                     val handler = handlerByRom[op.romId]
                     if (save != null && handler != null) {
                         val ok = executeUpload(api, save, op.romId, deviceId, handler)
@@ -239,7 +239,7 @@ class DesktopSyncCoordinator(
                     // Política automática si el usuario no quiere decidir uno a uno
                     when (conflictPolicy) {
                         ConflictPolicy.PREFER_LOCAL -> {
-                            val save = localSavesMap[op.romId]?.find { it.fileName == op.fileName }
+                            val save = localSavesMap[op.romId]?.find { it.fileName == es.davidrg.rommsync.core.sync.SaveNames.stripVersionTag(op.fileName) }
                             val handler = handlerByRom[op.romId]
                             if (save != null && handler != null &&
                                 executeUpload(api, save, op.romId, deviceId, handler)
@@ -276,7 +276,7 @@ class DesktopSyncCoordinator(
                 }
                 "no_op" -> {
                     // Ya sincronizado: registrar hash local para que el preview sepa
-                    val save = localSavesMap[op.romId]?.find { it.fileName == op.fileName }
+                    val save = localSavesMap[op.romId]?.find { it.fileName == es.davidrg.rommsync.core.sync.SaveNames.stripVersionTag(op.fileName) }
                     if (save != null) {
 
                     }
@@ -404,10 +404,10 @@ class DesktopSyncCoordinator(
         PendingSavesReport(
             uploads = negotiateResponse.operations
                 .filter { it.action == "upload" }
-                .map { PendingSaveItem(it.romId, romNameById[it.romId] ?: tr("sync.unknown_rom", it.romId), it.fileName) },
+                .map { PendingSaveItem(it.romId, romNameById[it.romId] ?: tr("sync.unknown_rom", it.romId), es.davidrg.rommsync.core.sync.SaveNames.stripVersionTag(it.fileName)) },
             downloads = negotiateResponse.operations
                 .filter { it.action == "download" }
-                .map { PendingSaveItem(it.romId, romNameById[it.romId] ?: tr("sync.unknown_rom", it.romId), it.fileName) },
+                .map { PendingSaveItem(it.romId, romNameById[it.romId] ?: tr("sync.unknown_rom", it.romId), es.davidrg.rommsync.core.sync.SaveNames.stripVersionTag(it.fileName)) },
             conflicts = negotiateResponse.operations
                 .filter { it.action == "conflict" }
                 .map {
@@ -471,6 +471,7 @@ class DesktopSyncCoordinator(
             emulatorId = config?.emulatorId,
         )
         val effectiveBasePath = resolveSavesBasePath(rom, config, retroArchBase)
+        val localFileName = es.davidrg.rommsync.core.sync.SaveNames.stripVersionTag(fileName)
 
         when (resolution) {
             "local" -> {
@@ -481,15 +482,15 @@ class DesktopSyncCoordinator(
                     savesBasePath = effectiveBasePath,
                     romLocalPath = rom.localPath,
                 )
-                val save = saves.find { it.fileName == fileName }
-                    ?: return@withContext SyncResult(error = tr("sync.error.local_save_not_found", fileName))
+                val save = saves.find { it.fileName == localFileName }
+                    ?: return@withContext SyncResult(error = tr("sync.error.local_save_not_found", localFileName))
 
                 val ok = executeUpload(api, save, rom.romId, deviceId, handler)
                 if (ok) {
 
-                    SyncResult(uploaded = 1, message = tr("sync.conflict.local_uploaded", fileName))
+                    SyncResult(uploaded = 1, message = tr("sync.conflict.local_uploaded", localFileName))
                 } else {
-                    SyncResult(error = tr("sync.error.upload_failed", fileName))
+                    SyncResult(error = tr("sync.error.upload_failed", localFileName))
                 }
             }
             "server" -> {
@@ -518,23 +519,26 @@ class DesktopSyncCoordinator(
                 }
 
                 val op = negotiateResponse.operations.find {
-                    it.romId == rom.romId && it.fileName == fileName
+                    it.romId == rom.romId &&
+                        es.davidrg.rommsync.core.sync.SaveNames
+                            .stripVersionTag(it.fileName)
+                            .equals(localFileName, ignoreCase = true)
                 } ?: return@withContext SyncResult(
-                    error = tr("sync.error.no_server_operation", fileName),
+                    error = tr("sync.error.no_server_operation", localFileName),
                 )
 
                 val saveId = op.saveId
-                    ?: return@withContext SyncResult(error = tr("sync.error.no_save_id", fileName))
+                    ?: return@withContext SyncResult(error = tr("sync.error.no_save_id", localFileName))
 
                 // Copia de seguridad de la copia local antes de pisarla
-                backupLocalSave(rom.romId, fileName, localSaves, handler)
+                backupLocalSave(rom.romId, localFileName, localSaves, handler)
 
                 val ok = executeDownload(
                     api = api,
                     saveId = saveId,
                     deviceId = deviceId,
                     rom = rom,
-                    fileName = fileName,
+                    fileName = localFileName,
                     savesBasePath = effectiveBasePath,
                     handler = handler,
                 )
@@ -548,9 +552,9 @@ class DesktopSyncCoordinator(
                             request = SessionCompleteRequest(operationsCompleted = 1),
                         )
                     } catch (_: Exception) {}
-                    SyncResult(downloaded = 1, message = tr("sync.conflict.server_restored", fileName))
+                    SyncResult(downloaded = 1, message = tr("sync.conflict.server_restored", localFileName))
                 } else {
-                    SyncResult(error = tr("sync.error.download_failed", fileName))
+                    SyncResult(error = tr("sync.error.download_failed", localFileName))
                 }
             }
             else -> SyncResult(error = tr("sync.error.unknown_resolution", resolution))
