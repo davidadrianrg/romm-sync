@@ -86,27 +86,27 @@ jobs:
       - name: Assemble AppDir
         run: |
           VERSION="${{ steps.version.outputs.tag }}"
-          JAR="$(ls desktop/build/compose/jars/romm-sync-linux-*-release.jar | head -1)"
+          JAR="$(ls desktop/build/compose/jars/atril-linux-*-release.jar | head -1)"
           mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/256x256/apps
-          cp "$JAR" AppDir/usr/bin/romm-sync.jar
+          cp "$JAR" AppDir/usr/bin/atril.jar
           # Launcher: uses the jlinked runtime of the target arch
           cat > AppDir/AppRun <<'EOF'
           #!/bin/sh
           HERE="$(dirname "$(readlink -f "$0")")"
-          exec "$HERE/usr/bin/runtime/bin/java" -jar "$HERE/usr/bin/romm-sync.jar" "$@"
+          exec "$HERE/usr/bin/runtime/bin/java" -jar "$HERE/usr/bin/atril.jar" "$@"
           EOF
           chmod +x AppDir/AppRun
-          cat > AppDir/romm-sync.desktop <<'EOF'
+          cat > AppDir/atril.desktop <<'EOF'
           [Desktop Entry]
           Type=Application
-          Name=RomM Sync
-          Comment=Sync ROMs and saves with your RomM server
-          Exec=romm-sync
-          Icon=romm-sync
+          Name=Atril
+          Comment=Game launcher with RomM integration
+          Exec=atril
+          Icon=atril
           Categories=Game;Utility;
           EOF
-          cp desktop/packaging/romm-sync.png AppDir/usr/share/icons/hicolor/256x256/apps/romm-sync.png
-          cp desktop/packaging/romm-sync.png AppDir/romm-sync.png
+          cp desktop/packaging/atril.png AppDir/usr/share/icons/hicolor/256x256/apps/atril.png
+          cp desktop/packaging/atril.png AppDir/atril.png
           # appimagetool looks for the icon at the root of the AppDir
 
       - name: Build AppImage (${{ matrix.arch }})
@@ -115,20 +115,20 @@ jobs:
           cp -r /tmp/runtime-${{ matrix.arch }} AppDir/usr/bin/runtime
           ARCH="${{ matrix.arch }}"
           export ARCH
-          /tmp/appimagetool AppDir "RomM-Sync-${VERSION}-linux-${{ matrix.arch }}.AppImage"
+          /tmp/appimagetool AppDir "Atril-${VERSION}-linux-${{ matrix.arch }}.AppImage"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
           name: appimage-${{ matrix.arch }}
-          path: RomM-Sync-*-linux-${{ matrix.arch }}.AppImage
+          path: Atril-*-linux-${{ matrix.arch }}.AppImage
 
       - name: Attach to release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           body: |
-            **RomM Sync** – cross-platform build generated automatically
+            **Atril** – cross-platform build generated automatically
 
             **Commit:** [`${{ github.sha }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
 
@@ -136,13 +136,13 @@ jobs:
 
             | File | Platform |
             |---|---|
-            | `RomM-Sync-v${{ steps.version.outputs.version }}-android.apk` | Android (R8 minified) |
-            | `RomM-Sync-v${{ steps.version.outputs.version }}-linux-x86_64.AppImage` | Linux x86_64 (SteamOS, Steam Deck, most PCs) |
-            | `RomM-Sync-v${{ steps.version.outputs.version }}-linux-aarch64.AppImage` | Linux ARM64 (Raspberry Pi 5, ARM handhelds) |
+            | `Atril-v${{ steps.version.outputs.version }}-android.apk` | Android (R8 minified) |
+            | `Atril-v${{ steps.version.outputs.version }}-linux-x86_64.AppImage` | Linux x86_64 (SteamOS, Steam Deck, most PCs) |
+            | `Atril-v${{ steps.version.outputs.version }}-linux-aarch64.AppImage` | Linux ARM64 (Raspberry Pi 5, ARM handhelds) |
 
             ### 🔄 How to update
 
             - **Android:** Settings → Updates → *Check for updates*, or download the attached APK and open it — it installs over the previous version without losing data.
             - **Linux:** download the AppImage for your architecture, give it execute permission (`chmod +x`) and run it. Replaces the previous file.
-            - **If the AppImage does not start** (`libfuse.so.2` missing): run `APPIMAGE_EXTRACT_AND_RUN=1 ./RomM-Sync-...AppImage` or install `libfuse2`.
-          files: RomM-Sync-*-linux-${{ matrix.arch }}.AppImage
+            - **If the AppImage does not start** (`libfuse.so.2` missing): run `APPIMAGE_EXTRACT_AND_RUN=1 ./Atril-...AppImage` or install `libfuse2`.
+          files: Atril-*-linux-${{ matrix.arch }}.AppImage

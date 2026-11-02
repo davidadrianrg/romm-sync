@@ -8,21 +8,25 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import android.content.Context
 import es.davidrg.rommsync.data.local.dao.PlatformDao
 import es.davidrg.rommsync.data.local.dao.RomDao
+import es.davidrg.rommsync.data.local.dao.RomPresentationDao
 import es.davidrg.rommsync.data.local.entity.DownloadedRomEntity
 import es.davidrg.rommsync.data.local.entity.PlatformEntity
+import es.davidrg.rommsync.data.local.entity.RomPresentationEntity
 
 @Database(
     entities = [
         PlatformEntity::class,
         DownloadedRomEntity::class,
+        RomPresentationEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 abstract class RomSyncDatabase : RoomDatabase() {
 
     abstract fun platformDao(): PlatformDao
     abstract fun romDao(): RomDao
+    abstract fun romPresentationDao(): RomPresentationDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -79,6 +83,24 @@ abstract class RomSyncDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Migration 7 → 8: presentación por juego en el launcher (carta /
+         * medio físico) y caché local de la imagen del medio físico.
+         */
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `rom_presentation` (" +
+                        "`romId` INTEGER NOT NULL, " +
+                        "`displayMode` TEXT, " +
+                        "`physicalMediaPath` TEXT, " +
+                        "`physicalMediaSource` TEXT, " +
+                        "`updatedAt` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`romId`))",
+                )
+            }
+        }
+
         @Volatile
         private var INSTANCE: RomSyncDatabase? = null
 
@@ -89,7 +111,7 @@ abstract class RomSyncDatabase : RoomDatabase() {
                     RomSyncDatabase::class.java,
                     "romsync.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                     .fallbackToDestructiveMigrationOnDowngrade()
                     .build()
                     .also { INSTANCE = it }

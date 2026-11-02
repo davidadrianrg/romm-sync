@@ -2,7 +2,9 @@ package es.davidrg.rommsync.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import es.davidrg.rommsync.core.launch.LaunchPlatforms
 import es.davidrg.rommsync.core.library.DiscEntry
+import es.davidrg.rommsync.core.library.PhysicalMedia
 import es.davidrg.rommsync.core.library.MultiDiscGrouper
 import es.davidrg.rommsync.core.remote.NetworkModule
 import es.davidrg.rommsync.core.remote.dto.RomDto
@@ -10,10 +12,16 @@ import es.davidrg.rommsync.core.sync.platform.SaveHandlerRegistry
 import es.davidrg.rommsync.data.local.dao.PlatformDao
 import es.davidrg.rommsync.data.local.dao.RomDao
 import es.davidrg.rommsync.data.local.entity.DownloadedRomEntity
+import es.davidrg.rommsync.data.repository.LauncherDisplayMode
+import es.davidrg.rommsync.data.repository.PhysicalMediaRepository
 import es.davidrg.rommsync.data.repository.RomRepository
 import es.davidrg.rommsync.data.repository.SettingsRepository
 import es.davidrg.rommsync.domain.model.Rom
 import es.davidrg.rommsync.domain.model.RomFile
+import es.davidrg.rommsync.launch.EmulatorLauncher
+import es.davidrg.rommsync.launch.LaunchPlan
+import es.davidrg.rommsync.launch.LaunchRequest
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -21,6 +29,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,7 +51,25 @@ data class ShelfItem(
     val platformSavesPath: String,
     val isManualDownloaded: Boolean,
     val fileSizeBytes: Long,
-)
+    /** Ruta local del representante (vacía si se marcó a mano). */
+    val localPath: String = "",
+    /** Ficheros conocidos del juego en RomM (para resolver zip-streams). */
+    val knownFileNames: List<String> = emptyList(),
+    /** Emulador de saves configurado explícitamente para la plataforma. */
+    val platformEmulatorId: String? = null,
+    /** Preferencia del juego; null = usar el valor global. */
+    val displayModePreference: LauncherDisplayMode? = null,
+    /** Imagen del medio físico cacheada en el dispositivo (existe). */
+    val physicalMediaFile: String? = null,
+    /** Modo efectivo: medio físico solo si se eligió y está cacheado. */
+    val showPhysical: Boolean = false,
+    /** Override del emulador de lanzamiento para la plataforma (id de familia). */
+    val launchOverride: String? = null,
+) {
+    val launchable: Boolean get() = localPath.isNotBlank()
+    val hasRemotePhysicalMedia: Boolean get() = rom.physicalMediaUrl != null
+    val isOptical: Boolean get() = LaunchPlatforms.isOptical(rom.platformSlug)
+}
 
 /**
  * Estantería: todos los juegos descargados (Room), agrupados por juego
@@ -55,12 +83,40 @@ class ShelfViewModel(
     private val romDao: RomDao,
     private val platformDao: PlatformDao,
     private val settingsRepository: SettingsRepository,
+    private val physicalMediaRepository: PhysicalMediaRepository,
+    private val emulatorLauncher: EmulatorLauncher,
 ) : ViewModel() {
 
     private val dtoCache = mutableMapOf<Int, RomDto>()
 
+    /** Juegos hidratados (Room + servidor), sin la capa de presentación. */
     private val _items = MutableStateFlow<List<ShelfItem>>(emptyList())
-    val items: StateFlow<List<ShelfItem>> = _items.asStateFlow()
+
+    /**
+     * Juegos listos para el launcher: se combina la hidratación con la
+     * presentación por juego, el valor global y los overrides de emulador
+     * (cambiar el modo no vuelve a pedir nada al servidor).
+     */
+    val items: StateFlow<List<ShelfItem>> = combine(
+        _items,
+        physicalMediaRepository.observe(),
+        settingsRepository.launcherDefaultDisplay,
+        settingsRepository.launchEmulatorOverrides,
+    ) { base, presentation, defaultMode, overrides ->
+        val globalDefault = LauncherDisplayMode.fromId(defaultMode) ?: LauncherDisplayMode.CARD
+        base.map { item ->
+            val row = presentation[item.rom.id]
+            val cached = row?.physicalMediaPath?.takeIf { File(it).isFile }
+            val pref = LauncherDisplayMode.fromId(row?.displayMode)
+            item.copy(
+                displayModePreference = pref,
+                physicalMediaFile = cached,
+                showPhysical = cached != null && (pref ?: globalDefault) == LauncherDisplayMode.PHYSICAL,
+                launchOverride = overrides[LaunchPlatforms.canonical(item.rom.platformSlug)],
+            )
+        }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
 
     private val _loading = MutableStateFlow(true)
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
@@ -193,6 +249,9 @@ class ShelfViewModel(
                             fileSizeBytes = downloaded
                                 .filter { it.romId in group.allIds }
                                 .sumOf { it.fileSizeBytes },
+                            localPath = repEntity.localPath,
+                            knownFileNames = repRom.files.map { it.filename },
+                            platformEmulatorId = platform?.emulatorId,
                         )
                     }.sortedBy { it.rom.name.lowercase() }
 
@@ -217,9 +276,33 @@ class ShelfViewModel(
             item.groupRomIds.forEach { id ->
                 if (romRepository.deleteDownloadedRom(id)) any = true
             }
-            if (!any) _messages.tryEmit("No se pudo borrar ${item.rom.name}")
+            if (!any) {
+                _messages.tryEmit("No se pudo borrar ${item.rom.name}")
+            } else {
+                physicalMediaRepository.remove((item.groupRomIds + item.rom.id).distinct())
+            }
         }
     }
+
+    // ── Lanzamiento ────────────────────────────────────────────────────
+
+    fun currentEmulatorName(item: ShelfItem): String? = emulatorLauncher
+        .currentFamily(item.rom.platformSlug, item.launchOverride, item.platformEmulatorId)
+        ?.displayName
+
+    suspend fun prepareLaunch(item: ShelfItem): LaunchPlan = emulatorLauncher.prepare(
+        LaunchRequest(
+            platformSlug = item.rom.platformSlug,
+            platformLabel = item.platformLabel,
+            localPath = item.localPath,
+            knownFileNames = item.knownFileNames,
+            overrideFamilyId = item.launchOverride,
+            saveEmulatorId = item.platformEmulatorId,
+        ),
+    )
+
+    fun startLaunch(activityContext: android.content.Context, plan: LaunchPlan.Ready): String? =
+        emulatorLauncher.start(activityContext, plan)
 
     /**
      * Convierte el DTO del servidor en el modelo de dominio. Si no hay DTO
@@ -268,6 +351,7 @@ class ShelfViewModel(
             videoPath = dto.pathVideo?.let { baseCoverUrl + it.removePrefix("/") },
             manualPath = dto.pathManual?.let { baseCoverUrl + it.removePrefix("/") },
             youtubeVideoId = dto.youtubeVideoId,
+            physicalMediaUrl = PhysicalMedia.resourceUrl(baseCoverUrl, dto.physicalMediaPath),
         )
     }
 }

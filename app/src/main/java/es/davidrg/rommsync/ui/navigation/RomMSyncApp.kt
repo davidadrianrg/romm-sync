@@ -1,6 +1,18 @@
 package es.davidrg.rommsync.ui.navigation
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -12,7 +24,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -21,7 +32,6 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.NavigationRailItemDefaults
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -77,35 +87,62 @@ fun RomMSyncApp() {
         }
     }
 
-    // En horizontal (portátiles 16:9 / 4:3) un rail lateral libera la altura
-    // que consumía la bottom bar: todo el alto de pantalla para el contenido.
-    if (windowInfo.isLandscape && !needsOnboarding) {
-        Row(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
-            AppNavRail(currentDestination, navItems) { route -> navigateTo(route, navController) }
+    // El launcher (Jugar) es inmersivo: sin rail ni barra inferior; su menú es
+    // un overlay propio. El resto de secciones conserva la navegación fija:
+    // rail en horizontal (libera altura) y barra inferior en vertical.
+    // Un único árbol para que NavHost no cambie de posición al alternar.
+    val immersive = !needsOnboarding && currentDestination?.route == Screen.Play.route
+    val showRail = windowInfo.isLandscape && !needsOnboarding && !immersive
+    val showBottomBar = !windowInfo.isLandscape && !needsOnboarding && !immersive
+    val contentInsets = when {
+        immersive -> WindowInsets(0)
+        showRail -> WindowInsets.safeDrawing.only(WindowInsetsSides.End + WindowInsetsSides.Vertical)
+        showBottomBar -> WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+        else -> WindowInsets.safeDrawing
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+    ) {
+        AnimatedVisibility(
+            visible = showRail,
+            enter = expandHorizontally(tween(220)) + fadeIn(tween(220)),
+            exit = shrinkHorizontally(tween(200)) + fadeOut(tween(160)),
+        ) {
+            AppNavRail(
+                currentDestination,
+                navItems,
+                modifier = Modifier.windowInsetsPadding(
+                    WindowInsets.safeDrawing.only(WindowInsetsSides.Start + WindowInsetsSides.Vertical),
+                ),
+            ) { route -> navigateTo(route, navController) }
+        }
+        Column(
+            Modifier
+                .weight(1f)
+                .fillMaxHeight(),
+        ) {
             AppNavHost(
                 navController = navController,
                 needsOnboarding = needsOnboarding,
+                menuItems = navItems,
+                onNavigate = { route -> navigateTo(route, navController) },
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxHeight(),
+                    .fillMaxWidth()
+                    // padding (no windowInsetsPadding): no consume insets, igual
+                    // que hacía el Scaffold, para no alterar las pantallas.
+                    .padding(contentInsets.asPaddingValues()),
             )
-        }
-    } else {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            bottomBar = {
-                if (!needsOnboarding) {
-                    AppBottomBar(currentDestination, navItems) { route -> navigateTo(route, navController) }
-                }
-            },
-        ) { innerPadding ->
-            AppNavHost(
-                navController = navController,
-                needsOnboarding = needsOnboarding,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-            )
+            AnimatedVisibility(
+                visible = showBottomBar,
+                enter = expandVertically(tween(220)) + fadeIn(tween(220)),
+                exit = shrinkVertically(tween(200)) + fadeOut(tween(160)),
+            ) {
+                AppBottomBar(currentDestination, navItems) { route -> navigateTo(route, navController) }
+            }
         }
     }
 }
@@ -114,9 +151,12 @@ fun RomMSyncApp() {
 private fun AppNavRail(
     currentDestination: NavDestination?,
     navItems: List<Screen>,
+    modifier: Modifier = Modifier,
     onNavigate: (String) -> Unit,
 ) {
     NavigationRail(
+        modifier = modifier,
+        windowInsets = WindowInsets(0),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         header = {
             androidx.compose.foundation.layout.Column(
@@ -200,6 +240,8 @@ private fun AppBottomBar(
 private fun AppNavHost(
     navController: NavHostController,
     needsOnboarding: Boolean,
+    menuItems: List<Screen>,
+    onNavigate: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     NavHost(
@@ -215,6 +257,8 @@ private fun AppNavHost(
             PlayScreen(
                 onOpenDownloads = { navController.navigate(Screen.Downloads.route) },
                 onOpenLibrary = { navController.navigate(Screen.Library.route) },
+                menuItems = menuItems,
+                onNavigate = { screen -> onNavigate(screen.route) },
             )
         }
         composable(Screen.Library.route) {

@@ -108,6 +108,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
 import android.content.Context
 import android.content.Intent
@@ -809,6 +810,41 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
                     val targetRoot = if (toSd) settings.secondaryRomsPath else settings.romsRootPath
                     viewModel.moveDownloadedRom(rom, targetRoot)
                 },
+                launcherControls = if (isDownloaded) {
+                    val localPath = syncConfig?.localPath.orEmpty()
+                    val platformLabel = platform?.name ?: rom.platformSlug.uppercase()
+                    rememberLauncherDetailControls(
+                        rom = rom,
+                        platformLabel = platformLabel,
+                        platformEmulatorId = platform?.emulatorId,
+                        launchable = localPath.isNotBlank(),
+                        onPlay = {
+                            // Desde la Biblioteca se lanza directamente (la
+                            // animación de inserción vive en el launcher).
+                            scope.launch {
+                                val plan = container.emulatorLauncher.prepare(
+                                    es.davidrg.rommsync.launch.LaunchRequest(
+                                        platformSlug = rom.platformSlug,
+                                        platformLabel = platformLabel,
+                                        localPath = localPath,
+                                        knownFileNames = rom.files.map { it.filename },
+                                        overrideFamilyId = container.settingsRepository.launchEmulatorOverrides
+                                            .first()[es.davidrg.rommsync.core.launch.LaunchPlatforms.canonical(rom.platformSlug)],
+                                        saveEmulatorId = platform?.emulatorId,
+                                    ),
+                                )
+                                val error = when (plan) {
+                                    is es.davidrg.rommsync.launch.LaunchPlan.Failed -> plan.message
+                                    is es.davidrg.rommsync.launch.LaunchPlan.Ready ->
+                                        container.emulatorLauncher.start(context, plan)
+                                }
+                                error?.let { android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show() }
+                            }
+                        },
+                    )
+                } else {
+                    null
+                },
             )
         }
     }
@@ -1210,6 +1246,8 @@ internal fun RomDetailSheet(
     moveProgress: Pair<Long, Long>? = null,
     onMove: (toSd: Boolean) -> Unit = {},
     wide: Boolean = false,
+    /** Controles del launcher (Jugar, carta / medio físico, emulador). Solo juegos descargados. */
+    launcherControls: LauncherDetailControls? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
     var showFolderPicker by remember { mutableStateOf(false) }
@@ -1332,6 +1370,11 @@ internal fun RomDetailSheet(
         }
 
         Spacer(modifier = Modifier.size(16.dp))
+
+        launcherControls?.let { controls ->
+            LauncherControlsSection(controls)
+            Spacer(modifier = Modifier.size(20.dp))
+        }
 
         // ── Multimedia: capturas y tráiler ──────────────────────────
         val hasMedia = rom.screenshots.isNotEmpty() || rom.youtubeVideoId != null

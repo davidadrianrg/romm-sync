@@ -23,11 +23,27 @@ object DesktopConfig {
         get() = prefs.get("device_id", null)
         set(v) = if (v == null) prefs.remove("device_id") else prefs.put("device_id", v)
 
+    /**
+     * Config dir moved from `~/.config/romm-sync` to `~/.config/atril`.
+     * Existing installs are migrated once so the library metadata and sync
+     * hashes survive the rename. The old dir is kept as a fallback.
+     */
     val configDir: File
-        get() = File(System.getProperty("user.home"), ".config/romm-sync").also { it.mkdirs() }
+        get() = dirWithLegacyMigration(".config/atril", ".config/romm-sync")
 
     val cacheDir: File
-        get() = File(System.getProperty("user.home"), ".cache/romm-sync").also { it.mkdirs() }
+        get() = File(System.getProperty("user.home"), ".cache/atril").also { it.mkdirs() }
+
+    private fun dirWithLegacyMigration(name: String, legacyName: String): File {
+        val home = File(System.getProperty("user.home"))
+        val target = File(home, name)
+        val legacy = File(home, legacyName)
+        if (!target.exists() && legacy.isDirectory) {
+            runCatching { legacy.copyRecursively(target, overwrite = false) }
+        }
+        target.mkdirs()
+        return target
+    }
 
     private fun defaultRomsRoot(): String =
         File(System.getProperty("user.home", "."), "ROMs").absolutePath

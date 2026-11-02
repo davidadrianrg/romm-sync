@@ -623,7 +623,7 @@ class DesktopSyncCoordinator(
         return try {
             val response = api.registerDevice(
                 DeviceRegistrationRequest(
-                    name = "RomM Sync Desktop",
+                    name = "Atril Desktop",
                     platform = "linux",
                     hostname = runCatching { InetAddress.getLocalHost().hostName }.getOrDefault("desktop"),
                 ),

@@ -414,7 +414,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
                 val body = svc.downloadSave(saveId, config.deviceId)
                 val temp = File(
                     System.getProperty("java.io.tmpdir") ?: ".",
-                    "romm-sync-dl-$saveId",
+                    "atril-dl-$saveId",
                 )
                 try {
                     body.byteStream().use { input ->
@@ -644,7 +644,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
                     }
                     if (failed) {
                         updateTask(rom.id) { it.copy(status = "error", message = msg) }
-                        DesktopNotifier.notify("RomM Sync", tr("app.notify.download_error", rom.name, msg))
+                        DesktopNotifier.notify("Atril", tr("app.notify.download_error", rom.name, msg))
                     } else {
                         downloadedIds.add(rom.id)
                         _downloadedVersion.value = _downloadedVersion.value + 1
@@ -992,9 +992,9 @@ class DesktopAppState(private val scope: CoroutineScope) {
                 config.lastSyncSummary = summary
                 _lastSync.value = LastSyncInfo(config.lastSyncAt, summary)
                 if (result.conflicts > 0) {
-                    DesktopNotifier.notify("RomM Sync", tr("sync.notify.pending_conflicts", result.conflicts))
+                    DesktopNotifier.notify("Atril", tr("sync.notify.pending_conflicts", result.conflicts))
                 } else if (result.failedDetails.isNotEmpty()) {
-                    DesktopNotifier.notify("RomM Sync", tr("sync.notify.failures", result.failedDetails.size))
+                    DesktopNotifier.notify("Atril", tr("sync.notify.failures", result.failedDetails.size))
                 }
                 // Refrescar el informe de pendientes tras el ciclo.
                 scanSaves()

@@ -158,7 +158,7 @@ private fun AppNavigationRail(state: DesktopAppState, section: Section) {
                     )
                 }
                 Spacer(Modifier.height(6.dp))
-                Text("RomM Sync", style = MaterialTheme.typography.labelMedium)
+                Text("Atril", style = MaterialTheme.typography.labelMedium)
             }
         },
     ) {

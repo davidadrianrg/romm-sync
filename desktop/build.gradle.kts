@@ -39,8 +39,8 @@ compose.desktop {
         }
 
         nativeDistributions {
-            packageName = "romm-sync"
-            description = "Sincroniza ROMs y saves con tu servidor RomM"
+            packageName = "atril"
+            description = "Game launcher with RomM integration"
             vendor = "davidrg"
             copyright = "© 2026 David RG"
 
@@ -50,7 +50,7 @@ compose.desktop {
 
             // x86_64 y aarch64: ambos en la misma distribución
             linux {
-                iconFile = rootProject.file("desktop/packaging/romm-sync.png")
+                iconFile = rootProject.file("desktop/packaging/atril.png")
             }
         }
     }

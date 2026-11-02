@@ -30,6 +30,8 @@ data class Rom(
     /** ID de vídeo de YouTube del tráiler (metadatos IGDB), si existe. */
     val youtubeVideoId: String? = null,
     val igdbMetadata: IgdbMetadata? = null,
+    /** URL en RomM de la imagen del medio físico (cartucho/disco/caja), si existe. */
+    val physicalMediaUrl: String? = null,
 )
 
 /**

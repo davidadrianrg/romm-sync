@@ -39,6 +39,15 @@ class AppContainer(private val appContext: Context) {
 
     val downloadManager = DownloadManager(appContext)
 
+    /** Presentación por juego en el launcher + caché del medio físico. */
+    val physicalMediaRepository = es.davidrg.rommsync.data.repository.PhysicalMediaRepository(
+        dao = database.romPresentationDao(),
+        cacheDir = java.io.File(appContext.filesDir, "physical-media"),
+    )
+
+    /** Lanza juegos descargados en el emulador que toque. */
+    val emulatorLauncher = es.davidrg.rommsync.launch.EmulatorLauncher(appContext)
+
     val saveSyncManager = SaveSyncManager(appContext)
 
     /** Versionado local de saves (restaurable desde el detalle de juego). */

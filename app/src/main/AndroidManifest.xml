@@ -28,6 +28,31 @@
     <!-- In-app self-update: download APK to cache + system installer -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- Emuladores que el launcher detecta y lanza (core/launch/EmulatorCatalog.kt).
+         Visibilidad de paquetes de Android 11+: solo se ven los declarados. -->
+    <queries>
+        <package android:name="com.retroarch" />
+        <package android:name="com.retroarch.aarch64" />
+        <package android:name="com.retroarch.ra32" />
+        <package android:name="org.mupen64plusae.v3.fzurita" />
+        <package android:name="org.mupen64plusae.v3.fzurita.pro" />
+        <package android:name="com.armsx2" />
+        <package android:name="come.nanodata.armsx2" />
+        <package android:name="com.armsx3" />
+        <package android:name="com.armsx3.play" />
+        <package android:name="org.dolphinemu.dolphinemu" />
+        <package android:name="org.dolphinemu.handheld" />
+        <package android:name="dev.eden.eden_emulator" />
+        <package android:name="xendroid.compose.fork" />
+        <package android:name="xendroid.compose" />
+        <package android:name="com.rfandango.haku_x" />
+        <package android:name="me.magnum.melonds" />
+        <package android:name="org.ppsspp.ppsspp" />
+        <package android:name="org.ppsspp.ppssppgold" />
+        <package android:name="org.azahar_emu.azahar" />
+        <package android:name="info.cemu.cemu" />
+    </queries>
+
     <application
         android:name=".RomMSyncApplication"
         android:allowBackup="false"

@@ -31,6 +31,11 @@ class SettingsRepository(private val dataStore: SettingsDataStore) {
     suspend fun setSaveSyncWatchEnabled(enabled: Boolean) = dataStore.setSaveSyncWatchEnabled(enabled)
 
     val retroArchBasePath: Flow<String> = dataStore.retroArchBasePath
+    val launcherDefaultDisplay: Flow<String> = dataStore.launcherDefaultDisplay
+    val launchEmulatorOverrides: Flow<Map<String, String>> = dataStore.launchEmulatorOverrides
+    suspend fun setLauncherDefaultDisplay(mode: String) = dataStore.setLauncherDefaultDisplay(mode)
+    suspend fun setLaunchEmulatorOverride(platformSlug: String, familyId: String?) =
+        dataStore.setLaunchEmulatorOverride(platformSlug, familyId)
     val language: Flow<String> = dataStore.language
     val saveSyncEnabled: Flow<Boolean> = dataStore.saveSyncEnabled
     val saveSyncIntervalMinutes: Flow<Int> = dataStore.saveSyncIntervalMinutes

@@ -75,9 +75,9 @@ jobs:
         run: |
           if [ -n "${{ secrets.SIGNING_KEYSTORE_BASE64 }}" ]; then
             echo "🔓 Using project signing keystore from secrets"
-            echo "${{ secrets.SIGNING_KEYSTORE_BASE64 }}" | base64 -d > /tmp/romm-sync-release.jks
+            echo "${{ secrets.SIGNING_KEYSTORE_BASE64 }}" | base64 -d > /tmp/atril-release.jks
             cat > keystore.properties <<EOF
-          storeFile=/tmp/romm-sync-release.jks
+          storeFile=/tmp/atril-release.jks
           storePassword=${{ secrets.SIGNING_STORE_PASSWORD }}
           keyAlias=${{ secrets.SIGNING_KEY_ALIAS }}
           keyPassword=${{ secrets.SIGNING_KEY_PASSWORD }}
@@ -85,19 +85,19 @@ jobs:
           else
             echo "🔐 No signing secrets found — generating temporary keystore"
             keytool -genkeypair \
-              -alias romm-sync \
+              -alias atril \
               -keyalg RSA \
               -keysize 2048 \
               -validity 10000 \
-              -keystore /tmp/romm-sync-release.jks \
-              -storepass rommsync \
-              -keypass rommsync \
-              -dname "CN=RomM Sync, OU=CI, O=davidrg, L=Madrid, ST=Madrid, C=ES"
+              -keystore /tmp/atril-release.jks \
+              -storepass atril \
+              -keypass atril \
+              -dname "CN=Atril, OU=CI, O=davidrg, L=Madrid, ST=Madrid, C=ES"
             cat > keystore.properties <<EOF
-          storeFile=/tmp/romm-sync-release.jks
-          storePassword=rommsync
-          keyAlias=romm-sync
-          keyPassword=rommsync
+          storeFile=/tmp/atril-release.jks
+          storePassword=atril
+          keyAlias=atril
+          keyPassword=atril
           EOF
           fi
           echo "✅ keystore.properties created"
@@ -107,18 +107,18 @@ jobs:
         run: ./gradlew assembleRelease
 
       # Gradle always generates app-release.apk; we rename it to the same pattern
-      # as the Linux AppImages (RomM-Sync-vX.Y.Z-<platform>.ext).
+      # as the Linux AppImages (Atril-vX.Y.Z-<platform>.ext).
       - name: Rename APK to release pattern
         run: |
           mv app/build/outputs/apk/release/app-release.apk \
-             "app/build/outputs/apk/release/RomM-Sync-v${{ steps.version.outputs.version }}-android.apk"
+             "app/build/outputs/apk/release/Atril-v${{ steps.version.outputs.version }}-android.apk"
           ls -la app/build/outputs/apk/release/
 
       - name: Upload Release APK as artifact
         uses: actions/upload-artifact@v7
         with:
-          name: romm-sync-release
-          path: app/build/outputs/apk/release/RomM-Sync-v${{ steps.version.outputs.version }}-android.apk
+          name: atril-release
+          path: app/build/outputs/apk/release/Atril-v${{ steps.version.outputs.version }}-android.apk
 
       # ── Create / update a release with the APK ────────────────────────
       - name: Create Release
@@ -127,7 +127,7 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           name: ${{ steps.version.outputs.tag }}
           body: |
-            **RomM Sync** – cross-platform build generated automatically
+            **Atril** – cross-platform build generated automatically
 
             **Commit:** [`${{ github.sha }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
 
@@ -135,13 +135,13 @@ jobs:
 
             | File | Platform |
             |---|---|
-            | `RomM-Sync-v${{ steps.version.outputs.version }}-android.apk` | Android (R8 minified) |
-            | `RomM-Sync-v${{ steps.version.outputs.version }}-linux-x86_64.AppImage` | Linux x86_64 (SteamOS, Steam Deck, most PCs) |
-            | `RomM-Sync-v${{ steps.version.outputs.version }}-linux-aarch64.AppImage` | Linux ARM64 (Raspberry Pi 5, ARM handhelds) |
+            | `Atril-v${{ steps.version.outputs.version }}-android.apk` | Android (R8 minified) |
+            | `Atril-v${{ steps.version.outputs.version }}-linux-x86_64.AppImage` | Linux x86_64 (SteamOS, Steam Deck, most PCs) |
+            | `Atril-v${{ steps.version.outputs.version }}-linux-aarch64.AppImage` | Linux ARM64 (Raspberry Pi 5, ARM handhelds) |
 
             ### 🔄 How to update
 
             - **Android:** Settings → Updates → *Check for updates*, or download the attached APK and open it — it installs over the previous version without losing data.
             - **Linux:** download the AppImage for your architecture, give it execute permission (`chmod +x`) and run it. Replaces the previous file.
-            - **If the AppImage does not start** (`libfuse.so.2` missing): run `APPIMAGE_EXTRACT_AND_RUN=1 ./RomM-Sync-...AppImage` or install `libfuse2`.
-          files: app/build/outputs/apk/release/RomM-Sync-v${{ steps.version.outputs.version }}-android.apk
+            - **If the AppImage does not start** (`libfuse.so.2` missing): run `APPIMAGE_EXTRACT_AND_RUN=1 ./Atril-...AppImage` or install `libfuse2`.
+          files: app/build/outputs/apk/release/Atril-v${{ steps.version.outputs.version }}-android.apk

@@ -56,6 +56,33 @@ data class RomDto(
     @Json(name = "path_manual") val pathManual: String? = null,
     @Json(name = "youtube_video_id") val youtubeVideoId: String? = null,
     @Json(name = "igdb_metadata") val igdbMetadata: IgdbMetadataDto? = null,
+    // ── Medio físico (cartucho, disco, caja) de ScreenScraper / gamelist ──
+    @Json(name = "ss_metadata") val ssMetadata: PhysicalMetadataDto? = null,
+    @Json(name = "gamelist_metadata") val gamelistMetadata: PhysicalMetadataDto? = null,
+) {
+    /**
+     * Ruta relativa (a los resources de RomM) de la imagen del medio físico.
+     * Prioriza ScreenScraper y cae al gamelist. Null si RomM no tiene ninguna.
+     */
+    val physicalMediaPath: String?
+        get() = ssMetadata?.physicalPath?.takeIf { it.isNotBlank() }
+            ?: gamelistMetadata?.physicalPath?.takeIf { it.isNotBlank() }
+}
+
+/**
+ * Subconjunto de `ss_metadata` / `gamelist_metadata` relativo al medio físico.
+ *
+ * `physical_url` apunta a ScreenScraper (no a RomM) y se conserva solo como
+ * dato. Los discos (`physical_disc`, `physical_extra_discs`) se modelan sin
+ * tipo para que un cambio de forma en RomM no rompa el parseo del listado;
+ * la fase 1 solo usa [physicalPath].
+ */
+@JsonClass(generateAdapter = true)
+data class PhysicalMetadataDto(
+    @Json(name = "physical_path") val physicalPath: String? = null,
+    @Json(name = "physical_url") val physicalUrl: String? = null,
+    @Json(name = "physical_disc") val physicalDisc: Any? = null,
+    @Json(name = "physical_extra_discs") val physicalExtraDiscs: List<Any>? = null,
 )
 
 /**

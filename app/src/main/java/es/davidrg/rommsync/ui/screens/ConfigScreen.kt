@@ -21,11 +21,13 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.outlined.CheckCircle
+import kotlinx.coroutines.launch
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.DownloadForOffline
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.SportsEsports
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.SystemUpdateAlt
@@ -579,6 +581,41 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
                     Switch(
                         checked = settings.wifiOnlyDownloads,
                         onCheckedChange = { viewModel.setWifiOnlyDownloads(it) },
+                    )
+                }
+            }
+
+            // ── Launcher: presentación por defecto ──────────────────────
+            val launcherDefault by container.settingsRepository.launcherDefaultDisplay
+                .collectAsState(initial = "card")
+            val launcherScope = androidx.compose.runtime.rememberCoroutineScope()
+            SettingsSection(
+                icon = Icons.Outlined.SportsEsports,
+                title = tr("settings.launcher.title"),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(tr("settings.launcher.physical_default"), style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            tr("settings.launcher.physical_default_desc"),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Switch(
+                        checked = launcherDefault == "physical",
+                        onCheckedChange = { physical ->
+                            launcherScope.launch {
+                                container.settingsRepository.setLauncherDefaultDisplay(
+                                    if (physical) "physical" else "card",
+                                )
+                            }
+                        },
                     )
                 }
             }

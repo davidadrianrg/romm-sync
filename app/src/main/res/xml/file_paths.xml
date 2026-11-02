@@ -2,4 +2,9 @@
 <paths>
     <!-- Update APKs downloaded into cacheDir by the in-app updater -->
     <cache-path name="updates" path="." />
+    <!-- ROMs en el almacenamiento principal, compartidos URI a URI (con grant
+         explícito) con el emulador que los lanza. El provider no se exporta. -->
+    <external-path name="roms" path="." />
+    <!-- ROMs en microSD (/storage/XXXX-XXXX). Solo /storage: /data no se expone. -->
+    <root-path name="storage" path="storage" />
 </paths>
