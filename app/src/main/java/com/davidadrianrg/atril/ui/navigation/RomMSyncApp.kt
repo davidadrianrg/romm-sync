@@ -287,6 +287,10 @@ private fun isSelected(route: String, currentDestination: NavDestination?): Bool
 }
 
 private fun navigateTo(route: String, navController: NavHostController) {
+    // Jugar es el destino de inicio y siempre está en la base de la pila: basta
+    // con volver a él. Con popUpTo(inicio){saveState} + restoreState la pestaña
+    // no navegaba (se quedaba en Biblioteca o restauraba el estado anterior).
+    if (route == Screen.Play.route && navController.popBackStack(route, inclusive = false)) return
     navController.navigate(route) {
         popUpTo(navController.graph.findStartDestination().id) {
             saveState = true
