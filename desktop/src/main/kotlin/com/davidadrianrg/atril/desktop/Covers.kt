@@ -55,9 +55,13 @@ fun CoverImage(
 
 /** Resuelve una URL absoluta o una ruta relativa del servidor RomM. */
 fun resolveMediaUrl(absoluteUrl: String?, relativePath: String?, serverUrl: String): String? = when {
-    !absoluteUrl.isNullOrBlank() -> absoluteUrl
+    // RomM devuelve la portada local con un timestamp que puede contener
+    // espacios ("?ts=2026-10-26 15:01:56"); java.net.URL no los acepta. Se
+    // prefiere el asset local sobre la URL externa de ScreenScraper: es más
+    // rápido y no depende de un tercero.
     !relativePath.isNullOrBlank() && serverUrl.isNotBlank() ->
-        serverUrl.trimEnd('/') + "/" + relativePath.removePrefix("/")
+        serverUrl.trimEnd('/') + "/" + relativePath.removePrefix("/").replace(" ", "%20")
+    !absoluteUrl.isNullOrBlank() -> absoluteUrl
     else -> null
 }
 

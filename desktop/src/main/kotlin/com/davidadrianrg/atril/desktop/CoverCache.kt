@@ -32,14 +32,16 @@ object CoverCache {
     }
 
     /** Descarga (si no está en caché) y devuelve el fichero local. */
-    fun fetch(url: String, maxRetries: Int = 2): File? {
+    fun fetch(url: String, maxRetries: Int = 1): File? {
         get(url)?.let { return it }
         repeat(maxRetries) { attempt ->
             runCatching {
                 val tmp = File(dir, sha256(url) + ".tmp")
                 val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
-                conn.connectTimeout = 10_000
-                conn.readTimeout = 15_000
+                conn.connectTimeout = 5_000
+                conn.readTimeout = 10_000
+                conn.setRequestProperty("User-Agent", "Atril/${DesktopConfig.appVersion}")
+                conn.setRequestProperty("Accept", "image/*")
                 try {
                     if (conn.responseCode != 200) return@runCatching
                     conn.inputStream.use { input ->
