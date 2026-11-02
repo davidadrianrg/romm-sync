@@ -1,6 +1,10 @@
 package com.davidadrianrg.atril.desktop
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,11 +23,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PageSize
 import androidx.compose.foundation.pager.rememberPagerState
@@ -56,6 +60,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -64,12 +69,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.davidadrianrg.atril.core.i18n.tr
+import com.davidadrianrg.atril.core.launch.LaunchPlatforms
 import com.davidadrianrg.atril.core.library.DiscEntry
 import com.davidadrianrg.atril.core.library.MultiDiscGrouper
 import com.davidadrianrg.atril.core.library.PhysicalMedia
 import com.davidadrianrg.atril.core.remote.dto.RomDto
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
@@ -84,6 +90,12 @@ private data class LauncherEntry(
     val card: GameCard,
     val platformLabel: String,
     val physicalUrl: String?,
+)
+
+/** Objeto que se está insertando en la ranura antes de abrir el juego. */
+private data class Insertion(
+    val entry: LauncherEntry,
+    val physical: Boolean,
 )
 
 /**
@@ -109,11 +121,40 @@ fun DesktopPlayScreen(
     var platformFilter by remember { mutableStateOf<String?>(null) }
     var menuOpen by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    var launchJob by remember { mutableStateOf<Job?>(null) }
+    var insertion by remember { mutableStateOf<Insertion?>(null) }
+    val insertProgress = remember { Animatable(0f) }
+
+    fun play(entry: LauncherEntry) {
+        if (launchJob?.isActive == true) return
+        launchJob = scope.launch {
+            try {
+                insertion = Insertion(
+                    entry = entry,
+                    physical = entry.physicalUrl != null && state.isPhysicalMedia(entry.card.rep.id),
+                )
+                insertProgress.snapTo(0f)
+                insertProgress.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(durationMillis = 1250, easing = LinearEasing),
+                )
+                state.openLocalGame(entry.card)
+            } finally {
+                insertion = null
+                insertProgress.snapTo(0f)
+            }
+        }
+    }
 
     LaunchedEffect(version, connected) {
         loading = true
-        entries = runCatching { loadLauncherEntries(state) }.getOrDefault(emptyList())
+        // Pinta primero lo que ya está en library.properties: la red solo
+        // enriquece portada/medio físico y nunca debe dejar la ventana vacía.
+        val local = localLauncherEntries(state)
+        entries = local
         loading = false
+        val enriched = runCatching { loadLauncherEntries(state) }.getOrDefault(local)
+        if (enriched.isNotEmpty()) entries = enriched
     }
 
     val platforms = remember(entries) {
@@ -203,7 +244,6 @@ fun DesktopPlayScreen(
 
                 else -> BoxWithConstraints(Modifier.fillMaxSize()) {
                     val landscape = maxWidth > 900.dp
-                    val cardWidth = if (landscape) 320.dp else 260.dp
 
                     Row(Modifier.fillMaxSize()) {
                         BoxWithConstraints(
@@ -211,7 +251,13 @@ fun DesktopPlayScreen(
                                 .weight(if (landscape) 1.35f else 1f)
                                 .fillMaxHeight(),
                         ) {
-                            val pageWidth = cardWidth.coerceAtMost(maxWidth * 0.62f)
+                            // La carta crece con la ventana: antes 320dp fijos
+                            // dejaban un desierto negro en pantallas grandes.
+                            val pageWidth = if (landscape) {
+                                minOf(720.dp, maxWidth * 0.64f, maxHeight * 0.90f * 0.70f)
+                            } else {
+                                minOf(420.dp, maxWidth * 0.68f, maxHeight * 0.52f * 0.70f)
+                            }.coerceAtLeast(220.dp)
                             HorizontalPager(
                                 state = pagerState,
                                 pageSize = PageSize.Fixed(pageWidth),
@@ -250,7 +296,7 @@ fun DesktopPlayScreen(
                                     if (physical) {
                                         PhysicalMediaArt(entry.physicalUrl!!, entry.card.rep.name)
                                     } else {
-                                        LauncherCard(entry, state, Modifier.fillMaxHeight(0.92f).aspectRatio(0.70f))
+                                        LauncherCard(entry, state, Modifier.fillMaxHeight(0.90f).aspectRatio(0.70f))
                                     }
                                 }
                             }
@@ -261,7 +307,7 @@ fun DesktopPlayScreen(
                                 PlayCaption(
                                     entry = entry,
                                     state = state,
-                                    onPlay = { state.openLocalGame(entry.card) },
+                                    onPlay = { play(entry) },
                                     onDetails = { state.openGame(entry.card) },
                                     onTogglePhysical = { state.togglePhysicalMedia(entry.card.rep.id) },
                                     modifier = Modifier
@@ -278,7 +324,7 @@ fun DesktopPlayScreen(
                             PlayCaption(
                                 entry = entry,
                                 state = state,
-                                onPlay = { state.openLocalGame(entry.card) },
+                                onPlay = { play(entry) },
                                 onDetails = { state.openGame(entry.card) },
                                 onTogglePhysical = { state.togglePhysicalMedia(entry.card.rep.id) },
                                 modifier = Modifier
@@ -289,6 +335,120 @@ fun DesktopPlayScreen(
                         }
                     }
                 }
+            }
+        }
+
+        insertion?.let { ins ->
+            InsertionOverlay(
+                insertion = ins,
+                state = state,
+                progress = insertProgress.value,
+                onCancel = { launchJob?.cancel() },
+            )
+        }
+    }
+}
+
+@Composable
+private fun InsertionOverlay(
+    insertion: Insertion,
+    state: DesktopAppState,
+    progress: Float,
+    onCancel: () -> Unit,
+) {
+    val p = progress.coerceIn(0f, 1f)
+    fun seg(start: Float, end: Float) =
+        FastOutSlowInEasing.transform(((p - start) / (end - start)).coerceIn(0f, 1f))
+    val appear = seg(0f, 0.15f)
+    val lift = seg(0.02f, 0.28f)
+    val travel = seg(0.22f, 0.82f)
+    val sink = seg(0.72f, 0.94f)
+    val glow = seg(0.78f, 1f)
+    val entry = insertion.entry
+    val optical = LaunchPlatforms.isOptical(entry.card.rep.platformSlug ?: "")
+
+    BoxWithConstraints(
+        Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.86f * appear))
+            .clickable(onClick = onCancel),
+    ) {
+        val mediaSize = minOf(maxWidth * 0.38f, maxHeight * 0.42f).coerceAtLeast(160.dp)
+        val slotY = maxHeight * 0.25f
+
+        Column(
+            Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 28.dp)
+                .graphicsLayer { alpha = appear },
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                tr("launcher.inserting", entry.card.rep.name),
+                style = MaterialTheme.typography.titleLarge,
+                color = PlayCream,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 32.dp),
+            )
+            Text(
+                tr("launcher.cancel_hint"),
+                style = MaterialTheme.typography.labelMedium,
+                color = PlayCream.copy(alpha = 0.5f),
+            )
+        }
+
+        Box(
+            Modifier
+                .align(Alignment.Center)
+                .offset(y = slotY)
+                .size(width = mediaSize * 1.08f, height = 20.dp)
+                .graphicsLayer { alpha = appear }
+                .shadow(
+                    (6 + 22 * glow).dp,
+                    RoundedCornerShape(10.dp),
+                    spotColor = PlayAmber,
+                    ambientColor = PlayAmber,
+                )
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0xFF050403))
+                .border(
+                    1.5.dp,
+                    PlayAmber.copy(alpha = 0.35f + 0.65f * glow),
+                    RoundedCornerShape(10.dp),
+                ),
+        )
+
+        Box(
+            Modifier
+                .align(Alignment.Center)
+                .size(mediaSize)
+                .graphicsLayer {
+                    val travelPx = slotY.toPx() - mediaSize.toPx() * 0.18f
+                    translationY = -mediaSize.toPx() * 0.48f * (1f - travel) + travelPx * travel
+                    val scale = (1f + 0.06f * lift) * (1f - 0.42f * travel)
+                    scaleX = scale
+                    scaleY = scale * (1f - 0.55f * sink)
+                    if (optical) {
+                        rotationZ = 540f * travel
+                    } else {
+                        rotationX = 58f * travel
+                        cameraDistance = 12f * 1000f
+                    }
+                    alpha = (1f - sink) * appear
+                    transformOrigin = TransformOrigin(0.5f, if (optical) 0.5f else 1f)
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            if (insertion.physical && entry.physicalUrl != null) {
+                PhysicalMediaArt(entry.physicalUrl, entry.card.rep.name)
+            } else {
+                LauncherCard(
+                    entry = entry,
+                    state = state,
+                    modifier = Modifier.fillMaxHeight().aspectRatio(0.70f),
+                )
             }
         }
     }
@@ -638,6 +798,39 @@ private fun EmptyLauncher(onOpenLibrary: () -> Unit) {
             Button(onClick = onOpenLibrary) { Text(tr("play.open_library")) }
         }
     }
+}
+
+private fun localLauncherEntries(state: DesktopAppState): List<LauncherEntry> {
+    val dtos = state.library.roms().associate { entry ->
+        entry.romId to RomDto(
+            id = entry.romId,
+            name = entry.name,
+            fileName = entry.fileName,
+            platformId = 0,
+            platformSlug = entry.platformSlug,
+        )
+    }
+    val groups = MultiDiscGrouper.group(
+        dtos.values.map { dto ->
+            DiscEntry(
+                id = dto.id,
+                name = dto.name,
+                platformSlug = dto.platformSlug ?: "unknown",
+                igdbId = null,
+                fileNames = listOf(dto.fileName),
+            )
+        },
+    )
+    return groups.mapNotNull { group ->
+        val rep = dtos[group.representativeId] ?: return@mapNotNull null
+        val slug = rep.platformSlug ?: "unknown"
+        LauncherEntry(
+            card = GameCard(rep, group.discCount, group.allIds.mapNotNull { dtos[it] }, downloaded = true),
+            platformLabel = state.platforms.value.firstOrNull { it.slug == slug }?.let { it.displayName ?: it.name }
+                ?: slug.uppercase(),
+            physicalUrl = null,
+        )
+    }.sortedBy { it.card.rep.name.lowercase() }
 }
 
 private suspend fun loadLauncherEntries(state: DesktopAppState): List<LauncherEntry> = coroutineScope {

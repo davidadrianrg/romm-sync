@@ -636,6 +636,9 @@ class DesktopAppState(private val scope: CoroutineScope) {
     /** Jobs activos por romId (para cancelar). */
     private val taskJobs = ConcurrentHashMap<Int, Job>()
 
+    /** Tareas que el usuario sacó de la cola: no volver a notificar al terminar. */
+    private val suppressedCompletion = ConcurrentHashMap.newKeySet<Int>()
+
     /** Tope de descargas simultáneas (1-5), como en Android. */
     @Volatile
     private var downloadGate = Semaphore(DesktopConfig.maxConcurrentDownloads)
@@ -672,6 +675,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
     private fun enqueueRom(rom: RomDto, notify: Boolean = true) {
         val svc = api ?: return
         if (_tasks.value.any { it.romId == rom.id && it.active }) return
+        suppressedCompletion.remove(rom.id)
         _tasks.value = _tasks.value + DesktopTask(rom.id, rom.name, rom.platformSlug, "queued")
         if (notify) showSnackbar(tr("app.snackbar.downloading", rom.name))
         val job = scope.launch {
@@ -692,13 +696,17 @@ class DesktopAppState(private val scope: CoroutineScope) {
                     }
                     if (failed) {
                         updateTask(rom.id) { it.copy(status = "error", message = msg) }
-                        DesktopNotifier.notify("Atril", tr("app.notify.download_error", rom.name, msg))
+                        if (shouldNotify(rom.id)) {
+                            DesktopNotifier.notify("Atril", tr("app.notify.download_error", rom.name, msg))
+                        }
                     } else {
                         downloadedIds.add(rom.id)
                         _downloadedVersion.value = _downloadedVersion.value + 1
                         updateTask(rom.id) { it.copy(status = "done", message = msg) }
                         refreshLocalStats()
-                        DesktopNotifier.notify(tr("common.download_completed"), rom.name)
+                        if (shouldNotify(rom.id)) {
+                            DesktopNotifier.notify(tr("common.download_completed"), rom.name)
+                        }
                     }
                 } catch (e: CancellationException) {
                     throw e // cancelada por el usuario; la tarea ya se quitó de la lista
@@ -713,15 +721,21 @@ class DesktopAppState(private val scope: CoroutineScope) {
 
     /** Cancela la descarga activa/en cola de un ROM y la quita de la lista. */
     fun cancelDownload(romId: Int) {
+        suppressedCompletion.add(romId)
         taskJobs.remove(romId)?.cancel()
         _tasks.value = _tasks.value.filterNot { it.romId == romId && it.active }
+        DesktopNotifier.dismissAll()
     }
 
     /** Cancela todas las descargas activas y las quita de la lista. */
     fun cancelAll() {
         val active = _tasks.value.filter { it.active }
-        active.forEach { taskJobs.remove(it.romId)?.cancel() }
+        active.forEach { task ->
+            suppressedCompletion.add(task.romId)
+            taskJobs.remove(task.romId)?.cancel()
+        }
         _tasks.value = _tasks.value.filterNot { it.active }
+        DesktopNotifier.dismissAll()
         if (active.isNotEmpty()) showSnackbar(tr("app.snackbar.downloads_cancelled", active.size))
     }
 
@@ -740,9 +754,22 @@ class DesktopAppState(private val scope: CoroutineScope) {
         _tasks.value = _tasks.value.map { if (it.romId == romId) transform(it) else it }
     }
 
+    /**
+     * Evita notificar una descarga que el usuario ya sacó de la cola. También
+     * protege contra la carrera: si se limpia justo antes de terminar, la
+     * tarea ya no está en [_tasks] y no se muestra la notificación.
+     */
+    private fun shouldNotify(romId: Int): Boolean {
+        if (suppressedCompletion.remove(romId)) return false
+        return _tasks.value.any { it.romId == romId }
+    }
+
     /** Limpia las tareas terminadas de la cola. */
     fun clearFinished() {
+        val removed = _tasks.value.filterNot { it.active }.map { it.romId }
+        if (removed.isNotEmpty()) suppressedCompletion.addAll(removed)
         _tasks.value = _tasks.value.filter { it.active }
+        if (removed.isNotEmpty()) DesktopNotifier.dismissAll()
     }
 
     // ── Eliminar descarga local ─────────────────────────────────────────

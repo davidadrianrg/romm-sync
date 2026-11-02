@@ -109,5 +109,5 @@ object DesktopConfig {
         set(v) = prefs.put("physical_media_ids", v)
 
     /** Versión de la app desktop (para el comprobador de actualizaciones). */
-    const val appVersion: String = "0.9.1"
+    const val appVersion: String = "0.9.2"
 }
