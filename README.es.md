@@ -149,10 +149,12 @@ desktop/src/main/kotlin/com/davidadrianrg/atril/desktop/  # Linux (Compose Deskt
 
 ## 🔁 CI/CD
 
-Cada push a `master`:
+Las releases estables se construyen desde `master`:
 
 1. **APK** (`.github/workflows/build-release.yml`): build firmado (R8) → GitHub Release como `Atril-vX.Y.Z-android.apk`.
 2. **AppImage** (`.github/workflows/build-appimage.yml`): build para **x86_64** y **aarch64** → `Atril-vX.Y.Z-linux-<arch>.AppImage`, adjuntos a la misma release que el APK.
+
+El desarrollo del día a día va en **`develop`**. Cada push allí ejecuta `.github/workflows/develop.yml` y actualiza una única release **draft** llamada `develop` con el APK y los dos AppImage. Las releases draft solo las ve el propietario/mantenedores del repo, así que son el canal de pruebas interno.
 
 El tag y el `versionName` coinciden **exactamente** con `versionName` de `app/build.gradle.kts` (p. ej. `0.4.2` → `v0.4.2`); búmpalo ahí para publicar una versión nueva. El `versionCode` interno usa el `run_number` del workflow, que siempre crece (Android lo exige para actualizar sin desinstalar). Repetir una versión reemplaza su release.
 
