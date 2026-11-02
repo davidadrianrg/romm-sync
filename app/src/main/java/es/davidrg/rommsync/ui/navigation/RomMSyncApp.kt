@@ -148,7 +148,7 @@ private fun AppNavRail(
                     )
                 },
                 label = { Text(screen.title) },
-                alwaysShowLabel = false,
+                alwaysShowLabel = true,
                 colors = NavigationRailItemDefaults.colors(
                     selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     selectedTextColor = MaterialTheme.colorScheme.onSurface,

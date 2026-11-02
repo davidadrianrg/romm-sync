@@ -134,7 +134,7 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(tr("nav.config")) },
+                title = { Text(tr("nav.settings")) },
                 modifier = Modifier.height(if (compact) 48.dp else 64.dp),
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,

@@ -53,6 +53,10 @@ enum class Screen(
     ),
     ;
 
-    /** Título de la barra de navegación (se traduce al leerlo). */
-    val title: String get() = tr("nav.${name.lowercase()}")
+    /** Título corto para la barra de navegación (se traduce al leerlo). */
+    val title: String
+        get() = when (this) {
+            Config -> tr("nav.settings")
+            else -> tr("nav.${name.lowercase()}")
+        }
 }
