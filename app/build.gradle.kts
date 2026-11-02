@@ -27,15 +27,15 @@ val ksProps: Map<String, String> = if (hasKeystore) {
 } else emptyMap()
 
 android {
-    namespace = "es.davidrg.rommsync"
+    namespace = "com.davidadrianrg.atril"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "es.davidrg.rommsync"
+        applicationId = "com.davidadrianrg.atril"
         minSdk = 26
         targetSdk = 35
-        versionCode = 84
-        versionName = "0.8.19"
+        versionCode = 85
+        versionName = "0.9.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

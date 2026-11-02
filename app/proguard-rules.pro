@@ -9,7 +9,7 @@
 -dontwarn retrofit2.**
 
 # ── Moshi ───────────────────────────────────────────────────────────────
--keepclassmembers class es.davidrg.rommsync.data.remote.dto.** { *; }
+-keepclassmembers class com.davidadrianrg.atril.data.remote.dto.** { *; }
 -keep @com.squareup.moshi.JsonClass class * { *; }
 -keep class **JsonAdapter { *; }
 -keepclassmembers class * {

@@ -30,7 +30,7 @@ dependencies {
 
 compose.desktop {
     application {
-        mainClass = "es.davidrg.rommsync.desktop.MainKt"
+        mainClass = "com.davidadrianrg.atril.desktop.MainKt"
 
         // ProGuard rompe con las reglas por defecto sobre el uber-jar; el jar
         // va embebido en el AppImage así que el minificado no aporta nada.

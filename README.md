@@ -19,6 +19,9 @@ Atril turns your downloaded ROMs into a physical-media style launcher: collectib
 
 ### Option A — Android (recommended)
 
+> **Atril 0.9.0 changes the Android application ID to `com.davidadrianrg.atril`.**
+> It installs as a new app: if you come from RomM Sync, download and install this APK manually. The old app cannot self-update into the new package; configure Atril once and remove the old installation when you are ready.
+
 1. Download `Atril-vX.Y.Z-android.apk` from [GitHub Releases](https://github.com/davidadrianrg/atril/releases/latest).
 2. Configure your server (see below).
 3. In **Settings → Updates**, tap *Check for updates* whenever you want to check for a new version. The app downloads the APK and launches the Android installer — without leaving the app.
@@ -77,6 +80,7 @@ RomM supports OAuth/OIDC login behind proxies (Authentik, Authelia...), which us
 
 - **📚 Library** — Browse your RomM server with cover art, search and filters (all / missing / downloaded). Detects games already present on disk with *Scan library*.
 - **⬇️ Downloads** — Queue with configurable parallel downloads (1–5), automatic resume if the network drops, hash-based integrity verification and an out-of-space warning. *WiFi-only* option to avoid using data.
+- **🔔 Update notifications** — checks GitHub on launch and once a day; posts a notification when a new Atril version is available.
 - **💾 Save sync** — Your save files always up to date on every device, using RomM's [Device Sync Protocol](https://docs.romm.app/latest/developers/device-sync-protocol/) (v4.9+): upload what changed on the handheld, download what you played on the PC. Resolves conflicts explicitly instead of overwriting.
 - **🗂️ Metadata export** — Generates ES-DE `gamelist.xml` files or copies the media (covers, fanart, logos, screenshots) into the RetroHRAI structure.
 - **🔄 Auto-update** — Checks, downloads and installs new versions from GitHub Releases without uninstalling anything (see Installation).
@@ -116,13 +120,13 @@ No telemetry, no analytics, no accounts: your data goes from your device to **yo
 Monorepo with three Gradle modules that share all the business logic:
 
 ```
-core/src/main/kotlin/es/davidrg/rommsync/core/   # Pure JVM — shared Android + Desktop
+core/src/main/kotlin/com/davidadrianrg/atril/core/   # Pure JVM — shared Android + Desktop
 ├── remote/              # Retrofit + OkHttp (RomM API, Device Sync Protocol)
 ├── sync/platform/       # Per-emulator save handlers (RetroArch, melonDS, PS2, PS3, 3DS...)
 ├── download/            # PathMapper (per-platform folder structure)
 └── util/                # RootShell, ROM header reading...
 
-app/src/main/java/es/davidrg/rommsync/           # Android
+app/src/main/java/com/davidadrianrg/atril/           # Android
 ├── data/local/          # Room + DataStore (persistent config)
 ├── data/repository/     # remote ↔ cache bridge
 ├── data/metadata/       # gamelist.xml / media export
@@ -131,7 +135,7 @@ app/src/main/java/es/davidrg/rommsync/           # Android
 ├── ui/                  # Compose Material3 (screens/viewmodel/components)
 └── util/                # Android permissions
 
-desktop/src/main/kotlin/es/davidrg/rommsync/desktop/  # Linux (Compose Desktop)
+desktop/src/main/kotlin/com/davidadrianrg/atril/desktop/  # Linux (Compose Desktop)
 ├── Main.kt / AppContent.kt   # UI (connection, library, downloads, sync)
 ├── DesktopSyncCoordinator.kt # Sync loop without Room/WorkManager
 ├── DownloadEngine.kt         # Download stream→disk (single file + zip-stream)

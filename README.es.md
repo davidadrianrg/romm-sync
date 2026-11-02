@@ -19,6 +19,9 @@ Atril convierte tus ROMs descargadas en un launcher con estética de medio físi
 
 ### Opción A — Android (recomendado)
 
+> **Atril 0.9.0 cambia el applicationId de Android a `com.davidadrianrg.atril`.**
+> Se instala como una app nueva: si vienes de RomM Sync, descarga e instala este APK manualmente. La app antigua no puede autoactualizarse al paquete nuevo; configura Atril una vez y elimina la instalación antigua cuando quieras.
+
 1. Descarga `Atril-vX.Y.Z-android.apk` desde [GitHub Releases](https://github.com/davidadrianrg/atril/releases/latest).
 2. Configura tu servidor (ver abajo).
 3. En **Configuración → Actualizaciones**, pulsa *Buscar actualizaciones* cada vez que quieras comprobar si hay versión nueva. La app descarga el APK y lanza el instalador de Android — sin salir de la aplicación.
@@ -77,6 +80,7 @@ RomM admite login OAuth/OIDC tras proxys (Authentik, Authelia...), que suele rom
 
 - **📚 Biblioteca** — Navega por tu servidor RomM con carátulas, búsqueda y filtros (todos / faltantes / descargados). Detecta juegos ya presentes en disco con *Escanear biblioteca*.
 - **⬇️ Descargas** — Cola con descargas paralelas configurables (1–5), reanudación automática si se corta la red, verificación de integridad por hash y aviso de espacio insuficiente. Opción *solo WiFi* para no gastar datos.
+- **🔔 Notificaciones de actualización** — comprueba GitHub al abrir la app y una vez al día; envía una notificación cuando hay una versión nueva de Atril.
 - **💾 Sincronización de saves** — Tus partidas guardadas siempre al día en todos los dispositivos, con el [Device Sync Protocol](https://docs.romm.app/latest/developers/device-sync-protocol/) de RomM (v4.9+): sube lo que cambió en el portátil, bájate lo que jugaste en el PC. Resuelve conflictos explícitamente en vez de sobrescribir.
 - **🗂️ Exportación de metadatos** — Genera los `gamelist.xml` de ES-DE o copia la media (covers, fanart, logos, screenshots) a la estructura de RetroHRAI.
 - **🔄 Auto-actualización** — Comprueba, descarga e instala nuevas versiones desde GitHub Releases sin desinstalar nada (ver Instalación).
@@ -115,13 +119,13 @@ Sin telemetría, sin analytics, sin cuentas: tus datos van de tu dispositivo a *
 Monorepo con tres módulos Gradle que comparten todo el código de negocio:
 
 ```
-core/src/main/kotlin/es/davidrg/rommsync/core/   # JVM puro — compartido Android + Desktop
+core/src/main/kotlin/com/davidadrianrg/atril/core/   # JVM puro — compartido Android + Desktop
 ├── remote/              # Retrofit + OkHttp (API RomM, Device Sync Protocol)
 ├── sync/platform/       # Handlers de saves por emulador (RetroArch, melonDS, PS2, PS3, 3DS...)
 ├── download/            # PathMapper (estructura de carpetas por plataforma)
 └── util/                # RootShell, lectura de cabeceras ROM...
 
-app/src/main/java/es/davidrg/rommsync/           # Android
+app/src/main/java/com/davidadrianrg/atril/           # Android
 ├── data/local/          # Room + DataStore (config persistente)
 ├── data/repository/     # Puente remote ↔ cache
 ├── data/metadata/       # Exportación gamelist.xml / media
@@ -130,7 +134,7 @@ app/src/main/java/es/davidrg/rommsync/           # Android
 ├── ui/                  # Compose Material3 (screens/viewmodel/components)
 └── util/                # Permisos Android
 
-desktop/src/main/kotlin/es/davidrg/rommsync/desktop/  # Linux (Compose Desktop)
+desktop/src/main/kotlin/com/davidadrianrg/atril/desktop/  # Linux (Compose Desktop)
 ├── Main.kt / AppContent.kt   # UI (conexión, biblioteca, descargas, sync)
 ├── DesktopSyncCoordinator.kt # Ciclo de sync sin Room/WorkManager
 ├── DownloadEngine.kt         # Descarga stream→disco (fichero único + zip-stream)

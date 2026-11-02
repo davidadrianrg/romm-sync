@@ -87,7 +87,7 @@ Notas:
   cacheada → carta (nunca se dibuja un cartucho falso).
 
 ### Lanzamiento
-- `:core` `es.davidrg.rommsync.core.launch`:
+- `:core` `com.davidadrianrg.atril.core.launch`:
   - `LaunchPlatforms`: normaliza slugs de RomM/IGDB (`dc`, `ngc`, `genesis-slash-megadrive`…).
   - `EmulatorCatalog`: familias, variantes de paquete y cores libretro (de Argosy).
   - `EmulatorSelector`: candidatos ordenados (override → emulador de saves → defecto de la
@@ -96,7 +96,7 @@ Notas:
     el content URI.
   - `LaunchFileResolver`: fichero lanzable (fichero, carpeta, `.m3u` existente, ficheros
     extraídos de un zip-stream, prioridad por extensión).
-- `:app` `es.davidrg.rommsync.launch.EmulatorLauncher`: comprueba paquetes instalados
+- `:app` `com.davidadrianrg.atril.launch.EmulatorLauncher`: comprueba paquetes instalados
   (`<queries>` en el manifest), crea el content URI con `FileProvider`, concede permisos,
   arma el `Intent` y llama a `startActivity`. Errores → mensaje traducido.
 - `FileProvider`: se añaden `external-path` (almacenamiento principal) y

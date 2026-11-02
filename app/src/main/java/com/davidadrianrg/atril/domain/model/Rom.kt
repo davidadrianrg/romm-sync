@@ -1,0 +1,80 @@
+package com.davidadrianrg.atril.domain.model
+
+/**
+ * Represents a ROM (game) from the RomM server.
+ */
+data class Rom(
+    val id: Int,
+    val name: String,
+    val fileName: String,
+    val fileSizeBytes: Long,
+    val platformId: Int,
+    val platformSlug: String,
+    val coverUrlSmall: String?,
+    val coverUrlLarge: String?,
+    val files: List<RomFile>,
+    val isMulti: Boolean,
+    val revision: String?,
+    val regions: List<String>,
+    val languages: List<String> = emptyList(),
+    val genres: List<String> = emptyList(),
+    val summary: String? = null,
+    val fileNameNoTags: String? = null,
+    val fileNameNoExt: String? = null,
+    val fileExtension: String? = null,
+    val igdbId: Int? = null,
+    // ── Media fields for ES-DE export ──────────────────────────────
+    val screenshots: List<String> = emptyList(),
+    val videoPath: String? = null,
+    val manualPath: String? = null,
+    /** ID de vídeo de YouTube del tráiler (metadatos IGDB), si existe. */
+    val youtubeVideoId: String? = null,
+    val igdbMetadata: IgdbMetadata? = null,
+    /** URL en RomM de la imagen del medio físico (cartucho/disco/caja), si existe. */
+    val physicalMediaUrl: String? = null,
+)
+
+/**
+ * Subset of IGDB metadata used for gamelist.xml generation.
+ */
+data class IgdbMetadata(
+    val totalRating: Double? = null,
+    val firstReleaseDate: Long? = null,
+    val genres: List<String> = emptyList(),
+    val companies: List<String> = emptyList(),
+    val gameModes: List<String> = emptyList(),
+    val playerCount: String? = null,
+)
+
+data class RomFile(
+    val filename: String,
+    val size: Long,
+    /** Hash del fichero según RomM (MD5/SHA-1 según config del servidor). */
+    val hash: String? = null,
+)
+
+/**
+ * Local download status of a ROM.
+ */
+enum class DownloadStatus {
+    NOT_DOWNLOADED,
+    DOWNLOADING,
+    DOWNLOADED,
+    FAILED,
+}
+
+/**
+ * UI-friendly ROM with local download status merged.
+ *
+ * @param discCount nº de discos/variantes agrupados en esta card (1 = juego
+ *   de un solo disco; >1 = multi-disc o variantes con mismo IGDB).
+ * @param groupRomIds IDs de todas las ROMs del grupo (la card representa un
+ *   juego; descargar/borrar/filtrar actúa sobre el grupo completo).
+ */
+data class RomWithStatus(
+    val rom: Rom,
+    val status: DownloadStatus,
+    val progress: Int = 0, // 0-100
+    val discCount: Int = 1,
+    val groupRomIds: List<Int> = listOf(rom.id),
+)

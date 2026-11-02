@@ -1,0 +1,52 @@
+package com.davidadrianrg.atril.ui.viewmodel
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.davidadrianrg.atril.download.DownloadManager
+import com.davidadrianrg.atril.domain.model.DownloadTask
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
+
+class DownloadQueueViewModel(
+    private val downloadManager: DownloadManager,
+) : ViewModel() {
+
+    val downloads: StateFlow<List<DownloadTask>> = downloadManager.observeDownloads()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList(),
+        )
+
+    fun cancelDownload(romId: Int) {
+        downloadManager.cancelDownload(romId)
+    }
+
+    fun cancelAll() {
+        downloadManager.cancelAllDownloads()
+    }
+
+    /**
+     * Prunes all SUCCEEDED and FAILED work from the WorkManager queue.
+     * The downloads StateFlow will automatically update after prune.
+     */
+    fun clearCompleted() {
+        downloadManager.pruneCompletedWork()
+    }
+
+    /**
+     * Re-enqueues a failed download as a new work request, keeping the
+     * original destination root (so a partial file on the SD card resumes
+     * there instead of restarting on internal storage).
+     */
+    fun retryDownload(task: DownloadTask) {
+        downloadManager.retryDownload(
+            romId = task.romId,
+            romName = task.romName,
+            fileName = task.fileName,
+            platformSlug = task.platformSlug,
+            romsRootPath = task.romsRootPath,
+        )
+    }
+}
