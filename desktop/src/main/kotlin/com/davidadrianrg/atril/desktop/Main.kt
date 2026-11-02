@@ -25,6 +25,8 @@ import javax.swing.UIManager
 import kotlin.system.exitProcess
 
 fun main() {
+    // En WMs de tiling AWT necesita _JAVA_AWT_WM_NONREPARENTING antes de abrir ventana.
+    TilingWmWorkaround.relaunchIfNeeded()
     // El idioma guardado debe estar fijado antes de componer el primer frame.
     val languageTag = DesktopConfig.languageTag
     I18n.locale = if (languageTag.isBlank()) Locale.getDefault() else Locale.forLanguageTag(languageTag)
