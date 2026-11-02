@@ -155,7 +155,20 @@ class DesktopAppState(private val scope: CoroutineScope) {
     // (_hiddenPlatforms, _lastSync, _autoSyncMinutes…) deben estar ya
     // inicializadas cuando el bloque corra.
 
-    fun navigate(s: Section) { _section.value = s }
+    fun navigate(s: Section) {
+        _section.value = s
+        if (s == Section.LIBRARY) ensureLibraryLoaded()
+    }
+
+    /**
+     * Carga los ROMs al abrir la Biblioteca si aún no hay ninguno. Antes solo se
+     * cargaban al elegir plataforma o refrescar, y la primera visita mostraba
+     * "Sin juegos" aunque el servidor tuviera biblioteca.
+     */
+    private fun ensureLibraryLoaded() {
+        if (api == null || _roms.value.isNotEmpty() || _loadingRoms.value) return
+        loadRomsForSlug(_selectedPlatformSlug.value)
+    }
 
     fun showSnackbar(message: String) { _snackbar.value = message }
 
@@ -180,6 +193,8 @@ class DesktopAppState(private val scope: CoroutineScope) {
                 val plats = svc.getPlatforms()
                 _platforms.value = plats
                 _connected.value = true
+                // El usuario pudo abrir Biblioteca antes de que llegaran las plataformas.
+                if (_section.value == Section.LIBRARY) ensureLibraryLoaded()
             } catch (e: Exception) {
                 _connected.value = false
                 if (!silent) showSnackbar(tr("connection.error", e.message))
@@ -209,8 +224,10 @@ class DesktopAppState(private val scope: CoroutineScope) {
     /** Igual pero por slug (null = todas las plataformas visibles). */
     private fun loadRomsForSlug(slug: String?) {
         val svc = api ?: return
+        // Marcar "cargando" antes de lanzar la corrutina para que ensureLibraryLoaded
+        // no arranque una segunda carga en paralelo.
+        _loadingRoms.value = true
         scope.launch {
-            _loadingRoms.value = true
             try {
                 val all = mutableListOf<RomDto>()
                 val targets = if (slug == null) {
