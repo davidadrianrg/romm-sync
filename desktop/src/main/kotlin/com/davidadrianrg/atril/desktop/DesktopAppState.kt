@@ -81,6 +81,9 @@ data class LastSyncInfo(val at: Long, val summary: String) {
 /** Stats locales por plataforma: nº de ROMs descargados y bytes en disco. */
 data class PlatformLocalStat(val romCount: Int, val totalBytes: Long)
 
+/** Tamaño de página al listar ROMs; pequeño para que la primera página llegue rápido. */
+private const val ROMS_PAGE_SIZE = 100
+
 /**
  * Estado central de la app desktop: conexión, plataformas, ROMs por
  * plataforma (paginados), agrupado multi-disc, cola de descargas con
@@ -221,9 +224,19 @@ class DesktopAppState(private val scope: CoroutineScope) {
         loadRomsForSlug(_selectedPlatformSlug.value)
     }
 
-    /** Igual pero por slug (null = todas las plataformas visibles). */
+    /** Cada carga lleva un número; una carga vieja no puede pisar a la nueva. */
+    @Volatile
+    private var romsLoadGeneration = 0
+
+    /**
+     * Igual pero por slug (null = todas las plataformas visibles). Publica cada
+     * página según llega (como Android, que pagina de 50 en 50) en vez de esperar
+     * a descargar la biblioteca entera: con un servidor lento la lista aparece con
+     * la primera página y sigue creciendo.
+     */
     private fun loadRomsForSlug(slug: String?) {
         val svc = api ?: return
+        val generation = ++romsLoadGeneration
         // Marcar "cargando" antes de lanzar la corrutina para que ensureLibraryLoaded
         // no arranque una segunda carga en paralelo.
         _loadingRoms.value = true
@@ -241,20 +254,23 @@ class DesktopAppState(private val scope: CoroutineScope) {
                         val resp = svc.getRoms(
                             mapOf(
                                 "platform_ids" to p.id.toString(),
-                                "limit" to "500",
+                                "limit" to ROMS_PAGE_SIZE.toString(),
                                 "offset" to offset.toString(),
                             ),
                         )
+                        if (generation != romsLoadGeneration) return@launch // reemplazada por otra carga
                         all += resp.items
+                        _roms.value = all.toList()
                         offset += resp.items.size
-                        if (resp.items.size < 500) break
+                        if (resp.items.size < ROMS_PAGE_SIZE) break
                     }
                 }
-                _roms.value = all
             } catch (e: Exception) {
-                showSnackbar(tr("app.snackbar.load_roms_error", e.message))
+                if (generation == romsLoadGeneration) {
+                    showSnackbar(tr("app.snackbar.load_roms_error", e.message))
+                }
             } finally {
-                _loadingRoms.value = false
+                if (generation == romsLoadGeneration) _loadingRoms.value = false
             }
         }
     }
