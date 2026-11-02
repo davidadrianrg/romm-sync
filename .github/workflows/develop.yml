@@ -214,6 +214,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: develop
+          target_commitish: ${{ github.sha }}
           name: Atril develop (${{ github.sha }})
           draft: true
           prerelease: true
