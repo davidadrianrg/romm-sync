@@ -214,6 +214,7 @@ private fun AppNavHost(
         composable(Screen.Play.route) {
             PlayScreen(
                 onOpenDownloads = { navController.navigate(Screen.Downloads.route) },
+                onOpenLibrary = { navController.navigate(Screen.Library.route) },
             )
         }
         composable(Screen.Library.route) {
@@ -232,8 +233,11 @@ private fun AppNavHost(
     }
 }
 
-private fun isSelected(route: String, currentDestination: NavDestination?): Boolean =
-    currentDestination?.hierarchy?.any { it.route == route } == true
+private fun isSelected(route: String, currentDestination: NavDestination?): Boolean {
+    // Las pantallas anidadas mantienen resaltada su sección de origen.
+    if (route == Screen.Config.route && currentDestination?.route == Screen.Platforms.route) return true
+    return currentDestination?.hierarchy?.any { it.route == route } == true
+}
 
 private fun navigateTo(route: String, navController: NavHostController) {
     navController.navigate(route) {

@@ -93,7 +93,10 @@ private val LauncherPlasticLight = Color(0xFF342A1E)
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PlayScreen(onOpenDownloads: () -> Unit = {}) {
+fun PlayScreen(
+    onOpenDownloads: () -> Unit = {},
+    onOpenLibrary: () -> Unit = {},
+) {
     val context = LocalContext.current
     val container = (context.applicationContext as RomMSyncApplication).container
     val viewModel: ShelfViewModel = viewModel(
@@ -223,6 +226,10 @@ fun PlayScreen(onOpenDownloads: () -> Unit = {}) {
                             color = LauncherCream.copy(alpha = 0.5f),
                             textAlign = TextAlign.Center,
                         )
+                        Spacer(Modifier.height(18.dp))
+                        androidx.compose.material3.FilledTonalButton(onClick = onOpenLibrary) {
+                            Text(tr("play.open_library"))
+                        }
                     }
                 }
 
