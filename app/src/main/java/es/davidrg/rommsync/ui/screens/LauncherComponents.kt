@@ -435,9 +435,14 @@ internal fun LauncherMenuOverlay(
                     Column(Modifier.weight(1f).padding(start = 8.dp)) {
                         AppMark()
                         Text(
-                            tr("launcher.menu.title"),
+                            "Atril",
                             style = MaterialTheme.typography.titleLarge,
                             color = LauncherCream,
+                        )
+                        Text(
+                            tr("launcher.tagline"),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = LauncherCream.copy(alpha = 0.55f),
                         )
                     }
                     IconButton(onClick = onDismiss) {
@@ -475,11 +480,11 @@ internal fun LauncherMenuOverlay(
     }
 }
 
-/** Marca de la app ("ROM·SYNC") en versalitas ámbar. */
+/** Marca de la app ("ATRIL") en versalitas ámbar. */
 @Composable
 internal fun AppMark() {
     Text(
-        "ROM·SYNC",
+        "ATRIL",
         style = MaterialTheme.typography.labelSmall,
         letterSpacing = 2.4.sp,
         fontWeight = FontWeight.SemiBold,

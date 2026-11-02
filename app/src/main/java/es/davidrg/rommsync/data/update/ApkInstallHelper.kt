@@ -61,10 +61,10 @@ class ApkInstallHelper(
      * Safe to call repeatedly; a previous partial file is overwritten.
      */
     suspend fun download(update: UpdateCheckResult.UpdateAvailable) = withContext(Dispatchers.IO) {
-        val target = File(context.cacheDir, update.apkName.ifBlank { "romm-sync-update.apk" })
+        val target = File(context.cacheDir, update.apkName.ifBlank { "atril-update.apk" })
         val request = Request.Builder()
             .url(update.apkUrl)
-            .header("User-Agent", "RomM-Sync-Android-Updater")
+            .header("User-Agent", "Atril-Android-Updater")
             .build()
 
         val response = try {

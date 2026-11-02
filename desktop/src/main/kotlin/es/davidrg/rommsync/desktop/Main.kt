@@ -50,8 +50,8 @@ fun main() {
                 exitApplication()
             }
         },
-        title = "RomM Sync",
-        icon = painterResource("romm-sync-icon.png"),
+        title = "Atril",
+        icon = painterResource("atril-icon.png"),
         state = rememberWindowState(width = 1280.dp, height = 832.dp),
     ) {
         window.minimumSize = Dimension(980, 640)
@@ -101,8 +101,8 @@ fun main() {
     // requerir extensión — si no hay soporte, simplemente no aparece).
     if (traySupported) {
         Tray(
-            icon = painterResource("romm-sync-icon.png"),
-            tooltip = "RomM Sync",
+            icon = painterResource("atril-icon.png"),
+            tooltip = "Atril",
         ) {
             Item(tr("window.tray.sync_saves")) { state.syncSaves() }
             Item(tr("window.tray.show")) {

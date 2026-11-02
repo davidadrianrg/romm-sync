@@ -5,7 +5,7 @@ import java.util.Properties
 
 /**
  * Registro de ROMs descargados en desktop y config por plataforma.
- * Formato Properties (cero dependencias): ~/.config/romm-sync/library.properties
+ * Formato Properties (cero dependencias): ~/.config/atril/library.properties
  *
  *   rom.<id>.name = ...
  *   rom.<id>.file = ...
@@ -24,7 +24,7 @@ class DesktopLibrary(private val file: File) {
     @Synchronized
     private fun persist() {
         file.parentFile?.mkdirs()
-        file.outputStream().use { props.store(it, "RomM Sync desktop library") }
+        file.outputStream().use { props.store(it, "Atril desktop library") }
     }
 
     data class RomEntry(

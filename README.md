@@ -1,12 +1,12 @@
 <div align="center">
 
-# 🎮 RomM Sync — Android & Linux
+# 🎮 Atril — Game launcher with RomM integration
 
 🌐 **English** · [Español](README.es.md)
 
-**Download and sync your [RomM](https://github.com/rommapp/romm) library on Android and Linux.**
+**A game launcher for Android and Linux with [RomM](https://github.com/rommapp/romm) integration.**
 
-Cross-platform client for RomM servers: browse your library, download ROMs straight into the folder structure of your favorite frontend, and keep save files synced across all your devices — Android handheld, Steam Deck, PC.
+Atril turns your downloaded ROMs into a physical-media style launcher: collectible cards, real cartridge/disc art when RomM has it, and an insertion animation before the game starts. It also browses your RomM library, downloads ROMs into your frontend folders and keeps saves synced across Android, Steam Deck and PC.
 
 - **Android** (Kotlin + Jetpack Compose): native APK, optimized for handheld consoles (Anbernic, Retroid Pocket...) with a touchscreen: dark UI, large buttons and finger-friendly navigation.
 - **Linux** (Compose Desktop): self-contained AppImage for **x86_64** (SteamOS, Steam Deck, PCs) and **aarch64** (Raspberry Pi 5, ARM handhelds) with the Java runtime bundled in — nothing to install.
@@ -19,21 +19,21 @@ Cross-platform client for RomM servers: browse your library, download ROMs strai
 
 ### Option A — Android (recommended)
 
-1. Download `RomM-Sync-vX.Y.Z-android.apk` from [GitHub Releases](https://github.com/davidadrianrg/romm-sync/releases/latest).
+1. Download `Atril-vX.Y.Z-android.apk` from [GitHub Releases](https://github.com/davidadrianrg/atril/releases/latest).
 2. Configure your server (see below).
 3. In **Settings → Updates**, tap *Check for updates* whenever you want to check for a new version. The app downloads the APK and launches the Android installer — without leaving the app.
 
-> ⚠️ The first time, Android will ask you to grant RomM Sync the **"Install unknown apps"** permission. It is the standard permission for any app to self-update outside the Play Store.
+> ⚠️ The first time, Android will ask you to grant Atril the **"Install unknown apps"** permission. It is the standard permission for any app to self-update outside the Play Store.
 
 ### Option B — Linux (AppImage)
 
-1. Download the AppImage for your architecture from [GitHub Releases](https://github.com/davidadrianrg/romm-sync/releases/latest):
-   - `RomM-Sync-vX.Y.Z-linux-x86_64.AppImage` — SteamOS, Steam Deck, most PCs
-   - `RomM-Sync-vX.Y.Z-linux-aarch64.AppImage` — Raspberry Pi 5, ARM handhelds
+1. Download the AppImage for your architecture from [GitHub Releases](https://github.com/davidadrianrg/atril/releases/latest):
+   - `Atril-vX.Y.Z-linux-x86_64.AppImage` — SteamOS, Steam Deck, most PCs
+   - `Atril-vX.Y.Z-linux-aarch64.AppImage` — Raspberry Pi 5, ARM handhelds
 2. Give it execute permission and run it:
    ```bash
-   chmod +x RomM-Sync-v*-linux-*.AppImage
-   ./RomM-Sync-v*-linux-x86_64.AppImage
+   chmod +x Atril-v*-linux-*.AppImage
+   ./Atril-v*-linux-x86_64.AppImage
    ```
 3. The first time it asks for the server URL, API Key and ROMs folder; it is saved for next time.
 
@@ -42,8 +42,8 @@ Cross-platform client for RomM servers: browse your library, download ROMs strai
 ### Option C — Build from source
 
 ```bash
-git clone https://github.com/davidadrianrg/romm-sync.git
-cd romm-sync
+git clone https://github.com/davidadrianrg/atril.git
+cd atril
 ./gradlew assembleDebug
 # APK → app/build/outputs/apk/debug/app-debug.apk
 ```
@@ -149,8 +149,8 @@ desktop/src/main/kotlin/es/davidrg/rommsync/desktop/  # Linux (Compose Desktop)
 
 Every push to `master`:
 
-1. **APK** (`.github/workflows/build-release.yml`): signed build (R8) → GitHub Release as `RomM-Sync-vX.Y.Z-android.apk`.
-2. **AppImage** (`.github/workflows/build-appimage.yml`): build for **x86_64** and **aarch64** → `RomM-Sync-vX.Y.Z-linux-<arch>.AppImage`, attached to the same release as the APK.
+1. **APK** (`.github/workflows/build-release.yml`): signed build (R8) → GitHub Release as `Atril-vX.Y.Z-android.apk`.
+2. **AppImage** (`.github/workflows/build-appimage.yml`): build for **x86_64** and **aarch64** → `Atril-vX.Y.Z-linux-<arch>.AppImage`, attached to the same release as the APK.
 
 The tag and `versionName` match **exactly** the `versionName` in `app/build.gradle.kts` (e.g. `0.4.2` → `v0.4.2`); bump it there to publish a new version. The internal `versionCode` uses the workflow `run_number`, which always increases (Android requires it to update without uninstalling). Publishing the same version again replaces its release.
 
@@ -162,7 +162,7 @@ The release APK is signed with a fixed key (secrets `SIGNING_KEYSTORE_BASE64` an
 2. `./gradlew test` green.
 3. PR to `master` — CI must pass.
 
-Bugs, ideas and PRs welcome in [Issues](https://github.com/davidadrianrg/romm-sync/issues).
+Bugs, ideas and PRs welcome in [Issues](https://github.com/davidadrianrg/atril/issues).
 
 ## 📄 License
 

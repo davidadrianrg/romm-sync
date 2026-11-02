@@ -8,7 +8,7 @@ import java.util.Properties
  * limpio (puerto del SyncedHashStore de Android). Si en el próximo ciclo el
  * fingerprint local coincide, se salta el zipeo+hash de ese ROM completo.
  *
- * Formato: properties en ~/.config/romm-sync/sync-hashes.properties
+ * Formato: properties en ~/.config/atril/sync-hashes.properties
  *   fp.<romId> = fingerprint
  */
 class DesktopHashStore(private val file: File) {
@@ -23,7 +23,7 @@ class DesktopHashStore(private val file: File) {
     private fun persist() {
         runCatching {
             file.parentFile?.mkdirs()
-            file.outputStream().use { props.store(it, "RomM Sync desktop sync hashes") }
+            file.outputStream().use { props.store(it, "Atril desktop sync hashes") }
         }
     }
 

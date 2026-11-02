@@ -27,7 +27,7 @@ object DesktopUpdater {
     )
 
     fun check(): UpdateInfo? {
-        val conn = URL("https://api.github.com/repos/davidadrianrg/romm-sync/releases/latest").openConnection() as HttpURLConnection
+        val conn = URL("https://api.github.com/repos/davidadrianrg/atril/releases/latest").openConnection() as HttpURLConnection
         conn.connectTimeout = 10_000
         conn.readTimeout = 10_000
         conn.setRequestProperty("Accept", "application/vnd.github+json")
@@ -133,7 +133,7 @@ object DesktopUpdater {
         val jarFile = jarLoc?.toURI()?.let { runCatching { File(it) }.getOrNull() }
         if (jarFile != null && jarFile.isFile) {
             // Subir buscando el .AppImage (cuando se monta squashfs, la raíz
-            // del AppDir aparece como /tmp/.mount_xxx/usr/bin/romm-sync.jar)
+            // del AppDir aparece como /tmp/.mount_xxx/usr/bin/atril.jar)
             var d = jarFile.parentFile
             while (d != null) {
                 d.listFiles()?.forEach { f -> if (f.name.endsWith(".AppImage") && f.isFile) return f }

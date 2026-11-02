@@ -20,7 +20,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "RomM Sync"
+rootProject.name = "Atril"
 include(":app")
 include(":core")
 include(":desktop")
