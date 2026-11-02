@@ -1,0 +1,228 @@
+# Builds Atril from the develop branch and publishes the APK + both Linux
+# AppImages as a DRAFT GitHub release. Drafts are only visible to repository
+# maintainers, so this is the internal test channel; master keeps the normal
+# public release workflow.
+name: Develop build (draft)
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+concurrency:
+  group: develop-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    name: Android release APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Unit tests
+        run: ./gradlew :core:test :desktop:test testDebugUnitTest
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION="$(grep -oP 'versionName = "\K[0-9]+\.[0-9]+\.[0-9]+' app/build.gradle.kts | head -1)"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          sed -i "s/versionCode = .*/versionCode = ${{ github.run_number }}/" app/build.gradle.kts
+
+      - name: Set up signing keystore
+        id: keystore
+        run: |
+          if [ -n "${{ secrets.SIGNING_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.SIGNING_KEYSTORE_BASE64 }}" | base64 -d > /tmp/atril-release.jks
+            cat > keystore.properties <<EOF
+          storeFile=/tmp/atril-release.jks
+          storePassword=${{ secrets.SIGNING_STORE_PASSWORD }}
+          keyAlias=${{ secrets.SIGNING_KEY_ALIAS }}
+          keyPassword=${{ secrets.SIGNING_KEY_PASSWORD }}
+          EOF
+          else
+            keytool -genkeypair \
+              -alias atril \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -keystore /tmp/atril-release.jks \
+              -storepass atril \
+              -keypass atril \
+              -dname "CN=Atril, OU=CI, O=davidrg, L=Madrid, ST=Madrid, C=ES"
+            cat > keystore.properties <<EOF
+          storeFile=/tmp/atril-release.jks
+          storePassword=atril
+          keyAlias=atril
+          keyPassword=atril
+          EOF
+          fi
+
+      - name: Build release APK
+        run: ./gradlew assembleRelease
+
+      - name: Rename APK
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          mv app/build/outputs/apk/release/app-release.apk \
+             "app/build/outputs/apk/release/Atril-develop-${SHORT_SHA}-android.apk"
+          ls -lh app/build/outputs/apk/release/*.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: develop-apk
+          path: app/build/outputs/apk/release/Atril-develop-*-android.apk
+          retention-days: 14
+
+  linux:
+    name: Linux AppImage (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            jdk: "https://api.adoptium.net/v3/binary/latest/17/ga/linux/x64/jdk/hotspot/normal/eclipse"
+          - arch: aarch64
+            jdk: "https://api.adoptium.net/v3/binary/latest/17/ga/linux/aarch64/jdk/hotspot/normal/eclipse"
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up JDK 17 (build)
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build desktop fat jar
+        run: ./gradlew :desktop:packageReleaseUberJarForCurrentOS
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION="$(grep -oP 'versionName = "\K[0-9]+\.[0-9]+\.[0-9]+' app/build.gradle.kts | head -1)"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Download target-arch JDK
+        run: |
+          curl -sL "${{ matrix.jdk }}" -o /tmp/jdk-${{ matrix.arch }}.tar.gz
+          mkdir -p /tmp/jdk-${{ matrix.arch }}
+          tar -xzf /tmp/jdk-${{ matrix.arch }}.tar.gz -C /tmp/jdk-${{ matrix.arch }} --strip-components=1
+
+      - name: jlink minimal runtime
+        run: |
+          "$JAVA_HOME/bin/jlink" \
+            --module-path "/tmp/jdk-${{ matrix.arch }}/jmods" \
+            --add-modules "$MODULES" \
+            --strip-debug --no-man-pages --no-header-files \
+            --compress=2 \
+            --output /tmp/runtime-${{ matrix.arch }}
+        env:
+          MODULES: java.base,java.naming,java.sql,java.management,java.desktop,jdk.crypto.ec,java.logging,java.xml,jdk.unsupported
+
+      - name: Install AppImage tools
+        run: |
+          sudo apt-get update && sudo apt-get install -y libfuse2 desktop-file-utils
+          curl -sL https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -o /tmp/appimagetool
+          chmod +x /tmp/appimagetool
+
+      - name: Assemble AppDir
+        run: |
+          JAR="$(ls desktop/build/compose/jars/atril-linux-*-release.jar | head -1)"
+          mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/256x256/apps
+          cp "$JAR" AppDir/usr/bin/atril.jar
+          cat > AppDir/AppRun <<'EOF'
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "$0")")"
+          exec "$HERE/usr/bin/runtime/bin/java" -jar "$HERE/usr/bin/atril.jar" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+          cat > AppDir/atril.desktop <<'EOF'
+          [Desktop Entry]
+          Type=Application
+          Name=Atril
+          Comment=Game launcher with RomM integration
+          Exec=atril
+          Icon=atril
+          Categories=Game;Utility;
+          EOF
+          cp desktop/packaging/atril.png AppDir/usr/share/icons/hicolor/256x256/apps/atril.png
+          cp desktop/packaging/atril.png AppDir/atril.png
+
+      - name: Build AppImage
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          cp -r /tmp/runtime-${{ matrix.arch }} AppDir/usr/bin/runtime
+          export ARCH="${{ matrix.arch }}"
+          /tmp/appimagetool AppDir "Atril-develop-${SHORT_SHA}-linux-${{ matrix.arch }}.AppImage"
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v7
+        with:
+          name: develop-appimage-${{ matrix.arch }}
+          path: Atril-develop-*-linux-${{ matrix.arch }}.AppImage
+          retention-days: 14
+
+  draft-release:
+    name: Publish draft release
+    needs: [android, linux]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: develop-*
+          path: dist
+          merge-multiple: true
+
+      - name: List draft files
+        run: ls -lh dist
+
+      - name: Remove previous develop draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete develop --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" || true
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: develop
+          name: Atril develop (${{ github.sha }})
+          draft: true
+          prerelease: true
+          make_latest: false
+          body: |
+            **Atril internal develop build** — not a public release.
+
+            **Commit:** [`${{ github.sha }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+
+            This draft is visible only to repository maintainers. Download the
+            APK/AppImage below to test the current develop branch.
+          files: dist/*
