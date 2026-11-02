@@ -1,5 +1,7 @@
 package es.davidrg.rommsync.ui.components
 
+import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
@@ -16,221 +18,127 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.documentfile.provider.DocumentFile
 import es.davidrg.rommsync.core.i18n.tr
-import es.davidrg.rommsync.core.remote.NetworkModule
-import es.davidrg.rommsync.core.upload.RomUploader
 import es.davidrg.rommsync.data.storage.SafFolder
 import es.davidrg.rommsync.domain.model.Platform
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
+import es.davidrg.rommsync.upload.UploadBus
+import es.davidrg.rommsync.upload.UploadService
 
 /**
  * Subida de un juego al servidor: plataforma destino + fichero suelto o
  * CARPETA (multi-fichero real: el primer fichero crea la ROM, el resto se sube
  * dentro y RomM la deja como ROM-carpeta).
+ *
+ * El trabajo lo hace [UploadService] en primer plano: el diálogo solo observa
+ * el estado, así que cerrar la app o apagar la pantalla no cancela la subida.
+ * Los ficheros se leen directamente del SAF, sin copiarlos al cache.
  */
 @Composable
 fun UploadGameDialog(
     platforms: List<Platform>,
-    serverUrl: String,
-    apiKey: String,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val uploadState by UploadBus.state.collectAsState()
+
     var platformId by remember { mutableStateOf(platforms.firstOrNull()?.id) }
-    var singleFile by remember { mutableStateOf<File?>(null) }
-    var folderFiles by remember { mutableStateOf<List<DocumentFile>>(emptyList()) }
+    var singleUri by remember { mutableStateOf<Uri?>(null) }
+    var singleName by remember { mutableStateOf("") }
+    var singleSize by remember { mutableStateOf(0L) }
+    var treeUri by remember { mutableStateOf<Uri?>(null) }
     var folderName by remember { mutableStateOf("") }
+    var folderFiles by remember { mutableStateOf(0) }
+    var folderBytes by remember { mutableStateOf(0L) }
     var selection by remember { mutableStateOf("") }
-    var progress by remember { mutableStateOf<Int?>(null) }
-    var phase by remember { mutableStateOf<String?>(null) }
-    var job by remember { mutableStateOf<Job?>(null) }
-    var message by remember { mutableStateOf<String?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var localError by remember { mutableStateOf<String?>(null) }
 
-    val busy = progress != null
+    LaunchedEffect(Unit) { UploadBus.consumeResult() }
 
-    // Copias temporales en cache: se borran al cerrar el diálogo y al acabar.
-    val tempFiles = remember { mutableStateListOf<File>() }
-    fun trackTemp(f: File) { tempFiles.add(f) }
-    fun discardTemp(f: File?) {
-        if (f != null) {
-            runCatching { f.delete() }
-            tempFiles.remove(f)
+    val busy = uploadState.running
+    val error = localError ?: uploadState.error
+    val message = uploadState.message
+
+    fun persistRead(uri: Uri) {
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
         }
     }
-    fun cleanupTemps() {
-        tempFiles.forEach { runCatching { it.delete() } }
-        tempFiles.clear()
-    }
-    DisposableEffect(Unit) {
-        onDispose { cleanupTemps() }
+
+    fun clearSelection() {
+        singleUri = null
+        singleName = ""
+        singleSize = 0L
+        treeUri = null
+        folderName = ""
+        folderFiles = 0
+        folderBytes = 0L
+        selection = ""
     }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            val name = displayName(context, uri) ?: "rom_${System.currentTimeMillis()}"
-            val tmp = File(context.cacheDir, name)
-            val ok = withContext(Dispatchers.IO) {
-                runCatching {
-                    context.contentResolver.openInputStream(uri)?.use { input ->
-                        tmp.outputStream().use { input.copyTo(it) }
-                    } ?: error("no stream")
-                }.isSuccess
-            }
-            if (ok) {
-                discardTemp(singleFile)
-                trackTemp(tmp)
-                singleFile = tmp
-                folderFiles = emptyList()
-                folderName = ""
-                selection = "${name} (${tmp.length() / (1024 * 1024)} MB)"
-                error = null
-            } else {
-                tmp.delete()
-                error = tr("library.upload.error", "read")
-            }
-        }
+        persistRead(uri)
+        val document = DocumentFile.fromSingleUri(context, uri)
+        val name = document?.name ?: "rom_${System.currentTimeMillis()}"
+        val size = document?.length() ?: 0L
+        clearSelection()
+        singleUri = uri
+        singleName = name
+        singleSize = size
+        selection = "$name (${size / (1024 * 1024)} MB)"
+        localError = null
     }
 
     val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            val docs = withContext(Dispatchers.IO) {
-                SafFolder.listFiles(uri, context).filter { it.isFile && it.length() > 0 }
-            }
-            if (docs.isEmpty()) {
-                error = tr("library.upload.error", "empty folder")
-                return@launch
-            }
-            discardTemp(singleFile)
-            singleFile = null
-            folderFiles = docs
-            folderName = SafFolder.folderName(uri, context)
-            val totalMb = docs.sumOf { it.length() } / (1024 * 1024)
-            selection = tr("library.upload.folder_summary", docs.size, totalMb)
-            error = null
+        persistRead(uri)
+        val docs = SafFolder.listFiles(uri, context).filter { it.isFile && it.length() > 0 }
+        if (docs.isEmpty()) {
+            localError = tr("library.upload.error", "empty folder")
+            return@rememberLauncherForActivityResult
         }
-    }
-
-    suspend fun uploadFolder(uploader: RomUploader, pid: Int) {
-        val entries = folderFiles
-        val total = entries.sumOf { it.length() }.coerceAtLeast(1)
-        var done = 0L
-        val count = entries.size
-
-        // Id máximo ANTES de subir: la ROM nueva se detecta por id, no por
-        // nombre (RomM puede renombrarla al promocionarla a carpeta).
-        val maxBefore = uploader.maxRomId(pid)
-
-        val first = entries.first()
-        val firstName = first.name ?: error("name")
-        phase = tr("library.upload.phase_file", 1, count, 0)
-        val tmp = SafFolder.copyToCache(context, first, context.cacheDir) ?: error("read")
-        trackTemp(tmp)
-        uploader.upload(tmp, pid) { p ->
-            scope.launch(Dispatchers.Main.immediate) {
-                progress = ((done + first.length() * p / 100) * 100 / total).toInt()
-                phase = tr("library.upload.phase_file", 1, count, p)
-            }
-        }.getOrThrow()
-        discardTemp(tmp)
-        done += first.length()
-
-        phase = tr("library.upload.phase_scan", 0)
-        val romId = uploader.awaitNewRomId(pid, maxBefore) { seconds ->
-            scope.launch(Dispatchers.Main.immediate) {
-                phase = tr("library.upload.phase_scan", seconds)
-            }
-        } ?: error(tr("library.upload.timeout"))
-
-        for ((index, doc) in entries.drop(1).withIndex()) {
-            val number = index + 2
-            val tmp2 = SafFolder.copyToCache(context, doc, context.cacheDir) ?: error("read")
-            trackTemp(tmp2)
-            uploader.uploadIntoRom(tmp2, romId, pid) { p ->
-                scope.launch(Dispatchers.Main.immediate) {
-                    progress = ((done + doc.length() * p / 100) * 100 / total).toInt()
-                    phase = tr("library.upload.phase_file", number, count, p)
-                }
-            }.getOrThrow()
-            discardTemp(tmp2)
-            done += doc.length()
-        }
-
-        phase = tr("library.upload.phase_rename")
-        uploader.renameRom(romId, folderName)
-
-        progress = 100
-        val scanned = uploader.triggerQuickScan(pid)
-        message = if (scanned) {
-            tr("library.upload.ok_scan", folderName)
-        } else {
-            tr("library.upload.ok", folderName)
-        }
+        clearSelection()
+        treeUri = uri
+        folderName = SafFolder.folderName(uri, context)
+        folderFiles = docs.size
+        folderBytes = docs.sumOf { it.length() }
+        selection = tr(
+            "library.upload.folder_summary",
+            docs.size,
+            folderBytes / (1024 * 1024),
+        )
+        localError = null
     }
 
     fun runUpload() {
         val pid = platformId ?: return
-        if (serverUrl.isBlank() || apiKey.isBlank()) {
-            error = tr("common.server_not_configured")
-            return
-        }
-        job = scope.launch {
-            error = null
-            message = null
-            progress = 0
-            val uploader = RomUploader(NetworkModule.createApiService(serverUrl, apiKey))
-            try {
-                if (folderFiles.isNotEmpty()) {
-                    uploadFolder(uploader, pid)
-                } else {
-                    val picked = singleFile ?: return@launch
-                    uploader.upload(picked, pid) { p ->
-                        scope.launch(Dispatchers.Main.immediate) { progress = p }
-                    }.getOrThrow()
-                    val scanned = uploader.triggerQuickScan(pid)
-                    message = if (scanned) {
-                        tr("library.upload.ok_scan", picked.name)
-                    } else {
-                        tr("library.upload.ok", picked.name)
-                    }
-                }
-                selection = ""
-                singleFile = null
-                folderFiles = emptyList()
-                folderName = ""
-            } catch (e: CancellationException) {
-                message = tr("library.upload.cancelled")
-            } catch (e: Exception) {
-                error = tr("library.upload.error", e.message ?: "")
-            } finally {
-                cleanupTemps()
-                progress = null
-                phase = null
-            }
-        }
+        localError = null
+        if (singleUri == null && treeUri == null) return
+        UploadService.start(
+            context = context,
+            platformId = pid,
+            singleUri = singleUri,
+            treeUri = treeUri,
+            folderName = folderName,
+            displayName = if (singleUri != null) singleName else folderName,
+        )
     }
 
     AlertDialog(
-        onDismissRequest = { if (!busy) onDismiss() },
+        onDismissRequest = onDismiss,
         title = { Text(tr("library.upload.title")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -243,6 +151,7 @@ fun UploadGameDialog(
                         FilterChip(
                             selected = platformId == platform.id,
                             onClick = { platformId = platform.id },
+                            enabled = !busy,
                             label = { Text(platform.name, style = MaterialTheme.typography.labelSmall) },
                         )
                     }
@@ -260,7 +169,7 @@ fun UploadGameDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                progress?.let { p ->
+                uploadState.progress?.let { p ->
                     LinearProgressIndicator(progress = { p / 100f }, modifier = Modifier.fillMaxWidth())
                     Text(
                         if (p >= 100) tr("library.upload.processing") else tr("library.upload.uploading", p),
@@ -269,13 +178,18 @@ fun UploadGameDialog(
                     )
                 }
                 if (busy) {
-                    phase?.let {
+                    uploadState.phase?.let {
                         Text(
                             it,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    Text(
+                        tr("library.upload.background_hint"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 error?.let {
                     Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
@@ -292,13 +206,15 @@ fun UploadGameDialog(
         },
         confirmButton = {
             TextButton(
-                enabled = !busy && (singleFile != null || folderFiles.isNotEmpty()) && platformId != null,
+                enabled = !busy && (singleUri != null || treeUri != null) && platformId != null,
                 onClick = { runUpload() },
             ) { Text(tr("library.upload.start")) }
         },
         dismissButton = {
             if (busy) {
-                TextButton(onClick = { job?.cancel() }) { Text(tr("common.cancel")) }
+                TextButton(onClick = { UploadService.cancel(context) }) {
+                    Text(tr("common.cancel"))
+                }
             } else {
                 TextButton(onClick = onDismiss) { Text(tr("common.close")) }
             }

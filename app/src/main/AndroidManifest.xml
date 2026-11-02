@@ -61,6 +61,12 @@
             </intent-filter>
         </service>
 
+        <!-- Subida de juegos en primer plano (sobrevive a cerrar la app) -->
+        <service
+            android:name=".upload.UploadService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
         <!-- Vigilancia de saves en tiempo real (FileObserver + notificación fija) -->
         <service
             android:name=".data.sync.SaveSyncWatchService"

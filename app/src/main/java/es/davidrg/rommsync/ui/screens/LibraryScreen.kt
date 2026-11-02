@@ -799,8 +799,6 @@ fun LibraryScreen() {
     if (showUploadGame) {
         es.davidrg.rommsync.ui.components.UploadGameDialog(
             platforms = platforms,
-            serverUrl = settings.serverUrl,
-            apiKey = settings.apiKey,
             onDismiss = { showUploadGame = false },
         )
     }

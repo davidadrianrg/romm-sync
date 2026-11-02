@@ -10,9 +10,9 @@ import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.HttpException
+import kotlinx.coroutines.CancellationException
 import java.io.File
 import java.io.IOException
-import java.io.RandomAccessFile
 
 /**
  * Subida chunked de ROMs a RomM (mismo protocolo que la web):
@@ -32,10 +32,17 @@ class RomUploader(private val api: RomMApiService) {
         file: File,
         platformId: Int,
         onProgress: (Int) -> Unit = {},
+    ): Result<Unit> = upload(FileUploadSource(file), platformId, onProgress)
+
+    /** Sube desde cualquier [UploadSource] (p. ej. un SAF URI, sin copiarlo). */
+    suspend fun upload(
+        source: UploadSource,
+        platformId: Int,
+        onProgress: (Int) -> Unit = {},
     ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             val started = try {
-                startUpload(file, platformId, UploadStartRequest(filename = file.name, overwrite = false))
+                startUpload(source, platformId, UploadStartRequest(filename = source.name, overwrite = false))
             } catch (e: HttpException) {
                 val detail = serverDetail(e)
                 // La subida anterior (524 de Cloudflare) pudo completarse: el
@@ -43,13 +50,13 @@ class RomUploader(private val api: RomMApiService) {
                 // el duplicado con 400 "File ... already exists".
                 if (e.code() == 400 && detail?.contains("already exists", ignoreCase = true) == true) {
                     onProgress(100)
-                    if (awaitRomId(platformId, file.name) != null) return@runCatching
-                    throw IllegalStateException(tr("library.upload.already_exists", file.name), e)
+                    if (awaitRomId(platformId, source.name) != null) return@runCatching
+                    throw IllegalStateException(tr("library.upload.already_exists", source.name), e)
                 }
                 throw IllegalStateException("HTTP ${e.code()}: ${detail ?: e.message()}", e)
             }
-            sendChunks(file, started.uploadId, onProgress)
-            completeNewRom(started.uploadId, platformId, file.name)
+            sendChunks(source, started.uploadId, onProgress)
+            completeNewRom(started.uploadId, platformId, source.name)
             onProgress(100)
         }
     }
@@ -63,48 +70,83 @@ class RomUploader(private val api: RomMApiService) {
         romId: Int,
         platformId: Int,
         onProgress: (Int) -> Unit = {},
+    ): Result<Unit> = uploadIntoRom(FileUploadSource(file), romId, platformId, onProgress)
+
+    suspend fun uploadIntoRom(
+        source: UploadSource,
+        romId: Int,
+        platformId: Int,
+        onProgress: (Int) -> Unit = {},
     ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             val started = startUpload(
-                file,
+                source,
                 platformId,
-                UploadStartRequest(romId = romId, folder = "", filename = file.name, overwrite = true),
+                UploadStartRequest(romId = romId, folder = "", filename = source.name, overwrite = true),
             )
-            sendChunks(file, started.uploadId, onProgress)
-            completeIntoRom(started.uploadId, romId, file.name)
+            sendChunks(source, started.uploadId, onProgress)
+            completeIntoRom(started.uploadId, romId, source.name)
             onProgress(100)
         }
     }
 
     private suspend fun startUpload(
-        file: File,
+        source: UploadSource,
         platformId: Int,
         target: UploadStartRequest,
     ) = api.startRomUpload(
         platformId = platformId.toString(),
-        filename = file.name,
-        totalSize = file.length(),
-        totalChunks = totalChunks(file.length()),
+        filename = source.name,
+        totalSize = source.size,
+        totalChunks = totalChunks(source.size),
         target = target,
     )
 
-    private suspend fun sendChunks(file: File, uploadId: String, onProgress: (Int) -> Unit) {
-        val size = file.length()
+    private suspend fun sendChunks(
+        source: UploadSource,
+        uploadId: String,
+        onProgress: (Int) -> Unit,
+    ) {
+        val size = source.size
         if (size == 0L) return
         val chunks = totalChunks(size)
         val chunkSize = chunkSize(size, chunks)
         val mediaType = "application/octet-stream".toMediaType()
-        RandomAccessFile(file, "r").use { raf ->
-            var sent = 0L
-            for (index in 0 until chunks) {
-                val offset = chunkSize * index
-                val length = minOf(chunkSize, size - offset).toInt()
-                val buffer = ByteArray(length)
-                raf.seek(offset)
-                raf.readFully(buffer)
+        var sent = 0L
+        for (index in 0 until chunks) {
+            val offset = chunkSize * index
+            val length = minOf(chunkSize, size - offset).toInt()
+            val buffer = source.read(offset, length)
+            uploadChunkWithRetry(uploadId, index, buffer, mediaType)
+            sent += length
+            onProgress(((sent * 100) / size).toInt())
+        }
+    }
+
+    /**
+     * Un chunk puede fallar por un bache de Wi-Fi sin que la subida esté rota.
+     * Reintenta con backoff exponencial antes de abortar el juego completo.
+     */
+    private suspend fun uploadChunkWithRetry(
+        uploadId: String,
+        index: Int,
+        buffer: ByteArray,
+        mediaType: okhttp3.MediaType,
+    ) {
+        var attempt = 0
+        while (true) {
+            try {
+                // El body se recrea en cada intento: OkHttp lo consume.
                 api.uploadRomChunk(uploadId, index, buffer.toRequestBody(mediaType))
-                sent += length
-                onProgress(((sent * 100) / size).toInt())
+                return
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                val retryable = e is IOException ||
+                    (e is HttpException && (e.code() in 500..599 || e.code() == 408 || e.code() == 429))
+                attempt++
+                if (!retryable || attempt >= CHUNK_MAX_ATTEMPTS) throw e
+                delay(CHUNK_RETRY_BASE_MS * (1L shl (attempt - 1)))
             }
         }
     }
@@ -274,6 +316,9 @@ class RomUploader(private val api: RomMApiService) {
         const val VERIFY_ATTEMPTS = 30
         const val VERIFY_DELAY_MS = 10_000L
         const val CHUNK_TARGET = 8L * 1024 * 1024
+        /** 4 intentos: 1 s + 2 s + 4 s de margen ante baches cortos. */
+        const val CHUNK_MAX_ATTEMPTS = 4
+        const val CHUNK_RETRY_BASE_MS = 1_000L
 
         /** Escaneo: 180 × 2 s ≈ 6 min máximo, comprobando el id nuevo. */
         const val SCAN_ATTEMPTS = 180

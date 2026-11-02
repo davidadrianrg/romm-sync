@@ -33,7 +33,10 @@ object NetworkModule {
             .addInterceptor(loggingInterceptor)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(10, TimeUnit.MINUTES) // Large ROMs can stall on slow Wi-Fi
-            .writeTimeout(30, TimeUnit.SECONDS)
+            // Un chunk de 8 MB a 2 Mbps tarda ~32 s: 30 s abortaba la subida.
+            // El cuerpo se envía por partes y el timeout se reinicia con cada
+            // escritura, así que 10 min solo cubre un chunk realmente atascado.
+            .writeTimeout(10, TimeUnit.MINUTES)
             .retryOnConnectionFailure(true)
             .build()
     }
