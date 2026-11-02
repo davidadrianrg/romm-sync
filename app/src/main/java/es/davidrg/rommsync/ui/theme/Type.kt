@@ -2,32 +2,39 @@ package es.davidrg.rommsync.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
+private val DisplayFont = FontFamily.Serif
+
 val Typography = Typography(
     headlineLarge = TextStyle(
+        fontFamily = DisplayFont,
         fontWeight = FontWeight.Bold,
-        fontSize = 30.sp,
+        fontSize = 32.sp,
         lineHeight = 38.sp,
-        letterSpacing = (-0.5).sp,
+        letterSpacing = (-0.4).sp,
     ),
     headlineMedium = TextStyle(
+        fontFamily = DisplayFont,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 24.sp,
-        lineHeight = 30.sp,
-        letterSpacing = (-0.25).sp,
+        fontSize = 26.sp,
+        lineHeight = 32.sp,
+        letterSpacing = (-0.2).sp,
     ),
     headlineSmall = TextStyle(
+        fontFamily = DisplayFont,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 20.sp,
-        lineHeight = 26.sp,
+        fontSize = 21.sp,
+        lineHeight = 27.sp,
     ),
     titleLarge = TextStyle(
+        fontFamily = DisplayFont,
         fontWeight = FontWeight.Bold,
-        fontSize = 20.sp,
-        lineHeight = 26.sp,
-        letterSpacing = (-0.2).sp,
+        fontSize = 21.sp,
+        lineHeight = 27.sp,
+        letterSpacing = (-0.1).sp,
     ),
     titleMedium = TextStyle(
         fontWeight = FontWeight.SemiBold,

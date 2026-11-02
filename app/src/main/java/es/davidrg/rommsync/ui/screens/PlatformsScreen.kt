@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Deselect
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -69,7 +70,7 @@ import es.davidrg.rommsync.ui.viewmodel.PlatformsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PlatformsScreen() {
+fun PlatformsScreen(onBack: () -> Unit = {}) {
     val context = LocalContext.current
     val container = (context.applicationContext as RomMSyncApplication).container
 
@@ -110,6 +111,14 @@ fun PlatformsScreen() {
     Scaffold(
         topBar = {
             TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = tr("common.back"),
+                        )
+                    }
+                },
                 title = { Text(tr("nav.platforms")) },
                 modifier = Modifier.height(if (compact) 48.dp else 64.dp),
                 colors = TopAppBarDefaults.topAppBarColors(

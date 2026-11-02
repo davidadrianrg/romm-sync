@@ -1,7 +1,6 @@
 package es.davidrg.rommsync.ui.theme
 
 import android.app.Activity
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -88,8 +87,9 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun RomMSyncTheme(
-    // Sigue el tema del sistema; en consolas portátiles suele ser oscuro.
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    // La identidad de la app es oscura y cálida (papel, plástico, ámbar).
+    // El tema claro sigue disponible para quien lo fuerce desde código.
+    darkTheme: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme

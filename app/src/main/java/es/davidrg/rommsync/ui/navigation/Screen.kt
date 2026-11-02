@@ -36,10 +36,10 @@ enum class Screen(
         icon = Icons.Outlined.SportsEsports,
         selectedIcon = Icons.Filled.SportsEsports,
     ),
-    Shelf(
-        route = "shelf",
-        icon = Icons.Outlined.GridView,
-        selectedIcon = Icons.Filled.GridView,
+    Play(
+        route = "play",
+        icon = Icons.Outlined.SportsEsports,
+        selectedIcon = Icons.Filled.SportsEsports,
     ),
     Downloads(
         route = "downloads",

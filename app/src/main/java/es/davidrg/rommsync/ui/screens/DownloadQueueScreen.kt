@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CleaningServices
@@ -61,7 +62,7 @@ import es.davidrg.rommsync.ui.viewmodel.DownloadQueueViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DownloadQueueScreen() {
+fun DownloadQueueScreen(onBack: () -> Unit = {}) {
     val context = LocalContext.current
     val container = (context.applicationContext as RomMSyncApplication).container
 
@@ -81,6 +82,14 @@ fun DownloadQueueScreen() {
     Scaffold(
         topBar = {
             TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = tr("common.back"),
+                        )
+                    }
+                },
                 title = {
                     Column {
                         Text(tr("android.downloads.queue_title"))

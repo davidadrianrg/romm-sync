@@ -26,6 +26,7 @@ import androidx.compose.material.icons.outlined.DownloadForOffline
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.SystemUpdateAlt
 import androidx.compose.material.icons.outlined.WarningAmber
@@ -78,7 +79,7 @@ import es.davidrg.rommsync.util.rememberNotificationPermissionState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ConfigScreen() {
+fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
     val context = LocalContext.current
     val container = (context.applicationContext as RomMSyncApplication).container
 
@@ -133,7 +134,7 @@ fun ConfigScreen() {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(tr("platforms.card.configure")) },
+                title = { Text(tr("nav.config")) },
                 modifier = Modifier.height(if (compact) 48.dp else 64.dp),
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
@@ -308,6 +309,31 @@ fun ConfigScreen() {
                         Spacer(modifier = Modifier.size(6.dp))
                         Text(tr("android.config.select_sd_folder"))
                     }
+                }
+            }
+
+            // ── Plataformas ─────────────────────────────────────────────
+            SettingsSection(
+                icon = Icons.Outlined.Storage,
+                title = tr("settings.platforms.title"),
+            ) {
+                Text(
+                    tr("settings.platforms.description"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                FilledTonalButton(
+                    onClick = onOpenPlatforms,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(
+                        Icons.Outlined.Storage,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.size(6.dp))
+                    Text(tr("settings.platforms.open"))
                 }
             }
 

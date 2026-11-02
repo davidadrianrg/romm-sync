@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -137,7 +138,7 @@ private enum class RomFilter(val labelKey: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LibraryScreen() {
+fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
     val context = LocalContext.current
     val container = (context.applicationContext as RomMSyncApplication).container
     val windowInfo = es.davidrg.rommsync.ui.components.rememberWindowInfo()
@@ -454,7 +455,7 @@ fun LibraryScreen() {
                 ExposedDropdownMenuBox(
                     expanded = platformMenuExpanded,
                     onExpandedChange = { platformMenuExpanded = it },
-                    modifier = Modifier.weight(1f),
+                    modifier = if (isLandscape) Modifier.width(340.dp) else Modifier.weight(1f),
                 ) {
                     OutlinedTextField(
                         value = platforms.find { it.id == selectedPlatformId }?.name
@@ -486,6 +487,14 @@ fun LibraryScreen() {
                         }
                     }
                 }
+                if (isLandscape) {
+                    LibrarySearchField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        compact = compact,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
                 // Descargar faltantes (batch)
                 if (selectedPlatformId != null && missingRoms.isNotEmpty()) {
                     FilledTonalIconButton(
@@ -502,20 +511,17 @@ fun LibraryScreen() {
                 }
             }
 
-            // ── Fila 2: búsqueda ─────────────────────────────────────────
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                placeholder = { Text(tr("android.library.search_all_placeholder")) },
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                singleLine = true,
-                shape = fieldShape,
-                textStyle = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 6.dp)
-                    .height(if (compact) 46.dp else 56.dp),
-            )
+            // ── Fila 2: búsqueda (solo en vertical; en horizontal va al lado) ──
+            if (!isLandscape) {
+                LibrarySearchField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    compact = compact,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp),
+                )
+            }
 
             // ── Fila 3: filtros + orden + región + aleatorio ────────────
             Row(
@@ -549,6 +555,11 @@ fun LibraryScreen() {
                     IconButton(onClick = { selectedRom = romsWithStatus.random().rom }) {
                         Icon(Icons.Filled.Casino, contentDescription = tr("library.random_game"))
                     }
+                }
+
+                // Cola de descargas (ya no es una pestaña propia)
+                IconButton(onClick = onOpenDownloads) {
+                    Icon(Icons.Outlined.Download, contentDescription = tr("nav.downloads"))
                 }
 
                 // Subir juego al servidor
@@ -1855,4 +1866,23 @@ private fun formatFileSize(bytes: Long): String {
         unitIndex++
     }
     return if (unitIndex == 0) "${bytes}B" else String.format("%.1f %s", size, units[unitIndex])
+}
+
+@Composable
+private fun LibrarySearchField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    compact: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        placeholder = { Text(tr("android.library.search_all_placeholder")) },
+        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+        singleLine = true,
+        shape = RoundedCornerShape(12.dp),
+        textStyle = MaterialTheme.typography.bodyMedium,
+        modifier = modifier.height(if (compact) 46.dp else 56.dp),
+    )
 }

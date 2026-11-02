@@ -6,56 +6,57 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 // ─────────────────────────────────────────────────────────────────────────
-// Paleta "Midnight Arcade" — mismo esquema que la app Android, portado a
+// Paleta "Warm Archive" — mismo esquema que la app Android, portado a
 // Compose Desktop para que ambas plataformas compartan identidad visual.
 // Dark-first; la app desktop es siempre oscura (pantallas de handheld y
 // salón), así que solo se define el esquema oscuro.
 // ─────────────────────────────────────────────────────────────────────────
 
-private val Primary = Color(0xFF9FCAFF)
-private val OnPrimary = Color(0xFF003258)
-private val PrimaryContainer = Color(0xFF00497D)
-private val OnPrimaryContainer = Color(0xFFD2E4FF)
+private val Primary = Color(0xFFE7B46A)
+private val OnPrimary = Color(0xFF2A1A08)
+private val PrimaryContainer = Color(0xFF4A3320)
+private val OnPrimaryContainer = Color(0xFFF7E8CE)
 
-private val Secondary = Color(0xFF7FD98C)
-private val OnSecondary = Color(0xFF00390F)
-private val SecondaryContainer = Color(0xFF005319)
-private val OnSecondaryContainer = Color(0xFF9BF6A6)
+private val Secondary = Color(0xFF8FBF9A)
+private val OnSecondary = Color(0xFF10251A)
+private val SecondaryContainer = Color(0xFF24402E)
+private val OnSecondaryContainer = Color(0xFFC6E8CE)
 
-private val Tertiary = Color(0xFFFFB877)
-private val OnTertiary = Color(0xFF4D2700)
-private val TertiaryContainer = Color(0xFF6E3900)
-private val OnTertiaryContainer = Color(0xFFFFDCC1)
+private val Tertiary = Color(0xFFC98A5E)
+private val OnTertiary = Color(0xFF2B1608)
+private val TertiaryContainer = Color(0xFF4A2C1A)
+private val OnTertiaryContainer = Color(0xFFF4D9C7)
 
-private val ErrorColor = Color(0xFFFFB4AB)
-private val OnError = Color(0xFF690005)
-private val ErrorContainer = Color(0xFF93000A)
-private val OnErrorContainer = Color(0xFFFFDAD6)
+private val ErrorColor = Color(0xFFE08B7E)
+private val OnError = Color(0xFF3A0A06)
+private val ErrorContainer = Color(0xFF5A211A)
+private val OnErrorContainer = Color(0xFFF7D6D0)
 
-private val Background = Color(0xFF0B0F14)
-private val OnBackground = Color(0xFFDFE3E8)
-private val Surface = Color(0xFF0B0F14)
-private val OnSurface = Color(0xFFDFE3E8)
-private val SurfaceVariant = Color(0xFF40484F)
-private val OnSurfaceVariant = Color(0xFFBFC8D2)
-private val Outline = Color(0xFF89929C)
-private val OutlineVariant = Color(0xFF3E464F)
+private val Background = Color(0xFF0B0A09)
+private val OnBackground = Color(0xFFF2E6D2)
+private val Surface = Color(0xFF0B0A09)
+private val OnSurface = Color(0xFFF2E6D2)
+private val SurfaceVariant = Color(0xFF2A241C)
+private val OnSurfaceVariant = Color(0xFFBFB09A)
+private val Outline = Color(0xFF8A7A64)
+private val OutlineVariant = Color(0xFF3A3227)
 private val Scrim = Color(0xFF000000)
-private val InverseSurface = Color(0xFFDFE3E8)
-private val InverseOnSurface = Color(0xFF2C3137)
-private val InversePrimary = Color(0xFF0B5FA5)
+private val InverseSurface = Color(0xFFF2E6D2)
+private val InverseOnSurface = Color(0xFF2A241C)
+private val InversePrimary = Color(0xFF7A4F1E)
 
-private val SurfaceDim = Color(0xFF0B0F14)
-private val SurfaceBright = Color(0xFF31363D)
-private val SurfaceContainerLowest = Color(0xFF060A0E)
-private val SurfaceContainerLow = Color(0xFF12171D)
-private val SurfaceContainer = Color(0xFF161C23)
-private val SurfaceContainerHigh = Color(0xFF20262E)
-private val SurfaceContainerHighest = Color(0xFF2B313A)
+private val SurfaceDim = Color(0xFF0B0A09)
+private val SurfaceBright = Color(0xFF3A3227)
+private val SurfaceContainerLowest = Color(0xFF070606)
+private val SurfaceContainerLow = Color(0xFF12100D)
+private val SurfaceContainer = Color(0xFF191611)
+private val SurfaceContainerHigh = Color(0xFF221D16)
+private val SurfaceContainerHighest = Color(0xFF2C261D)
 
 private val MidnightArcadeScheme = darkColorScheme(
     primary = Primary,
@@ -96,25 +97,31 @@ private val MidnightArcadeScheme = darkColorScheme(
 )
 
 // Escala tipográfica idéntica a la de Android (Type.kt) para paridad visual.
+private val DisplayFont = FontFamily.Serif
+
 val DesktopTypography = Typography(
     headlineLarge = TextStyle(
+        fontFamily = DisplayFont,
         fontWeight = FontWeight.Bold,
         fontSize = 30.sp,
         lineHeight = 38.sp,
         letterSpacing = (-0.5).sp,
     ),
     headlineMedium = TextStyle(
+        fontFamily = DisplayFont,
         fontWeight = FontWeight.SemiBold,
         fontSize = 24.sp,
         lineHeight = 30.sp,
         letterSpacing = (-0.25).sp,
     ),
     headlineSmall = TextStyle(
+        fontFamily = DisplayFont,
         fontWeight = FontWeight.SemiBold,
         fontSize = 20.sp,
         lineHeight = 26.sp,
     ),
     titleLarge = TextStyle(
+        fontFamily = DisplayFont,
         fontWeight = FontWeight.Bold,
         fontSize = 20.sp,
         lineHeight = 26.sp,

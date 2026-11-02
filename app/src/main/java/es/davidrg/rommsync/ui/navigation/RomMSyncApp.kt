@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -43,7 +44,7 @@ import es.davidrg.rommsync.ui.screens.ConfigScreen
 import es.davidrg.rommsync.ui.screens.DownloadQueueScreen
 import es.davidrg.rommsync.ui.screens.LibraryScreen
 import es.davidrg.rommsync.ui.screens.PlatformsScreen
-import es.davidrg.rommsync.ui.screens.ShelfScreen
+import es.davidrg.rommsync.ui.screens.PlayScreen
 import es.davidrg.rommsync.ui.screens.SyncScreen
 import es.davidrg.rommsync.util.hasAllFilesAccess
 
@@ -72,14 +73,14 @@ fun RomMSyncApp() {
     // devolvemos a Biblioteca para no dejar un destino inalcanzable.
     LaunchedEffect(saveSyncEnabled) {
         if (!saveSyncEnabled && currentDestination?.route == Screen.Sync.route) {
-            navigateTo(Screen.Library.route, navController)
+            navigateTo(Screen.Play.route, navController)
         }
     }
 
     // En horizontal (portátiles 16:9 / 4:3) un rail lateral libera la altura
     // que consumía la bottom bar: todo el alto de pantalla para el contenido.
     if (windowInfo.isLandscape && !needsOnboarding) {
-        Row(modifier = Modifier.fillMaxSize()) {
+        Row(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
             AppNavRail(currentDestination, navItems) { route -> navigateTo(route, navController) }
             AppNavHost(
                 navController = navController,
@@ -117,7 +118,23 @@ private fun AppNavRail(
 ) {
     NavigationRail(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        header = {},
+        header = {
+            androidx.compose.foundation.layout.Column(
+                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                modifier = Modifier.padding(top = 10.dp, bottom = 14.dp),
+            ) {
+                Text(
+                    "ROM",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    "SYNC",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
     ) {
         navItems.forEach { screen ->
             val selected = isSelected(screen.route, currentDestination)
@@ -187,19 +204,31 @@ private fun AppNavHost(
 ) {
     NavHost(
         navController = navController,
-        startDestination = if (needsOnboarding) Screen.Config.route else Screen.Library.route,
+        startDestination = if (needsOnboarding) Screen.Config.route else Screen.Play.route,
         modifier = modifier,
         enterTransition = { fadeIn(tween(220)) + slideInHorizontally(tween(220)) { it / 8 } },
         exitTransition = { fadeOut(tween(180)) },
         popEnterTransition = { fadeIn(tween(220)) },
         popExitTransition = { fadeOut(tween(180)) + slideOutHorizontally(tween(220)) { it / 8 } },
     ) {
-        composable(Screen.Library.route) { LibraryScreen() }
-        composable(Screen.Shelf.route) { ShelfScreen() }
-        composable(Screen.Platforms.route) { PlatformsScreen() }
-        composable(Screen.Downloads.route) { DownloadQueueScreen() }
+        composable(Screen.Play.route) {
+            PlayScreen(
+                onOpenDownloads = { navController.navigate(Screen.Downloads.route) },
+            )
+        }
+        composable(Screen.Library.route) {
+            LibraryScreen(
+                onOpenDownloads = { navController.navigate(Screen.Downloads.route) },
+            )
+        }
+        composable(Screen.Platforms.route) { PlatformsScreen(onBack = { navController.popBackStack() }) }
+        composable(Screen.Downloads.route) { DownloadQueueScreen(onBack = { navController.popBackStack() }) }
         composable(Screen.Sync.route) { SyncScreen() }
-        composable(Screen.Config.route) { ConfigScreen() }
+        composable(Screen.Config.route) {
+            ConfigScreen(
+                onOpenPlatforms = { navController.navigate(Screen.Platforms.route) },
+            )
+        }
     }
 }
 
@@ -218,10 +247,8 @@ private fun navigateTo(route: String, navController: NavHostController) {
 
 // Order: Library (home) → Platforms → Downloads → Sync → Config
 private val bottomNavItems = listOf(
+    Screen.Play,
     Screen.Library,
-    Screen.Shelf,
-    Screen.Platforms,
-    Screen.Downloads,
     Screen.Sync,
     Screen.Config,
 )
