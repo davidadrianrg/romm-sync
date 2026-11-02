@@ -30,8 +30,8 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
-/** Sección activa de la navegación desktop. */
-enum class Section { PLATFORMS, LIBRARY, SHELF, DOWNLOADS, SAVES, SETTINGS }
+/** Sección activa de la navegación desktop (4 destinos como Android). */
+enum class Section { PLAY, LIBRARY, SAVES, SETTINGS, PLATFORMS, DOWNLOADS }
 
 /** Filtro de la biblioteca. */
 enum class LibraryFilter { ALL, MISSING, DOWNLOADED }
@@ -97,7 +97,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
     /** Fingerprints sellados por ROM (atajo del ciclo de sync). */
     private val hashStore = DesktopHashStore(File(DesktopConfig.configDir, "sync-hashes.properties"))
 
-    private val _section = MutableStateFlow(Section.PLATFORMS)
+    private val _section = MutableStateFlow(Section.PLAY)
     val section: StateFlow<Section> = _section
 
     private val _connected = MutableStateFlow(false)
@@ -507,6 +507,54 @@ class DesktopAppState(private val scope: CoroutineScope) {
         persistManualIds()
         _downloadedVersion.value = _downloadedVersion.value + 1
         showSnackbar(tr("library.unmarked_downloaded", card.rep.name))
+    }
+
+    /** IDs marcados a mano; el launcher los incluye aunque no tengan fichero. */
+    fun manualDownloadedIds(): Set<Int> = manualIds.toSet()
+
+    // ── Launcher: medio físico y apertura local ─────────────────────────
+
+    private val physicalIds: MutableSet<Int> = ConcurrentHashMap.newKeySet<Int>().apply {
+        DesktopConfig.physicalMediaIds.split(',')
+            .mapNotNull { it.trim().toIntOrNull() }
+            .forEach { add(it) }
+    }
+
+    fun isPhysicalMedia(romId: Int): Boolean = romId in physicalIds
+
+    /** Alterna carta ↔ medio físico persistido por ROM. */
+    fun togglePhysicalMedia(romId: Int) {
+        if (!physicalIds.remove(romId)) physicalIds.add(romId)
+        DesktopConfig.physicalMediaIds = physicalIds.joinToString(",")
+        _downloadedVersion.value = _downloadedVersion.value + 1
+    }
+
+    /**
+     * Abre la ROM local con la aplicación asociada del sistema. En Linux esto
+     * permite que el emulador configurado en el escritorio (RetroArch, Dolphin,
+     * PPSSPP…) arranque el fichero. Si no hay ruta local, devuelve el aviso.
+     */
+    fun openLocalGame(card: GameCard): Boolean {
+        val entry = library.rom(card.rep.id)
+            ?: card.groupRoms.asSequence().mapNotNull { library.rom(it.id) }.firstOrNull()
+        val path = entry?.localPath?.takeIf { it.isNotBlank() }
+        if (path == null) {
+            showSnackbar(tr("launcher.desktop.no_file"))
+            return false
+        }
+        val file = File(path)
+        if (!file.exists()) {
+            showSnackbar(tr("launcher.desktop.file_missing", path))
+            return false
+        }
+        return runCatching {
+            if (!java.awt.Desktop.isDesktopSupported()) error("desktop unsupported")
+            java.awt.Desktop.getDesktop().open(file)
+            true
+        }.getOrElse { error ->
+            showSnackbar(tr("launcher.desktop.open_failed", error.message ?: error.javaClass.simpleName))
+            false
+        }
     }
 
     // ── Biblioteca: agrupado, filtro y búsqueda ─────────────────────────

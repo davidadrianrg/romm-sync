@@ -108,16 +108,31 @@ private fun DesktopAppContent(state: DesktopAppState) {
     }
 
     Box(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxSize()) {
-            AppNavigationRail(state, section)
-            Surface(Modifier.weight(1f).fillMaxSize()) {
-                when (section) {
-                    Section.PLATFORMS -> PlatformsScreen(state)
-                    Section.LIBRARY -> LibraryScreen(state)
-                    Section.SHELF -> ShelfScreen(state)
-                    Section.DOWNLOADS -> DownloadsScreen(state)
-                    Section.SAVES -> SavesScreen(state)
-                    Section.SETTINGS -> SettingsScreen(state)
+        if (section == Section.PLAY) {
+            DesktopPlayScreen(
+                state = state,
+                onOpenLibrary = { state.navigate(Section.LIBRARY) },
+                onOpenDownloads = { state.navigate(Section.DOWNLOADS) },
+                onNavigate = { state.navigate(it) },
+            )
+        } else {
+            Row(Modifier.fillMaxSize()) {
+                AppNavigationRail(state, section)
+                Surface(Modifier.weight(1f).fillMaxSize()) {
+                    when (section) {
+                        Section.PLAY -> Unit
+                        Section.PLATFORMS -> PlatformsScreen(
+                            state,
+                            onBack = { state.navigate(Section.SETTINGS) },
+                        )
+                        Section.LIBRARY -> LibraryScreen(state)
+                        Section.DOWNLOADS -> DownloadsScreen(
+                            state,
+                            onBack = { state.navigate(Section.PLAY) },
+                        )
+                        Section.SAVES -> SavesScreen(state)
+                        Section.SETTINGS -> SettingsScreen(state)
+                    }
                 }
             }
         }
@@ -163,13 +178,11 @@ private fun AppNavigationRail(state: DesktopAppState, section: Section) {
         },
     ) {
         Spacer(Modifier.height(12.dp))
-        RailItem(state, Section.PLATFORMS, section, AppIcons.Storage, tr("nav.platforms"))
-        RailItem(state, Section.LIBRARY, section, AppIcons.Gamepad, tr("nav.library"))
-        RailItem(state, Section.SHELF, section, AppIcons.Shelf, tr("nav.shelf"))
         RailItem(
-            state, Section.DOWNLOADS, section, AppIcons.Download, tr("nav.downloads"),
+            state, Section.PLAY, section, AppIcons.PlayArrow, tr("nav.play"),
             badge = activeDownloads.takeIf { it > 0 },
         )
+        RailItem(state, Section.LIBRARY, section, AppIcons.Gamepad, tr("nav.library"))
         RailItem(state, Section.SAVES, section, AppIcons.Sync, tr("nav.saves"))
         RailItem(state, Section.SETTINGS, section, AppIcons.Settings, tr("nav.settings"))
         Spacer(Modifier.weight(1f))
@@ -215,7 +228,7 @@ private fun RailItem(
 // ═══════════════════════════════════════════════════════════════════════
 
 @Composable
-fun PlatformsScreen(state: DesktopAppState) {
+fun PlatformsScreen(state: DesktopAppState, onBack: (() -> Unit)? = null) {
     val platforms by state.platforms.collectAsState()
     val hidden by state.hiddenPlatforms.collectAsState()
     val loading by state.loadingPlatforms.collectAsState()
@@ -230,6 +243,7 @@ fun PlatformsScreen(state: DesktopAppState) {
         ScreenHeader(
             tr("nav.platforms"),
             subtitle = tr("platforms.visible_count", platforms.size - hidden.size, platforms.size),
+            onBack = onBack,
         ) {
             IconButton(onClick = state::refreshCurrentView, enabled = connected) {
                 Icon(AppIcons.Refresh, contentDescription = tr("platforms.refresh"))
@@ -510,6 +524,17 @@ fun LibraryScreen(state: DesktopAppState) {
                             onClick = { state.selectPlatformBySlug(p.slug); platMenu = false },
                         )
                     }
+                }
+            }
+            Spacer(Modifier.width(8.dp))
+            IconButton(onClick = { state.navigate(Section.DOWNLOADS) }) {
+                val active = tasks.count { it.active }
+                if (active > 0) {
+                    BadgedBox(badge = { Badge(containerColor = MaterialTheme.colorScheme.error) { Text("$active") } }) {
+                        Icon(AppIcons.Download, contentDescription = tr("nav.downloads"))
+                    }
+                } else {
+                    Icon(AppIcons.Download, contentDescription = tr("nav.downloads"))
                 }
             }
             Spacer(Modifier.width(8.dp))
@@ -886,7 +911,7 @@ private fun visiblePlatformsLabel(state: DesktopAppState, selSlug: String?): Str
 // ═══════════════════════════════════════════════════════════════════════
 
 @Composable
-fun DownloadsScreen(state: DesktopAppState) {
+fun DownloadsScreen(state: DesktopAppState, onBack: (() -> Unit)? = null) {
     val tasks by state.tasks.collectAsState()
     val active = tasks.count { it.active }
 
@@ -894,6 +919,7 @@ fun DownloadsScreen(state: DesktopAppState) {
         ScreenHeader(
             tr("nav.downloads"),
             subtitle = if (active > 0) tr("downloads.in_progress", active) else tr("downloads.in_list", tasks.size),
+            onBack = onBack,
         ) {
             if (tasks.any { !it.active }) {
                 TextButton(onClick = state::clearFinished) { Text(tr("downloads.clear_finished")) }
@@ -1421,6 +1447,21 @@ fun SettingsScreen(state: DesktopAppState) {
             }
         }
 
+        // ── Plataformas ──
+        SettingsSection(icon = AppIcons.Storage, title = tr("settings.platforms.title")) {
+            Text(
+                tr("settings.platforms.description"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(10.dp))
+            FilledTonalButton(onClick = { state.navigate(Section.PLATFORMS) }) {
+                Icon(AppIcons.Storage, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(tr("settings.platforms.open"))
+            }
+        }
+
         // ── Directorio de ROMs ──
         SettingsSection(icon = AppIcons.Folder, title = tr("settings.roms.title")) {
             OutlinedTextField(
@@ -1689,255 +1730,6 @@ fun SettingsScreen(state: DesktopAppState) {
                 tr("settings.about.shortcuts"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-
-
-// ── Estantería (desktop) ─────────────────────────────────────────────
-
-private val ShelfBgTopD = Color(0xFF1D130C)
-private val ShelfBgBottomD = Color(0xFF0A0705)
-private val WoodLightD = Color(0xFF9A6636)
-private val WoodMidD = Color(0xFF5E3A1E)
-private val WoodDarkD = Color(0xFF351E0E)
-private val ShelfCreamD = Color(0xFFF4E4C9)
-private val ShelfAmberD = Color(0xFFD9A15B)
-
-/**
- * Estantería retro (desktop): todos los juegos descargados sobre baldas de
- * madera. El detalle se abre dentro de la propia sección, igual que Android.
- */
-@Composable
-fun ShelfScreen(state: DesktopAppState) {
-    var items by remember { mutableStateOf<List<Pair<DesktopLibrary.RomEntry, RomDto>>>(emptyList()) }
-    var loading by remember { mutableStateOf(true) }
-    val selectedGame by state.selectedGame.collectAsState()
-    var detailDto by remember { mutableStateOf<RomDto?>(null) }
-    var platformFilter by remember { mutableStateOf<String?>(null) }
-
-    // El botón "Volver" de GameDetailPanel limpia selectedGame: cerramos el detalle.
-    LaunchedEffect(selectedGame) {
-        if (selectedGame == null) detailDto = null
-    }
-
-    LaunchedEffect(Unit) {
-        val entries = state.library.roms()
-        // Metadatos por plataforma (misma fuente que la Biblioteca).
-        val platformMeta = entries.map { it.platformSlug }.distinct().associateWith { slug ->
-            runCatching { state.fetchPlatformRomMeta(slug) }.getOrDefault(emptyMap())
-        }
-        val loaded = entries.map { entry ->
-            val dto = platformMeta[entry.platformSlug]?.get(entry.romId)
-                ?: state.fetchRomMeta(entry.romId)
-                ?: RomDto(
-                    id = entry.romId,
-                    name = entry.name,
-                    fileName = entry.fileName,
-                    platformId = 0,
-                    platformSlug = entry.platformSlug,
-                )
-            entry to dto
-        }
-        items = loaded.sortedBy { it.second.name.lowercase() }
-        loading = false
-    }
-
-    val platformsInShelf = remember(items) {
-        items.map { (entry, dto) -> (dto.platformSlug ?: entry.platformSlug) to shelfPlatformLabel(state, dto, entry) }
-            .distinctBy { it.first }
-            .sortedBy { it.second }
-    }
-    LaunchedEffect(platformsInShelf) {
-        if (platformFilter != null && platformsInShelf.none { it.first == platformFilter }) {
-            platformFilter = null
-        }
-    }
-    val visibleItems = items.filter { (entry, dto) ->
-        platformFilter == null || (dto.platformSlug ?: entry.platformSlug) == platformFilter
-    }
-
-    Box(
-        Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(ShelfBgTopD, ShelfBgBottomD))),
-    ) {
-        val dto = detailDto
-        if (dto != null) {
-            GameDetailPanel(GameCard(dto, 1, listOf(dto), true), state)
-        } else {
-            Column(Modifier.fillMaxSize()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            tr("nav.shelf"),
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = ShelfCreamD,
-                        )
-                        Text(
-                            tr("shelf.subtitle"),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = ShelfCreamD.copy(alpha = 0.55f),
-                        )
-                    }
-                    if (visibleItems.isNotEmpty() || items.isNotEmpty()) {
-                        Text(
-                            tr("shelf.count", visibleItems.size.toString()),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color(0xFF241407),
-                            modifier = Modifier
-                                .background(ShelfAmberD, RoundedCornerShape(50))
-                                .padding(horizontal = 10.dp, vertical = 4.dp),
-                        )
-                    }
-                }
-
-                if (platformsInShelf.size > 1) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        FilterChip(
-                            selected = platformFilter == null,
-                            onClick = { platformFilter = null },
-                            label = { Text(tr("shelf.filter.all")) },
-                        )
-                        platformsInShelf.forEach { (slug, label) ->
-                            FilterChip(
-                                selected = platformFilter == slug,
-                                onClick = { platformFilter = slug },
-                                label = { Text(label) },
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                }
-
-                when {
-                    loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = ShelfAmberD)
-                    }
-                    items.isEmpty() -> Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-                        Text(
-                            tr("shelf.empty"),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = ShelfCreamD.copy(alpha = 0.65f),
-                        )
-                    }
-                    else -> BoxWithConstraints(Modifier.fillMaxSize()) {
-                        val columns = ((maxWidth - 32.dp) / 170.dp).toInt().coerceAtLeast(2)
-                        LazyColumn(
-                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 28.dp),
-                            verticalArrangement = Arrangement.spacedBy(20.dp),
-                            modifier = Modifier.fillMaxSize(),
-                        ) {
-                            items(visibleItems.chunked(columns)) { rowItems ->
-                                Column {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                        verticalAlignment = Alignment.Bottom,
-                                    ) {
-                                        rowItems.forEach { (entry, romDto) ->
-                                            DesktopShelfCard(
-                                                entry = entry,
-                                                dto = romDto,
-                                                state = state,
-                                                modifier = Modifier.weight(1f),
-                                                onClick = {
-                                                    state.openGame(GameCard(romDto, 1, listOf(romDto), true))
-                                                    detailDto = romDto
-                                                },
-                                            )
-                                        }
-                                        repeat(columns - rowItems.size) { Spacer(Modifier.weight(1f)) }
-                                    }
-                                    Spacer(Modifier.height(6.dp))
-                                    DesktopWoodPlank()
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun DesktopWoodPlank() {
-    Column(Modifier.fillMaxWidth()) {
-        Box(Modifier.fillMaxWidth().height(2.dp).background(Color(0xFFB07C46)))
-        Box(
-            Modifier.fillMaxWidth().height(14.dp).background(
-                Brush.verticalGradient(listOf(WoodLightD, WoodMidD, WoodDarkD)),
-            ),
-        )
-        Box(Modifier.fillMaxWidth().height(3.dp).background(Color.Black.copy(alpha = 0.45f)))
-    }
-}
-
-private fun shelfPlatformLabel(state: DesktopAppState, dto: RomDto, entry: DesktopLibrary.RomEntry): String {
-    val slug = dto.platformSlug ?: entry.platformSlug
-    return state.platforms.value.firstOrNull { it.slug == slug }?.name ?: slug.uppercase()
-}
-
-@Composable
-private fun DesktopShelfCard(
-    entry: DesktopLibrary.RomEntry,
-    dto: RomDto,
-    state: DesktopAppState,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    val platformLabel = shelfPlatformLabel(state, dto, entry)
-
-    Box(
-        modifier = modifier
-            .shadow(8.dp, RoundedCornerShape(4.dp))
-            .clip(RoundedCornerShape(4.dp))
-            .background(Color(0xFF241A12))
-            .border(1.dp, Color(0x55FFD9A0), RoundedCornerShape(4.dp))
-            .clickable(onClick = onClick),
-    ) {
-        Box(Modifier.fillMaxWidth().aspectRatio(0.70f)) {
-            CoverImage(
-                coverUrl = dto.urlCover,
-                pathCover = dto.pathCoverLarge ?: dto.pathCoverSmall,
-                serverUrl = state.config.serverUrl,
-                aspectRatio = 0.70f,
-            )
-            Box(
-                Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(40.dp)
-                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.82f)))),
-            )
-            Text(
-                dto.name,
-                style = MaterialTheme.typography.labelMedium,
-                color = Color.White,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = 6.dp, vertical = 4.dp),
-            )
-            Text(
-                platformLabel,
-                style = MaterialTheme.typography.labelSmall,
-                color = ShelfCreamD,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(5.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color(0xCC1A110A))
-                    .border(1.dp, Color(0x66D9A15B), RoundedCornerShape(4.dp))
-                    .padding(horizontal = 5.dp, vertical = 1.dp),
             )
         }
     }

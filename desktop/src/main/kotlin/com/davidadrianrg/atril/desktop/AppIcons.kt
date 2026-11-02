@@ -26,6 +26,11 @@ object AppIcons {
         "M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z" to null
     }
 
+    /** Menú hamburguesa: navegación overlay del launcher. */
+    val Menu: ImageVector = icon("menu") {
+        "M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" to null
+    }
+
     /** Flecha hacia bandeja: descarga de ROM. */
     val Download: ImageVector = icon("download") {
         "M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" to null

@@ -103,6 +103,11 @@ object DesktopConfig {
         get() = prefs.get("manual_downloaded", "")
         set(v) = prefs.put("manual_downloaded", v)
 
+    /** ROMs mostrados como medio físico en el launcher (CSV de romIds). */
+    var physicalMediaIds: String
+        get() = prefs.get("physical_media_ids", "")
+        set(v) = prefs.put("physical_media_ids", v)
+
     /** Versión de la app desktop (para el comprobador de actualizaciones). */
-    const val appVersion: String = "0.9.0"
+    const val appVersion: String = "0.9.1"
 }

@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.davidadrianrg.atril.core.i18n.tr
 import java.io.File
 import javax.swing.JFileChooser
 
@@ -99,9 +101,16 @@ fun EmptyState(
 fun ScreenHeader(
     title: String,
     subtitle: String? = null,
+    onBack: (() -> Unit)? = null,
     actions: @Composable () -> Unit = {},
 ) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        if (onBack != null) {
+            IconButton(onClick = onBack) {
+                Icon(AppIcons.ArrowBack, contentDescription = tr("common.back"))
+            }
+            Spacer(Modifier.width(4.dp))
+        }
         Column {
             Text(title, style = MaterialTheme.typography.headlineSmall)
             if (!subtitle.isNullOrBlank()) {

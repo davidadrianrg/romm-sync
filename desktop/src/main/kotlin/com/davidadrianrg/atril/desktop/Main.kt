@@ -67,11 +67,10 @@ fun main() {
         DisposableEffect(state) {
             val dispatcher = KeyEventDispatcher { e ->
                 if (e.id == KeyEvent.KEY_PRESSED) {
-                    val sections = Section.entries
+                    val sections = listOf(Section.PLAY, Section.LIBRARY, Section.SAVES, Section.SETTINGS)
                     when {
                         (e.keyCode == KeyEvent.VK_1 || e.keyCode == KeyEvent.VK_2 ||
-                            e.keyCode == KeyEvent.VK_3 || e.keyCode == KeyEvent.VK_4 ||
-                            e.keyCode == KeyEvent.VK_5) && e.isControlDown -> {
+                            e.keyCode == KeyEvent.VK_3 || e.keyCode == KeyEvent.VK_4) && e.isControlDown -> {
                             val idx = e.keyCode - KeyEvent.VK_1
                             if (idx in sections.indices) state.navigate(sections[idx])
                             true
