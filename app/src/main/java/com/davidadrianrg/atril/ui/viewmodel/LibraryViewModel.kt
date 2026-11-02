@@ -12,6 +12,7 @@ import com.davidadrianrg.atril.domain.model.ErrorKind
 import com.davidadrianrg.atril.domain.model.Rom
 import com.davidadrianrg.atril.domain.model.RomWithStatus
 import com.davidadrianrg.atril.download.DownloadManager
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -245,7 +246,18 @@ class LibraryViewModel(
      * Pass empty string to clear search and reload full list.
      */
     fun searchRoms(query: String, serverUrl: String, apiKey: String) {
-        currentSearch = query.ifBlank { null }
+        val newSearch = query.ifBlank { null }
+        // El LaunchedEffect de la pantalla emite "" al elegir plataforma, justo
+        // cuando selectPlatform ya está cargando lo mismo: no duplicar la petición.
+        if (!shouldReloadForSearch(
+                newSearch = newSearch,
+                currentSearch = currentSearch,
+                hasPlatform = _selectedPlatformId.value != null,
+                isLoading = _isLoading.value,
+                hasRoms = _roms.value.isNotEmpty(),
+            )
+        ) return
+        currentSearch = newSearch
         _platformAllRoms.value = emptyList()
         loadRoms(serverUrl, apiKey, reset = true)
     }
@@ -440,11 +452,24 @@ class LibraryViewModel(
             _error.value = null
             romRepository.configureApi(serverUrl, apiKey)
             val offset = if (reset) 0 else _roms.value.size
-            when (val result = romRepository.fetchRoms(
+            var fetched = romRepository.fetchRoms(
                 platformId,
                 offset = offset,
                 search = currentSearch,
-            )) {
+            )
+            // Un 5xx o un corte de red puntual no debe enseñar un error si el
+            // segundo intento funciona (RomM devuelve 500 de forma intermitente).
+            if (fetched is ApiResult.Error && fetched.kind.isTransient() && generation == loadGeneration) {
+                delay(RETRY_DELAY_MS)
+                if (generation == loadGeneration) {
+                    fetched = romRepository.fetchRoms(
+                        platformId,
+                        offset = offset,
+                        search = currentSearch,
+                    )
+                }
+            }
+            when (val result = fetched) {
                 is ApiResult.Success -> {
                     if (generation == loadGeneration) {
                         _roms.value = if (reset) result.data else _roms.value + result.data
@@ -468,6 +493,29 @@ class LibraryViewModel(
 
     /** Token de la última carga lanzada (guard anti-respuesta-obsoleta). */
     private var loadGeneration = 0
+}
+
+/** Pausa antes del reintento automático de una carga fallida de forma transitoria. */
+private const val RETRY_DELAY_MS = 600L
+
+/** Errores que merece la pena reintentar una vez: servidor (5xx) o red. */
+internal fun ErrorKind.isTransient(): Boolean = this == ErrorKind.SERVER || this == ErrorKind.NETWORK
+
+/**
+ * Decide si una búsqueda debe lanzar una nueva carga. Se evita cuando pide lo
+ * mismo que ya está cargado o en curso; si la carga previa falló y no hay
+ * ROMs, sí se vuelve a intentar.
+ */
+internal fun shouldReloadForSearch(
+    newSearch: String?,
+    currentSearch: String?,
+    hasPlatform: Boolean,
+    isLoading: Boolean,
+    hasRoms: Boolean,
+): Boolean {
+    if (!hasPlatform) return true
+    if (newSearch != currentSearch) return true
+    return !(isLoading || hasRoms)
 }
 
 /**
