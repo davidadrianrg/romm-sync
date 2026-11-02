@@ -47,6 +47,10 @@ class SettingsDataStore(private val context: Context) {
         val DEVICE_ID = intPreferencesKey("sync_device_id")
         val DEVICE_ID_STRING = stringPreferencesKey("sync_device_id_string")
         val SAVE_SYNC_ENABLED = stringPreferencesKey("save_sync_enabled")
+        /** Presentación por defecto en el launcher: `card` | `physical`. */
+        val LAUNCHER_DEFAULT_DISPLAY = stringPreferencesKey("launcher_default_display")
+        /** Emulador de lanzamiento por plataforma: `slug=familia;slug=familia`. */
+        val LAUNCH_EMULATOR_OVERRIDES = stringPreferencesKey("launch_emulator_overrides")
         /** Vigilancia en tiempo real de carpetas de saves (foreground service). */
         val SAVE_SYNC_WATCH_ENABLED = booleanPreferencesKey("save_sync_watch_enabled")
         val LAST_SYNC_TIMESTAMP = longPreferencesKey("last_sync_timestamp")
@@ -326,6 +330,34 @@ class SettingsDataStore(private val context: Context) {
         runBlocking {
             context.dataStore.data.first()[LAST_SYNC_CONFLICTS_JSON] ?: "[]"
         }
+
+    val launcherDefaultDisplay: Flow<String> = context.dataStore.data.map {
+        it[LAUNCHER_DEFAULT_DISPLAY] ?: "card"
+    }
+
+    suspend fun setLauncherDefaultDisplay(mode: String) {
+        context.dataStore.edit { it[LAUNCHER_DEFAULT_DISPLAY] = mode }
+    }
+
+    val launchEmulatorOverrides: Flow<Map<String, String>> = context.dataStore.data.map {
+        decodeOverrides(it[LAUNCH_EMULATOR_OVERRIDES].orEmpty())
+    }
+
+    /** Fija (o borra con null) el emulador de lanzamiento de una plataforma. */
+    suspend fun setLaunchEmulatorOverride(platformSlug: String, familyId: String?) {
+        context.dataStore.edit { prefs ->
+            val current = decodeOverrides(prefs[LAUNCH_EMULATOR_OVERRIDES].orEmpty()).toMutableMap()
+            if (familyId.isNullOrBlank()) current.remove(platformSlug) else current[platformSlug] = familyId
+            prefs[LAUNCH_EMULATOR_OVERRIDES] = current.entries.joinToString(";") { "${it.key}=${it.value}" }
+        }
+    }
+
+    private fun decodeOverrides(raw: String): Map<String, String> =
+        raw.split(';').mapNotNull { entry ->
+            val key = entry.substringBefore('=', "").trim()
+            val value = entry.substringAfter('=', "").trim()
+            if (key.isEmpty() || value.isEmpty()) null else key to value
+        }.toMap()
 
     suspend fun setSaveSyncEnabled(enabled: Boolean) {
         context.dataStore.edit { it[SAVE_SYNC_ENABLED] = if (enabled) "true" else "false" }

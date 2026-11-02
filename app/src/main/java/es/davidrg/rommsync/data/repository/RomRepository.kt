@@ -585,6 +585,8 @@ class RomRepository(
             manualPath = pathManual?.let { baseCoverUrl + it.removePrefix("/") },
             youtubeVideoId = youtubeVideoId,
             igdbMetadata = igdbMetadata?.toDomain(),
+            physicalMediaUrl = es.davidrg.rommsync.core.library.PhysicalMedia
+                .resourceUrl(currentServerUrl, physicalMediaPath),
         )
     }
 
