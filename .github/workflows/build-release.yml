@@ -6,6 +6,9 @@ name: Build & Release APK
 on:
   push:
     branches: [master]
+    paths:
+      - 'app/build.gradle.kts'
+  workflow_dispatch:
 
 concurrency:
   group: build-${{ github.ref }}

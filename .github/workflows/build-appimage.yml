@@ -11,6 +11,9 @@ name: Build & Release AppImage
 on:
   push:
     branches: [master]
+    paths:
+      - 'app/build.gradle.kts'
+  workflow_dispatch:
 
 concurrency:
   group: appimage-${{ github.ref }}
