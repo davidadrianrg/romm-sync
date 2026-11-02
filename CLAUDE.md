@@ -51,9 +51,15 @@ DISPLAY=:0 ./gradlew :desktop:run
 
 ### Tests
 
+This host has no system JDK; Gradle needs JDK 17 from `~/.hermes/jdk` (otherwise it fails with "Cannot find a Java installation ... languageVersion=17"):
+
 ```bash
+export JAVA_HOME="$HOME/.hermes/jdk" ANDROID_HOME="$HOME/.hermes/android-sdk"
+export PATH="$JAVA_HOME/bin:$PATH"
 ./gradlew :core:test :desktop:test testDebugUnitTest
 ```
+
+Tips for the Linux desktop run under sway: the app relaunches its own JVM with `_JAVA_AWT_WM_NONREPARENTING=1` (see `TilingWmWorkaround`), so `desktop:run` shows two `java` processes. Never `pkill -f` by command line from a script — it can match the calling shell; kill the specific PIDs instead.
 
 ## Current focus
 
