@@ -1209,6 +1209,7 @@ internal fun RomDetailSheet(
     isMoving: Boolean = false,
     moveProgress: Pair<Long, Long>? = null,
     onMove: (toSd: Boolean) -> Unit = {},
+    wide: Boolean = false,
 ) {
     var expanded by remember { mutableStateOf(false) }
     var showFolderPicker by remember { mutableStateOf(false) }
@@ -1231,7 +1232,7 @@ internal fun RomDetailSheet(
                 contentDescription = rom.name,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .size(width = 100.dp, height = 140.dp)
+                    .size(width = if (wide) 156.dp else 100.dp, height = if (wide) 216.dp else 140.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
             )
@@ -1241,7 +1242,7 @@ internal fun RomDetailSheet(
             ) {
                 Text(
                     text = rom.name,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = if (wide) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
@@ -1262,14 +1263,45 @@ internal fun RomDetailSheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                // En horizontal aprovechamos el ancho: la sinopsis acompaña
+                // a la portada en vez de dejar media pantalla vacía.
+                if (wide) {
+                    rom.summary?.takeIf { it.isNotBlank() }?.let { summary ->
+                        Spacer(Modifier.size(10.dp))
+                        Text(
+                            text = summary,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = if (expanded) Int.MAX_VALUE else 6,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        if (summary.length > 120) {
+                            TextButton(
+                                onClick = { expanded = !expanded },
+                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
+                            ) {
+                                Icon(
+                                    if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Text(
+                                    if (expanded) " " + tr("game.summary.show_less")
+                                    else " " + tr("game.summary.show_more"),
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                            }
+                        }
+                    }
+                }
             }
             IconButton(onClick = onClose) {
                 Icon(Icons.Filled.Close, contentDescription = tr("game.viewer.close"))
             }
         }
 
-        // Summary with expandable text
-        rom.summary?.takeIf { it.isNotBlank() }?.let { summary ->
+        // Summary with expandable text (en horizontal ya va junto a la portada)
+        if (!wide) rom.summary?.takeIf { it.isNotBlank() }?.let { summary ->
             Spacer(modifier = Modifier.size(12.dp))
             val maxLines = if (expanded) Int.MAX_VALUE else 3
             Text(

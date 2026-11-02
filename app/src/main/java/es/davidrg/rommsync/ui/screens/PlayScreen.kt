@@ -342,6 +342,7 @@ fun PlayScreen(
                 serverUrl = settings.serverUrl,
                 apiKey = settings.apiKey,
                 isManualDownloaded = item.isManualDownloaded,
+                wide = landscape,
             )
         }
     }
