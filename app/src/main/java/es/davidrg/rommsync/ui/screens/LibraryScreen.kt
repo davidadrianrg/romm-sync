@@ -1922,6 +1922,6 @@ private fun LibrarySearchField(
         singleLine = true,
         shape = RoundedCornerShape(12.dp),
         textStyle = MaterialTheme.typography.bodyMedium,
-        modifier = modifier.height(if (compact) 46.dp else 56.dp),
+        modifier = modifier.height(56.dp),
     )
 }
