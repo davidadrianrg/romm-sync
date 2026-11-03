@@ -119,7 +119,7 @@ class DesktopSyncCoordinator(
                         romId = romId,
                         fileName = save.fileName,
                         slot = com.davidadrianrg.atril.core.sync.SyncSlots.DEFAULT,
-                        contentHash = save.md5,
+                        contentHash = save.contentHash,
                         updatedAt = formatIso8601(save.lastModified),
                         fileSizeBytes = save.file.length().toInt(),
                     )
@@ -387,7 +387,7 @@ class DesktopSyncCoordinator(
                         romId = romId,
                         fileName = save.fileName,
                         slot = com.davidadrianrg.atril.core.sync.SyncSlots.DEFAULT,
-                        contentHash = save.md5,
+                        contentHash = save.contentHash,
                         updatedAt = formatIso8601(save.lastModified),
                         fileSizeBytes = save.file.length().toInt(),
                     ),
@@ -508,7 +508,7 @@ class DesktopSyncCoordinator(
                         romId = rom.romId,
                         fileName = save.fileName,
                         slot = com.davidadrianrg.atril.core.sync.SyncSlots.DEFAULT,
-                        contentHash = save.md5,
+                        contentHash = save.contentHash,
                         updatedAt = formatIso8601(save.lastModified),
                         fileSizeBytes = save.file.length().toInt(),
                     )

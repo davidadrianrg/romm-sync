@@ -41,6 +41,37 @@ class SyncIntegrityTest {
         assertEquals("900150983cd24fb0d6963f7d28e17f72", (v as Verdict.Mismatch).expected)
     }
 
+    private fun zip(vararg entries: Pair<String, String?>): File = File.createTempFile("save", ".zip").apply {
+        deleteOnExit()
+        java.util.zip.ZipOutputStream(outputStream()).use { z ->
+            for ((name, content) in entries) {
+                z.putNextEntry(java.util.zip.ZipEntry(name))
+                content?.let { z.write(it.toByteArray()) }
+                z.closeEntry()
+            }
+        }
+    }
+
+    @Test
+    fun `contentHash of a zip matches RomM hash_zip_contents`() {
+        // Desordenado y con una entrada de directorio, que RomM ignora.
+        val f = zip("b/c.txt" to "x", "b/" to null, "a.txt" to "abc")
+        val expected = SyncIntegrity.md5(
+            ("a.txt:900150983cd24fb0d6963f7d28e17f72\n" +
+                "b/c.txt:9dd4e461268c8034f5c8564e155c67a6").toByteArray(),
+        )
+        assertEquals(expected, SyncIntegrity.contentHash(f))
+        assertEquals(Verdict.Match, SyncIntegrity.verify(f, expected))
+        // RomM antiguos: MD5 crudo del zip
+        assertEquals(Verdict.Match, SyncIntegrity.verify(f, SyncIntegrity.md5(f)))
+        assertTrue(SyncIntegrity.verify(f, "900150983cd24fb0d6963f7d28e17f72") is Verdict.Mismatch)
+    }
+
+    @Test
+    fun `contentHash of a plain save is its md5`() {
+        assertEquals("900150983cd24fb0d6963f7d28e17f72", SyncIntegrity.contentHash(tmp("abc".toByteArray())))
+    }
+
     @Test
     fun `verify never blocks on unknown hash formats`() {
         val f = tmp("abc".toByteArray())
