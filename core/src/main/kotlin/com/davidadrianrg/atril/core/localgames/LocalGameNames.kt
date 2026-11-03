@@ -9,12 +9,13 @@ object LocalGameNames {
     private val spaces = Regex("""\s{2,}""")
 
     fun titleFromFileName(fileName: String): String {
-        val base = fileName.substringAfterLast('/').substringAfterLast('\\')
+        val name = fileName.substringAfterLast('/').substringAfterLast('\\')
+        val base = name
             .replace(extension, "")
             .replace(separators, " ")
             .replace(tags, "")
             .replace(spaces, " ")
             .trim(' ', '-', '.')
-        return base.ifBlank { fileName.substringBeforeLast('.').ifBlank { fileName } }
+        return base.ifBlank { name.replace(extension, "").ifBlank { name } }
     }
 }
