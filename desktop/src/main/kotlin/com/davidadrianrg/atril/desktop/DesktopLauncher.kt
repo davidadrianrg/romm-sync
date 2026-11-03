@@ -58,6 +58,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.TransformOrigin
@@ -268,7 +271,23 @@ fun DesktopPlayScreen(
                                     horizontal = ((maxWidth - pageWidth) / 2).coerceAtLeast(0.dp),
                                 ),
                                 pageSpacing = 18.dp,
-                                modifier = Modifier.fillMaxSize(),
+                                // Los vecinos asoman por los lados: se desvanecen en
+                                // el borde en vez de cortarse en seco junto al texto.
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                                    .drawWithContent {
+                                        drawContent()
+                                        drawRect(
+                                            brush = Brush.horizontalGradient(
+                                                0f to Color.Transparent,
+                                                0.06f to Color.Black,
+                                                0.94f to Color.Black,
+                                                1f to Color.Transparent,
+                                            ),
+                                            blendMode = BlendMode.DstIn,
+                                        )
+                                    },
                             ) { page ->
                                 val entry = visible[page]
                                 val isCurrent = page == pagerState.currentPage
