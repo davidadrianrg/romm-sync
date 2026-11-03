@@ -195,7 +195,7 @@ fun PlayScreen(
                         if (media != null) {
                             insertion = Insertion(item, media)
                             insertProgress.snapTo(0f)
-                            insertProgress.animateTo(1f, tween(1250, easing = LinearEasing))
+                            insertProgress.animateTo(1f, tween(com.davidadrianrg.atril.core.launch.InsertionMotion.DURATION_MS, easing = LinearEasing))
                         } else {
                             // Carta: un gesto contenido (la carta se eleva) y a jugar.
                             liftingRomId = item.rom.id
