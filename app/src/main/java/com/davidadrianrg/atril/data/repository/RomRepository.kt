@@ -57,7 +57,11 @@ class RomRepository(
     suspend fun requestPhysicalScrape(
         romId: Int,
         onProgress: (com.davidadrianrg.atril.core.scrape.PhysicalMediaScrape.TaskState) -> Unit,
-    ) = com.davidadrianrg.atril.core.scrape.PhysicalMediaScrape.run(api(), romId, onProgress = onProgress)
+    ): com.davidadrianrg.atril.core.scrape.PhysicalMediaScrape.Outcome {
+        val svc = apiService
+            ?: return com.davidadrianrg.atril.core.scrape.PhysicalMediaScrape.Outcome.Network("API not configured")
+        return com.davidadrianrg.atril.core.scrape.PhysicalMediaScrape.run(svc, romId, onProgress = onProgress)
+    }
 
     // ── Platforms ──────────────────────────────────────────────────────
 

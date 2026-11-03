@@ -163,6 +163,9 @@ internal fun rememberLauncherDetailControls(
         onRequestScrape = {
             if (scrape !is ScrapeUi.Running) {
                 scrape = ScrapeUi.Running(tr("scrape.queued"))
+                // La pantalla Play puede abrirse sin que ningún ViewModel haya
+                // configurado ya el cliente de RomM; es idempotente.
+                container.configureApi(settings.serverUrl, settings.apiKey)
                 scope.launch {
                     val outcome = container.romRepository.requestPhysicalScrape(rom.id) { st ->
                         scrape = ScrapeUi.Running(
