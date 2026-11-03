@@ -14,6 +14,8 @@ import com.davidadrianrg.atril.domain.model.RomWithStatus
 import com.davidadrianrg.atril.download.DownloadManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import com.davidadrianrg.atril.domain.model.withPhysicalMediaOverride
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -181,8 +183,13 @@ class LibraryViewModel(
      * Se aplica además el filtro por región y el orden elegidos en la barra
      * de la biblioteca (client-side sobre las páginas ya cargadas).
      */
+    /** Roms de la lista con el medio físico recién scrapeado aplicado. */
+    private val effectiveRoms: Flow<List<Rom>> = combine(_roms, romRepository.physicalMediaOverrides) { roms, urls ->
+        if (urls.isEmpty()) roms else roms.map { it.withPhysicalMediaOverride(urls) }
+    }
+
     val romsWithStatus: StateFlow<List<RomWithStatus>> = combine(
-        _roms, downloadedIds, activeDownloads, sort, regionFilter,
+        effectiveRoms, downloadedIds, activeDownloads, sort, regionFilter,
     ) { roms, downloaded, downloading, sortType, region ->
         val groups = MultiDiscGrouper.group(
             roms.map { rom ->

@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import com.davidadrianrg.atril.domain.model.withPhysicalMediaOverride
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 
@@ -102,13 +103,15 @@ class ShelfViewModel(
         physicalMediaRepository.observe(),
         settingsRepository.launcherDefaultDisplay,
         settingsRepository.launchEmulatorOverrides,
-    ) { base, presentation, defaultMode, overrides ->
+        romRepository.physicalMediaOverrides,
+    ) { base, presentation, defaultMode, overrides, scraped ->
         val globalDefault = LauncherDisplayMode.fromId(defaultMode) ?: LauncherDisplayMode.CARD
         base.map { item ->
             val row = presentation[item.rom.id]
             val cached = row?.physicalMediaPath?.takeIf { File(it).isFile }
             val pref = LauncherDisplayMode.fromId(row?.displayMode)
             item.copy(
+                rom = item.rom.withPhysicalMediaOverride(scraped),
                 displayModePreference = pref,
                 physicalMediaFile = cached,
                 showPhysical = cached != null && (pref ?: globalDefault) == LauncherDisplayMode.PHYSICAL,
