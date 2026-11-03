@@ -164,7 +164,7 @@ class SyncCoordinator(
                         romId = romId,
                         fileName = save.fileName,
                         slot = com.davidadrianrg.atril.core.sync.SyncSlots.DEFAULT,
-                        contentHash = save.md5,
+                        contentHash = save.contentHash,
                         updatedAt = formatIso8601(save.lastModified),
                         fileSizeBytes = save.file.length().toInt(),
                     )
@@ -203,7 +203,7 @@ class SyncCoordinator(
                         val ok = executeUpload(api, save, op.romId, deviceId, handler)
                         if (ok) {
                             completed++
-                            syncedHashStore?.setSyncedHash(op.romId, save.fileName, save.md5)
+                            syncedHashStore?.setSyncedHash(op.romId, save.fileName, save.contentHash)
                         } else {
                             failed++
                             failedRomIds.add(op.romId)
@@ -335,7 +335,7 @@ class SyncCoordinator(
                     // Ya sincronizado: registrar hash local para que el preview sepa
                     val save = localSavesMap[op.romId]?.find { it.fileName == op.fileName }
                     if (save != null) {
-                        syncedHashStore?.setSyncedHash(op.romId, save.fileName, save.md5)
+                        syncedHashStore?.setSyncedHash(op.romId, save.fileName, save.contentHash)
                     }
                 }
             }
@@ -460,7 +460,7 @@ class SyncCoordinator(
 
                 val ok = executeUpload(api, save, rom.romId, deviceId, handler)
                 if (ok) {
-                    syncedHashStore?.setSyncedHash(rom.romId, save.fileName, save.md5)
+                    syncedHashStore?.setSyncedHash(rom.romId, save.fileName, save.contentHash)
                     SyncResult(uploaded = 1, message = tr("sync.conflict.local_uploaded", localFileName))
                 } else {
                     SyncResult(error = tr("sync.error.upload_failed", localFileName))
@@ -480,7 +480,7 @@ class SyncCoordinator(
                         romId = rom.romId,
                         fileName = save.fileName,
                         slot = com.davidadrianrg.atril.core.sync.SyncSlots.DEFAULT,
-                        contentHash = save.md5,
+                        contentHash = save.contentHash,
                         updatedAt = formatIso8601(save.lastModified),
                         fileSizeBytes = save.file.length().toInt(),
                     )

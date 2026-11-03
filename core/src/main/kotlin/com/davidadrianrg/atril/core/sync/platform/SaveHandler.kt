@@ -13,10 +13,11 @@ data class LocalSave(
     val sha1: String,
 ) {
     /**
-     * MD5 del blob que se sube. Es el `content_hash` que RomM guarda y compara:
-     * con SHA-1 el servidor no detecta «contenido idéntico» y sube/choca de más.
+     * `content_hash` del blob que se sube, calculado como RomM (MD5; para zips,
+     * MD5 de sus entradas). Con otro hash el servidor no detecta «contenido
+     * idéntico» y sube/choca de más.
      */
-    val md5: String by lazy { com.davidadrianrg.atril.core.sync.SyncIntegrity.md5(file) }
+    val contentHash: String by lazy { com.davidadrianrg.atril.core.sync.SyncIntegrity.contentHash(file) }
 }
 
 /**

@@ -32,6 +32,40 @@ object SyncIntegrity {
 
     private fun hex(bytes: ByteArray) = bytes.joinToString("") { "%02x".format(it) }
 
+    /**
+     * `content_hash` tal como lo calcula RomM (`hash_save_content`): para un zip,
+     * MD5 de las líneas `nombre:md5(entrada)` (entradas no-directorio ordenadas,
+     * unidas por `\n`); para cualquier otro fichero, MD5 del blob.
+     */
+    fun contentHash(file: File): String = zipContentsMd5(file) ?: md5(file)
+
+    private fun zipContentsMd5(file: File): String? {
+        val zip = try {
+            java.util.zip.ZipFile(file)
+        } catch (_: java.io.IOException) {
+            return null // no es un zip
+        }
+        return zip.use { zf ->
+            val lines = zf.entries().asSequence()
+                .filterNot { it.isDirectory || it.name.endsWith("/") }
+                .sortedBy { it.name }
+                .map { entry ->
+                    val md = MessageDigest.getInstance("MD5")
+                    zf.getInputStream(entry).use { input ->
+                        val buffer = ByteArray(64 * 1024)
+                        while (true) {
+                            val read = input.read(buffer)
+                            if (read < 0) break
+                            md.update(buffer, 0, read)
+                        }
+                    }
+                    "${entry.name}:${hex(md.digest())}"
+                }
+                .toList()
+            md5(lines.joinToString("\n").toByteArray(Charsets.UTF_8))
+        }
+    }
+
     sealed interface Verdict {
         /** El fichero coincide con el hash esperado. */
         data object Match : Verdict
@@ -51,7 +85,11 @@ object SyncIntegrity {
      */
     fun verify(file: File, expectedHash: String?): Verdict {
         val expected = expectedHash?.trim()?.takeIf { md5Hex.matches(it) } ?: return Verdict.Unverifiable
-        val actual = md5(file)
-        return if (actual.equals(expected, ignoreCase = true)) Verdict.Match else Verdict.Mismatch(expected.lowercase(), actual)
+        val actual = contentHash(file)
+        if (actual.equals(expected, ignoreCase = true)) return Verdict.Match
+        // RomM anteriores guardaban el MD5 crudo también para zips.
+        val raw = md5(file)
+        if (raw != actual && raw.equals(expected, ignoreCase = true)) return Verdict.Match
+        return Verdict.Mismatch(expected.lowercase(), actual)
     }
 }
