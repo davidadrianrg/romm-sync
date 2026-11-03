@@ -158,7 +158,7 @@ internal fun rememberLauncherDetailControls(
 /** Sección del detalle con los controles del launcher. */
 @Composable
 internal fun LauncherControlsSection(controls: LauncherDetailControls) {
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         controls.onPlay?.let { onPlay ->
             Button(
                 onClick = onPlay,
