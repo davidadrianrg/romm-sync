@@ -19,6 +19,7 @@ import com.davidadrianrg.atril.core.i18n.tr
 import com.davidadrianrg.atril.core.remote.NetworkModule
 import com.davidadrianrg.atril.core.remote.RomMApiService
 import com.davidadrianrg.atril.core.download.PathMapper
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -55,8 +56,14 @@ class DownloadWorker(
     params: WorkerParameters,
 ) : CoroutineWorker(appContext, params) {
 
+    /** True cuando streamToDisk terminó: el fichero ya está completo y no se borra. */
+    @Volatile
+    private var streamCompleted = false
+
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+        val workStartedAtMs = System.currentTimeMillis()
         val romId = inputData.getInt(KEY_ROM_ID, -1)
+        DownloadCancelRegistry.clear(romId)
         val romName = inputData.getString(KEY_ROM_NAME) ?: return@withContext Result.failure()
         val fileName = inputData.getString(KEY_FILE_NAME) ?: return@withContext Result.failure()
         val platformId = inputData.getInt(KEY_PLATFORM_ID, -1)
@@ -124,6 +131,13 @@ class DownloadWorker(
                     expectedHash = inputData.getString(KEY_FILE_HASH),
                 )
             }
+        } catch (e: CancellationException) {
+            // Cancelación del usuario: borrar el parcial. Otras paradas (red,
+            // restricciones) lo conservan para reanudar.
+            if (!streamCompleted && DownloadCancelRegistry.consumeUserCancel(romId, workStartedAtMs)) {
+                deletePartialFile(PathMapper.getRomFile(romsRootPath, platformSlug, fileName))
+            }
+            throw e
         } catch (e: HttpException) {
             when (e.code()) {
                 401, 403 -> {
@@ -293,6 +307,7 @@ class DownloadWorker(
                     streamToDisk(body, targetFile, totalBytes, offset,
                         romId, romName, fileName, platformSlug,
                         digest = incrementalDigest)
+                    streamCompleted = true
                 }
             }
 
@@ -730,6 +745,17 @@ class DownloadWorker(
                 }
             }
             throw e
+        }
+    }
+
+    /** Borra solo un fichero regular (nunca un directorio) y registra el resultado. */
+    private fun deletePartialFile(file: File) {
+        if (!file.isFile) return
+        val size = file.length()
+        if (file.delete()) {
+            Log.i(TAG, "Cancelled by user: deleted partial '${file.name}' ($size bytes)")
+        } else {
+            Log.w(TAG, "Cancelled by user but could not delete partial '${file.absolutePath}'")
         }
     }
 
