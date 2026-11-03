@@ -72,7 +72,7 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showMatchDialog by remember { mutableStateOf(false) }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 28.dp, vertical = 24.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedButton(onClick = state::closeGame) {
                 Text(tr("game.back"))
@@ -86,7 +86,7 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
                 modifier = Modifier.weight(1f),
             )
         }
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(28.dp))
 
         Row(Modifier.fillMaxWidth()) {
             Box(Modifier.width(220.dp)) {
@@ -97,7 +97,7 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
                     aspectRatio = 2f / 3f,
                 )
             }
-            Spacer(Modifier.width(24.dp))
+            Spacer(Modifier.width(36.dp))
             Column(Modifier.weight(1f)) {
                 rep.platformSlug?.let {
                     Text(
@@ -119,9 +119,9 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
                     )
                 }
                 ratingRow(rep)
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(14.dp))
                 ChipsFlow(rep)
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(14.dp))
                 rep.summary?.let { summary ->
                     Text(
                         summary,
@@ -136,7 +136,7 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
                     }
                 }
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(20.dp))
                 DetailRow(tr("game.info.file"), rep.fileName)
                 DetailRow(tr("game.info.size"), formatBytes(rep.fileSizeBytes))
                 rep.fileNameNoTags?.let { DetailRow(tr("game.info.clean_name"), it) }
@@ -144,7 +144,7 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
                 if (card.discCount > 1) DetailRow(tr("game.info.multi_file"), tr("game.info.multi_file_value", card.discCount))
                 rep.igdbId?.let { DetailRow("IGDB ID", it.toString()) }
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(24.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     when {
                         card.downloaded -> {
@@ -198,12 +198,12 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
         // ── Multimedia ──
         val screenshots = rep.mergedScreenshots
         if (screenshots.isNotEmpty() || rep.youtubeVideoId != null) {
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(40.dp))
             Text(tr("game.media.title"), style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(14.dp))
             if (screenshots.isNotEmpty()) {
                 var viewerIndex by remember { mutableStateOf<Int?>(null) }
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     items(screenshots.size) { index ->
                         val url = resolveMediaUrl(null, screenshots[index], state.config.serverUrl)
                         ScreenshotThumb(url) { viewerIndex = index }
@@ -218,7 +218,7 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
                 }
             }
             rep.youtubeVideoId?.let { videoId ->
-                if (screenshots.isNotEmpty()) Spacer(Modifier.height(8.dp))
+                if (screenshots.isNotEmpty()) Spacer(Modifier.height(16.dp))
                 OutlinedButton(onClick = { openTrailer(videoId) }) {
                     Icon(AppIcons.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
@@ -229,20 +229,20 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
 
         // ── Config de sync por juego ──
         if (card.downloaded) {
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(32.dp))
             HorizontalDivider()
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(20.dp))
             RomSyncConfigSection(card, state, romsVersion)
         }
 
         // ── Archivos de la entrada (multi-disc = varios files en una ROM) ──
         if (rep.multi || rep.hasMultipleFiles || rep.files.size > 1) {
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(32.dp))
             val fileRows = rep.files.ifEmpty { listOf(com.davidadrianrg.atril.core.remote.dto.RomFileDto(rep.fileName, rep.fileSizeBytes)) }
             Text(tr("game.files.title", fileRows.size), style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(10.dp))
             fileRows.forEach { file ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(file.filename, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                     Text(
                         formatBytes(file.size),
@@ -254,10 +254,11 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
         }
 
         // ── Guardados y estados en el servidor (fecha + subida manual) ──
+        Spacer(Modifier.height(32.dp))
         ServerAssetsPanel(rep.id, state)
 
         // ── Buscar coincidencia (si el escaneo no reconoció el juego) ──
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(20.dp))
         OutlinedButton(onClick = { showMatchDialog = true }) {
             Text(tr("library.match.title"))
         }
@@ -305,7 +306,7 @@ private fun RomSyncConfigSection(card: GameCard, state: DesktopAppState, romsVer
     var savesPath by remember(card, romsVersion) { mutableStateOf(entry.savesPathOverride ?: "") }
 
     Text(tr("common.save_sync"), style = MaterialTheme.typography.titleMedium)
-    Spacer(Modifier.height(8.dp))
+    Spacer(Modifier.height(14.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(tr("game.sync.exclude"), style = MaterialTheme.typography.bodyMedium)
@@ -320,7 +321,7 @@ private fun RomSyncConfigSection(card: GameCard, state: DesktopAppState, romsVer
             state.setRomExcluded(card.rep.id, it)
         })
     }
-    Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(18.dp))
     Text(
         if (entry.savesPathOverride.isNullOrBlank()) tr("game.sync.path_inherited")
         else tr("game.sync.path_custom"),
@@ -388,7 +389,7 @@ private fun RomSyncConfigSection(card: GameCard, state: DesktopAppState, romsVer
 
 @Composable
 private fun DetailRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Text(
             label,
             Modifier.width(130.dp),

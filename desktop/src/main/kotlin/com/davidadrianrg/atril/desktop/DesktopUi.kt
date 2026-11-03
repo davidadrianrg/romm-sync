@@ -728,7 +728,7 @@ fun LibraryScreen(state: DesktopAppState) {
                 }
             }
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(12.dp))
 
         val selectedGame by state.selectedGame.collectAsState()
         val g = selectedGame
@@ -764,9 +764,9 @@ fun LibraryScreen(state: DesktopAppState) {
                     LazyVerticalGrid(
                         state = gridState,
                         columns = GridCells.Adaptive(150.dp),
-                        contentPadding = PaddingValues(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
                         gridItems(games.take(visibleCount), key = { it.rep.id }) { card ->

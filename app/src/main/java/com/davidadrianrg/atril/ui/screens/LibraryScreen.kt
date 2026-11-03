@@ -699,9 +699,9 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
                     columns = GridCells.Adaptive(minSize = minCardSize),
                     state = gridState,
                     modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(vertical = 12.dp),
                 ) {
                     items(filteredRoms, key = { it.rom.id }) { romStatus ->
                         RomCard(
@@ -1256,14 +1256,14 @@ internal fun RomDetailSheet(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp)
-            .padding(bottom = 32.dp)
+            .padding(horizontal = 24.dp)
+            .padding(top = 8.dp, bottom = 48.dp)
             .verticalScroll(rememberScrollState()),
     ) {
         // Cover + title row
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             AsyncImage(
                 model = rom.coverUrlLarge ?: rom.coverUrlSmall,
@@ -1340,7 +1340,7 @@ internal fun RomDetailSheet(
 
         // Summary with expandable text (en horizontal ya va junto a la portada)
         if (!wide) rom.summary?.takeIf { it.isNotBlank() }?.let { summary ->
-            Spacer(modifier = Modifier.size(12.dp))
+            Spacer(modifier = Modifier.size(16.dp))
             val maxLines = if (expanded) Int.MAX_VALUE else 3
             Text(
                 text = summary,
@@ -1369,11 +1369,11 @@ internal fun RomDetailSheet(
             }
         }
 
-        Spacer(modifier = Modifier.size(16.dp))
+        Spacer(modifier = Modifier.size(24.dp))
 
         launcherControls?.let { controls ->
             LauncherControlsSection(controls)
-            Spacer(modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.size(32.dp))
         }
 
         // ── Multimedia: capturas y tráiler ──────────────────────────
@@ -1383,11 +1383,11 @@ internal fun RomDetailSheet(
                 text = tr("game.media.title"),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 8.dp),
+                modifier = Modifier.padding(bottom = 12.dp),
             )
             if (rom.screenshots.isNotEmpty()) {
                 var selectedShot by remember { mutableStateOf<Int?>(null) }
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(rom.screenshots.size) { index ->
                         AsyncImage(
                             model = rom.screenshots[index],
@@ -1433,7 +1433,7 @@ internal fun RomDetailSheet(
                     Text("  " + tr("game.media.watch_trailer"))
                 }
             }
-            Spacer(modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.size(28.dp))
         }
 
         // Metadata rows
@@ -1460,7 +1460,7 @@ internal fun RomDetailSheet(
             }
         }
 
-        Spacer(modifier = Modifier.size(20.dp))
+        Spacer(modifier = Modifier.size(32.dp))
 
         // ── Guardados y estados en el servidor (con fecha + subida manual) ──
         com.davidadrianrg.atril.ui.components.ServerAssetsSection(
@@ -1470,7 +1470,7 @@ internal fun RomDetailSheet(
         )
 
         // ── Buscar coincidencia (si el escaneo no reconoció el juego) ──
-        Spacer(modifier = Modifier.size(12.dp))
+        Spacer(modifier = Modifier.size(20.dp))
         OutlinedButton(
             onClick = { showMatchDialog = true },
             modifier = Modifier.fillMaxWidth(),
@@ -1629,9 +1629,9 @@ internal fun RomDetailSheet(
         // Solo tiene sentido para juegos descargados (son los que se sincronizan)
         // y si la función de sync no está desactivada en Configuración.
         if (isDownloaded && syncEnabled) {
-            Spacer(modifier = Modifier.size(24.dp))
+            Spacer(modifier = Modifier.size(36.dp))
             androidx.compose.material3.HorizontalDivider()
-            Spacer(modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.size(24.dp))
 
             Text(
                 tr("common.save_sync"),
@@ -1639,7 +1639,7 @@ internal fun RomDetailSheet(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            Spacer(modifier = Modifier.size(12.dp))
+            Spacer(modifier = Modifier.size(16.dp))
 
             // Toggle de exclusión
             Row(
@@ -1822,7 +1822,7 @@ private fun DetailRow(label: String, value: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 3.dp),
+            .padding(vertical = 5.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
