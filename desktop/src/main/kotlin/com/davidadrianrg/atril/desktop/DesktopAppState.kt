@@ -672,6 +672,9 @@ class DesktopAppState(private val scope: CoroutineScope) {
     /** Tareas que el usuario sacó de la cola: no volver a notificar al terminar. */
     private val suppressedCompletion = ConcurrentHashMap.newKeySet<Int>()
 
+    /** ROMs cuya descarga canceló el usuario: su fichero parcial se borra. */
+    private val userCancelled = ConcurrentHashMap.newKeySet<Int>()
+
     /** Tope de descargas simultáneas (1-5), como en Android. */
     @Volatile
     private var downloadGate = Semaphore(DesktopConfig.maxConcurrentDownloads)
@@ -709,6 +712,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
         val svc = api ?: return
         if (_tasks.value.any { it.romId == rom.id && it.active }) return
         suppressedCompletion.remove(rom.id)
+        userCancelled.remove(rom.id)
         _tasks.value = _tasks.value + DesktopTask(rom.id, rom.name, rom.platformSlug, "queued")
         if (notify) showSnackbar(tr("app.snackbar.downloading", rom.name))
         val job = scope.launch {
@@ -721,6 +725,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
                         romsRoot = File(config.romsRoot),
                         cacheDir = config.cacheDir,
                         library = library,
+                        discardPartialOnCancel = { rom.id in userCancelled },
                     )
                     val (msg, failed) = engine.download(rom) { p ->
                         updateTask(rom.id) { t ->
@@ -754,6 +759,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
 
     /** Cancela la descarga activa/en cola de un ROM y la quita de la lista. */
     fun cancelDownload(romId: Int) {
+        userCancelled.add(romId)
         suppressedCompletion.add(romId)
         taskJobs.remove(romId)?.cancel()
         _tasks.value = _tasks.value.filterNot { it.romId == romId && it.active }
@@ -764,6 +770,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
     fun cancelAll() {
         val active = _tasks.value.filter { it.active }
         active.forEach { task ->
+            userCancelled.add(task.romId)
             suppressedCompletion.add(task.romId)
             taskJobs.remove(task.romId)?.cancel()
         }

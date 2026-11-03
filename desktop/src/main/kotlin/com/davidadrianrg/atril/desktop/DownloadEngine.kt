@@ -19,14 +19,18 @@ import kotlin.coroutines.cancellation.CancellationException
  * extracción en streaming con contador de bytes.
  *
  * Cancelación: los streams comprueban el Job de la corrutina llamante en cada
- * reporte de progreso; al cancelar se lanza CancellationException, se cierra
- * la conexión y el fichero parcial queda en disco para reanudar luego.
+ * reporte de progreso; al cancelar se lanza CancellationException y se cierra
+ * la conexión. Si la cancelación es explícita del usuario ([discardPartialOnCancel])
+ * se borra el parcial, para que ES-DE o un emulador no vean una ROM truncada con
+ * su nombre final; en otro caso queda en disco para reanudar con Range.
  */
 class DownloadEngine(
     private val api: RomMApiService,
     private val romsRoot: File,
     private val cacheDir: File,
     private val library: DesktopLibrary? = null,
+    /** ¿La cancelación en curso la pidió el usuario? Entonces se borra el parcial. */
+    private val discardPartialOnCancel: () -> Boolean = { false },
 ) {
 
     /** Progreso notificado durante la descarga. total=-1 → indeterminado (zip). */
@@ -94,7 +98,12 @@ class DownloadEngine(
             if (job?.isActive == false) throw CancellationException("Descarga cancelada")
             onProgress(Progress(read, total, speed))
         }
-        FileOutputStream(target, resumed).use { out -> counting.copyTo(out) }
+        try {
+            FileOutputStream(target, resumed).use { out -> counting.copyTo(out) }
+        } catch (e: CancellationException) {
+            if (discardPartialOnCancel() && target.isFile) target.delete()
+            throw e
+        }
 
         // Verificación de integridad contra el hash del servidor (mismo
         // criterio que Android: algoritmo por longitud hex; desconocida = skip).
