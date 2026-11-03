@@ -72,17 +72,19 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.davidadrianrg.atril.core.i18n.tr
 import com.davidadrianrg.atril.ui.navigation.Screen
+import com.davidadrianrg.atril.ui.theme.LocalLauncherColors
 import com.davidadrianrg.atril.ui.viewmodel.ShelfItem
 import java.io.File
 
 // ── Paleta Warm Archive del launcher ────────────────────────────────
-internal val LauncherBgTop = Color(0xFF17130D)
-internal val LauncherBgBottom = Color(0xFF080706)
-internal val LauncherCream = Color(0xFFF2E6D2)
-internal val LauncherAmber = Color(0xFFE7B46A)
-internal val LauncherInk = Color(0xFF2A1A08)
-internal val LauncherPlastic = Color(0xFF211B14)
-internal val LauncherPanel = Color(0xF2141109)
+private fun argb(v: Long) = Color(v.toInt())
+internal val LauncherBgTop: Color @Composable get() = argb(LocalLauncherColors.current.launcherBgTop)
+internal val LauncherBgBottom: Color @Composable get() = argb(LocalLauncherColors.current.launcherBgBottom)
+internal val LauncherCream: Color @Composable get() = MaterialTheme.colorScheme.onBackground
+internal val LauncherAmber: Color @Composable get() = MaterialTheme.colorScheme.primary
+internal val LauncherInk: Color @Composable get() = MaterialTheme.colorScheme.onPrimary
+internal val LauncherPlastic: Color @Composable get() = MaterialTheme.colorScheme.surfaceContainerHigh
+internal val LauncherPanel: Color @Composable get() = MaterialTheme.colorScheme.background.copy(alpha = 0.95f)
 
 private val CardShape = RoundedCornerShape(18.dp)
 

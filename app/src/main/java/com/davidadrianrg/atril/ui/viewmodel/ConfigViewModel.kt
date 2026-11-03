@@ -208,6 +208,12 @@ class ConfigViewModel(
         viewModelScope.launch { settingsRepository.setRetroArchBasePath(path) }
     }
 
+    val theme = settingsRepository.theme
+
+    fun setTheme(t: com.davidadrianrg.atril.core.theme.AppTheme) {
+        viewModelScope.launch { settingsRepository.setTheme(t.id) }
+    }
+
     /** Idioma: "" = sistema, "en", "es". Aplica en caliente vía LocaleController. */
     val language = settingsRepository.language
 

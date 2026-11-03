@@ -747,6 +747,30 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
                 )
             }
 
+            // ── Temas ──────────────────────────────────────────────────
+            SettingsSection(
+                icon = Icons.Outlined.Language,
+                title = tr("config.theme.title"),
+            ) {
+                val themeId by viewModel.theme.collectAsState(initial = "")
+                val current = com.davidadrianrg.atril.core.theme.AppTheme.fromId(themeId)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    com.davidadrianrg.atril.core.theme.AppTheme.entries.forEach { t ->
+                        FilterChip(
+                            selected = current == t,
+                            onClick = { viewModel.setTheme(t) },
+                            label = { Text(tr("config.theme.${t.id}"), style = MaterialTheme.typography.labelMedium) },
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    tr("config.theme.hint"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             // ── Actualizaciones ────────────────────────────────────────
             SettingsSection(
                 icon = Icons.Outlined.SystemUpdateAlt,

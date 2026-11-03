@@ -1,5 +1,6 @@
 package com.davidadrianrg.atril.desktop.theme
 
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -9,92 +10,45 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.davidadrianrg.atril.core.theme.AppTheme
+import com.davidadrianrg.atril.core.theme.ThemePalettes
 
 // ─────────────────────────────────────────────────────────────────────────
-// Paleta "Warm Archive" — mismo esquema que la app Android, portado a
-// Compose Desktop para que ambas plataformas compartan identidad visual.
-// Dark-first; la app desktop es siempre oscura (pantallas de handheld y
-// salón), así que solo se define el esquema oscuro.
+// Temas: las paletas ("Warm Archive" y "Midnight") viven en :core
+// (ThemePalettes) y se comparten con Android; aquí solo se traducen a un
+// ColorScheme de Material 3. Ambos son oscuros (pantallas de handheld y salón).
 // ─────────────────────────────────────────────────────────────────────────
 
-private val Primary = Color(0xFFE7B46A)
-private val OnPrimary = Color(0xFF2A1A08)
-private val PrimaryContainer = Color(0xFF4A3320)
-private val OnPrimaryContainer = Color(0xFFF7E8CE)
+private fun c(argb: Long) = Color(argb.toInt())
 
-private val Secondary = Color(0xFF8FBF9A)
-private val OnSecondary = Color(0xFF10251A)
-private val SecondaryContainer = Color(0xFF24402E)
-private val OnSecondaryContainer = Color(0xFFC6E8CE)
+fun colorSchemeFor(theme: AppTheme): ColorScheme {
+    val p = ThemePalettes.of(theme)
+    return darkColorScheme(
+        primary = c(p.primary), onPrimary = c(p.onPrimary),
+        primaryContainer = c(p.primaryContainer), onPrimaryContainer = c(p.onPrimaryContainer),
+        secondary = c(p.secondary), onSecondary = c(p.onSecondary),
+        secondaryContainer = c(p.secondaryContainer), onSecondaryContainer = c(p.onSecondaryContainer),
+        tertiary = c(p.tertiary), onTertiary = c(p.onTertiary),
+        tertiaryContainer = c(p.tertiaryContainer), onTertiaryContainer = c(p.onTertiaryContainer),
+        error = c(p.error), onError = c(p.onError),
+        errorContainer = c(p.errorContainer), onErrorContainer = c(p.onErrorContainer),
+        background = c(p.background), onBackground = c(p.onBackground),
+        surface = c(p.surface), onSurface = c(p.onSurface),
+        surfaceVariant = c(p.surfaceVariant), onSurfaceVariant = c(p.onSurfaceVariant),
+        outline = c(p.outline), outlineVariant = c(p.outlineVariant), scrim = c(p.scrim),
+        inverseSurface = c(p.inverseSurface), inverseOnSurface = c(p.inverseOnSurface),
+        inversePrimary = c(p.inversePrimary),
+        surfaceDim = c(p.surfaceDim), surfaceBright = c(p.surfaceBright),
+        surfaceContainerLowest = c(p.surfaceContainerLowest), surfaceContainerLow = c(p.surfaceContainerLow),
+        surfaceContainer = c(p.surfaceContainer), surfaceContainerHigh = c(p.surfaceContainerHigh),
+        surfaceContainerHighest = c(p.surfaceContainerHighest),
+    )
+}
 
-private val Tertiary = Color(0xFFC98A5E)
-private val OnTertiary = Color(0xFF2B1608)
-private val TertiaryContainer = Color(0xFF4A2C1A)
-private val OnTertiaryContainer = Color(0xFFF4D9C7)
-
-private val ErrorColor = Color(0xFFE08B7E)
-private val OnError = Color(0xFF3A0A06)
-private val ErrorContainer = Color(0xFF5A211A)
-private val OnErrorContainer = Color(0xFFF7D6D0)
-
-private val Background = Color(0xFF0B0A09)
-private val OnBackground = Color(0xFFF2E6D2)
-private val Surface = Color(0xFF0B0A09)
-private val OnSurface = Color(0xFFF2E6D2)
-private val SurfaceVariant = Color(0xFF2A241C)
-private val OnSurfaceVariant = Color(0xFFBFB09A)
-private val Outline = Color(0xFF8A7A64)
-private val OutlineVariant = Color(0xFF3A3227)
-private val Scrim = Color(0xFF000000)
-private val InverseSurface = Color(0xFFF2E6D2)
-private val InverseOnSurface = Color(0xFF2A241C)
-private val InversePrimary = Color(0xFF7A4F1E)
-
-private val SurfaceDim = Color(0xFF0B0A09)
-private val SurfaceBright = Color(0xFF3A3227)
-private val SurfaceContainerLowest = Color(0xFF070606)
-private val SurfaceContainerLow = Color(0xFF12100D)
-private val SurfaceContainer = Color(0xFF191611)
-private val SurfaceContainerHigh = Color(0xFF221D16)
-private val SurfaceContainerHighest = Color(0xFF2C261D)
-
-private val MidnightArcadeScheme = darkColorScheme(
-    primary = Primary,
-    onPrimary = OnPrimary,
-    primaryContainer = PrimaryContainer,
-    onPrimaryContainer = OnPrimaryContainer,
-    secondary = Secondary,
-    onSecondary = OnSecondary,
-    secondaryContainer = SecondaryContainer,
-    onSecondaryContainer = OnSecondaryContainer,
-    tertiary = Tertiary,
-    onTertiary = OnTertiary,
-    tertiaryContainer = TertiaryContainer,
-    onTertiaryContainer = OnTertiaryContainer,
-    error = ErrorColor,
-    onError = OnError,
-    errorContainer = ErrorContainer,
-    onErrorContainer = OnErrorContainer,
-    background = Background,
-    onBackground = OnBackground,
-    surface = Surface,
-    onSurface = OnSurface,
-    surfaceVariant = SurfaceVariant,
-    onSurfaceVariant = OnSurfaceVariant,
-    outline = Outline,
-    outlineVariant = OutlineVariant,
-    scrim = Scrim,
-    inverseSurface = InverseSurface,
-    inverseOnSurface = InverseOnSurface,
-    inversePrimary = InversePrimary,
-    surfaceDim = SurfaceDim,
-    surfaceBright = SurfaceBright,
-    surfaceContainerLowest = SurfaceContainerLowest,
-    surfaceContainerLow = SurfaceContainerLow,
-    surfaceContainer = SurfaceContainer,
-    surfaceContainerHigh = SurfaceContainerHigh,
-    surfaceContainerHighest = SurfaceContainerHighest,
-)
+/** Colores del lanzador que no existen en Material; siguen al tema activo. */
+val LocalLauncherColors = androidx.compose.runtime.staticCompositionLocalOf {
+    ThemePalettes.of(AppTheme.DEFAULT)
+}
 
 // Escala tipográfica idéntica a la de Android (Type.kt) para paridad visual.
 private val DisplayFont = FontFamily.Serif
@@ -178,10 +132,12 @@ val DesktopTypography = Typography(
 )
 
 @Composable
-fun RomMSyncDesktopTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = MidnightArcadeScheme,
-        typography = DesktopTypography,
-        content = content,
-    )
+fun RomMSyncDesktopTheme(theme: AppTheme = AppTheme.DEFAULT, content: @Composable () -> Unit) {
+    androidx.compose.runtime.CompositionLocalProvider(LocalLauncherColors provides ThemePalettes.of(theme)) {
+        MaterialTheme(
+            colorScheme = colorSchemeFor(theme),
+            typography = DesktopTypography,
+            content = content,
+        )
+    }
 }

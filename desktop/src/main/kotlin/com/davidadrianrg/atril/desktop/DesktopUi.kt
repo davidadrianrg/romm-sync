@@ -1454,6 +1454,26 @@ fun SettingsScreen(state: DesktopAppState) {
         Text(tr("nav.settings"), style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(12.dp))
 
+        // ── Temas ──
+        SettingsSection(icon = AppIcons.Storage, title = tr("config.theme.title")) {
+            val current by state.theme.collectAsState()
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                com.davidadrianrg.atril.core.theme.AppTheme.entries.forEach { t ->
+                    FilterChip(
+                        selected = current == t,
+                        onClick = { state.setTheme(t) },
+                        label = { Text(tr("config.theme.${t.id}"), style = MaterialTheme.typography.labelMedium) },
+                    )
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                tr("config.theme.hint"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
         // ── Idioma ──
         SettingsSection(icon = AppIcons.Storage, title = tr("config.language.title")) {
             val langTag by state.language.collectAsState()

@@ -67,6 +67,7 @@ class SettingsDataStore(private val context: Context) {
         val ESDE_DATA_DIR = stringPreferencesKey("esde_data_dir")
         val RETROHRAI_MEDIA_PATH = stringPreferencesKey("retrohrai_media_path")
         val LANGUAGE = stringPreferencesKey("language")
+        val THEME = stringPreferencesKey("theme")
 
         // Toggles de funciones opcionales (opt-out: ausencia = activado)
         val ESDE_EXPORT_ENABLED = booleanPreferencesKey("esde_export_enabled")
@@ -154,6 +155,8 @@ class SettingsDataStore(private val context: Context) {
         it[RETROARCH_BASE_PATH] ?: DEFAULT_RETROARCH_PATH
     }
     /** "" = idioma del sistema; "en"/"es" = forzado. */
+    /** Id de tema ([com.davidadrianrg.atril.core.theme.AppTheme.id]); "" = por defecto. */
+    val theme: Flow<String> = context.dataStore.data.map { it[THEME] ?: "" }
     val language: Flow<String> = context.dataStore.data.map { it[LANGUAGE] ?: "" }
     val syncDeviceId: Flow<Int?> = context.dataStore.data.map { it[DEVICE_ID] }
     val syncDeviceIdString: Flow<String?> = context.dataStore.data.map { it[DEVICE_ID_STRING] }
@@ -300,6 +303,10 @@ class SettingsDataStore(private val context: Context) {
 
     suspend fun setRetroArchBasePath(path: String) {
         context.dataStore.edit { it[RETROARCH_BASE_PATH] = path.trimEnd('/') }
+    }
+
+    suspend fun setTheme(id: String) {
+        context.dataStore.edit { it[THEME] = id }
     }
 
     suspend fun setLanguage(tag: String) {

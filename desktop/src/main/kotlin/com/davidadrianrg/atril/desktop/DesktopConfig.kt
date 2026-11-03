@@ -94,6 +94,11 @@ object DesktopConfig {
         set(v) = prefs.put("skipped_version", v)
 
     /** Idioma: "" = sistema, "en", "es". */
+    /** Id de tema ([com.davidadrianrg.atril.core.theme.AppTheme.id]); vacío = por defecto. */
+    var themeId: String
+        get() = prefs.get("theme", "")
+        set(v) = prefs.put("theme", v)
+
     var languageTag: String
         get() = prefs.get("language", "")
         set(v) = prefs.put("language", v)
