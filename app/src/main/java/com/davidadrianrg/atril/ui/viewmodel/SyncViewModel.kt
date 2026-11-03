@@ -258,7 +258,7 @@ class SyncViewModel(
 
             for (save in saves) {
                 // Solo mostrar saves con cambios pendientes
-                if (syncedHashStore.isAlreadySynced(rom.romId, save.fileName, save.sha1)) continue
+                if (syncedHashStore.isAlreadySynced(rom.romId, save.fileName, save.md5)) continue
 
                 results.add(
                     SavePreviewItem(
