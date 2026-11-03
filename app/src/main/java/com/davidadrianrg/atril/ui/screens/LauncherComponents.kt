@@ -590,7 +590,7 @@ internal fun InsertionOverlay(
                 .align(Alignment.Center)
                 .size(mediaSize)
                 .graphicsLayer {
-                    translationY = -mediaSize.toPx() * (0.30f * (1f - pose.travel) + pose.arc) +
+                    translationY = -mediaSize.toPx() * (0.16f * (1f - pose.travel) + pose.arc) +
                         (slotY.toPx() - mediaSize.toPx() * 0.15f) * pose.travel
                     scaleX = pose.scale
                     scaleY = pose.scale * pose.squashY

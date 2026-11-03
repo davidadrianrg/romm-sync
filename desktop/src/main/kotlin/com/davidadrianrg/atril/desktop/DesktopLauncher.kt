@@ -456,7 +456,7 @@ private fun InsertionOverlay(
                 .size(mediaSize)
                 .graphicsLayer {
                     val travelPx = slotY.toPx() - mediaSize.toPx() * 0.18f
-                    translationY = -mediaSize.toPx() * (0.30f * (1f - pose.travel) + pose.arc) +
+                    translationY = -mediaSize.toPx() * (0.16f * (1f - pose.travel) + pose.arc) +
                         travelPx * pose.travel
                     scaleX = pose.scale
                     scaleY = pose.scale * pose.squashY
