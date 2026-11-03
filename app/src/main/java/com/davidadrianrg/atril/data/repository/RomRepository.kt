@@ -53,6 +53,16 @@ class RomRepository(
     private fun api(): RomMApiService =
         apiService ?: throw IllegalStateException("API not configured. Call configureApi() first.")
 
+    private val _physicalMediaOverrides = kotlinx.coroutines.flow.MutableStateFlow<Map<Int, String>>(emptyMap())
+
+    /**
+     * URLs de medio físico conseguidas tras un scrapeo en esta sesión (romId →
+     * URL). Los ViewModels las aplican a sus listas en memoria para que la UI
+     * se actualice sin recargar.
+     */
+    val physicalMediaOverrides: kotlinx.coroutines.flow.StateFlow<Map<Int, String>> =
+        _physicalMediaOverrides
+
     /** Pide a RomM que scrapee el medio físico de [romId] (ver PhysicalMediaScrape). */
     suspend fun requestPhysicalScrape(
         romId: Int,
@@ -60,7 +70,13 @@ class RomRepository(
     ): com.davidadrianrg.atril.core.scrape.PhysicalMediaScrape.Outcome {
         val svc = apiService
             ?: return com.davidadrianrg.atril.core.scrape.PhysicalMediaScrape.Outcome.Network("API not configured")
-        return com.davidadrianrg.atril.core.scrape.PhysicalMediaScrape.run(svc, romId, onProgress = onProgress)
+        val outcome = com.davidadrianrg.atril.core.scrape.PhysicalMediaScrape.run(svc, romId, onProgress = onProgress)
+        if (outcome is com.davidadrianrg.atril.core.scrape.PhysicalMediaScrape.Outcome.Found) {
+            com.davidadrianrg.atril.core.library.PhysicalMedia
+                .resourceUrl(currentServerUrl, outcome.rom.physicalMediaPath)
+                ?.let { url -> _physicalMediaOverrides.value = _physicalMediaOverrides.value + (romId to url) }
+        }
+        return outcome
     }
 
     // ── Platforms ──────────────────────────────────────────────────────

@@ -81,4 +81,92 @@ class PhysicalMediaScrapeTest {
             PhysicalMediaScrape.Outcome.Network("x"),
         ).forEach { assertFalse(PhysicalMediaScrape.describe(it).startsWith("scrape.")) }
     }
+
+    // ── run(): errores contra un RomMApiService simulado (sin red real) ──
+
+    /** API falsa: cada método suspend responde con lo que devuelva [handler]. */
+    private fun fakeApi(handler: (String) -> Any?): com.davidadrianrg.atril.core.remote.RomMApiService =
+        java.lang.reflect.Proxy.newProxyInstance(
+            javaClass.classLoader,
+            arrayOf(com.davidadrianrg.atril.core.remote.RomMApiService::class.java),
+        ) { _, method, args ->
+            try {
+                handler(method.name)
+            } catch (e: Throwable) {
+                // Un Proxy envuelve las excepciones comprobadas (IOException);
+                // las entregamos por la continuación, como hace Retrofit.
+                @Suppress("UNCHECKED_CAST")
+                (args.last() as kotlin.coroutines.Continuation<Any?>).resumeWith(Result.failure(e))
+                kotlin.coroutines.intrinsics.COROUTINE_SUSPENDED
+            }
+        } as com.davidadrianrg.atril.core.remote.RomMApiService
+
+    private fun body(json: String) = json.toResponseBody()
+
+    private fun runScrape(api: com.davidadrianrg.atril.core.remote.RomMApiService) =
+        kotlinx.coroutines.runBlocking {
+            PhysicalMediaScrape.run(api, romId = 42, pollIntervalMs = 1, maxWaitMs = 20)
+        }
+
+    private fun http(code: Int) = HttpException(Response.error<Any>(code, "".toResponseBody()))
+
+    @Test
+    fun `401 on start is Unauthorized`() {
+        val api = fakeApi { throw http(401) }
+        assertEquals(PhysicalMediaScrape.Outcome.Unauthorized, runScrape(api))
+    }
+
+    @Test
+    fun `403 on start is Forbidden`() {
+        val api = fakeApi { throw http(403) }
+        assertEquals(PhysicalMediaScrape.Outcome.Forbidden, runScrape(api))
+    }
+
+    @Test
+    fun `network failure on start is Network`() {
+        val api = fakeApi { throw java.io.IOException("connection reset") }
+        val out = runScrape(api)
+        assertTrue(out is PhysicalMediaScrape.Outcome.Network)
+        assertEquals("connection reset", (out as PhysicalMediaScrape.Outcome.Network).message)
+    }
+
+    @Test
+    fun `401 while polling the task is Unauthorized`() {
+        val api = fakeApi { name ->
+            if (name == "startRomScrape") body("""{"task_id":"t1","status":"queued"}""") else throw http(401)
+        }
+        assertEquals(PhysicalMediaScrape.Outcome.Unauthorized, runScrape(api))
+    }
+
+    @Test
+    fun `failed task reports its error`() {
+        val api = fakeApi { name ->
+            if (name == "startRomScrape") body("""{"task_id":"t1","status":"queued"}""")
+            else body("""{"task_id":"t1","status":"failed","error":"ss disabled"}""")
+        }
+        val out = runScrape(api)
+        assertEquals(PhysicalMediaScrape.Outcome.TaskFailed("ss disabled"), out)
+    }
+
+    @Test
+    fun `task that never finishes times out`() {
+        val api = fakeApi { name ->
+            if (name == "startRomScrape") body("""{"task_id":"t1","status":"queued"}""")
+            else body("""{"task_id":"t1","status":"started"}""")
+        }
+        assertEquals(PhysicalMediaScrape.Outcome.TimedOut, runScrape(api))
+    }
+
+    @Test
+    fun `progress callback sees the task states`() {
+        val seen = mutableListOf<TaskState>()
+        val api = fakeApi { name ->
+            if (name == "startRomScrape") body("""{"task_id":"t1","status":"queued"}""")
+            else body("""{"task_id":"t1","status":"failed"}""")
+        }
+        kotlinx.coroutines.runBlocking {
+            PhysicalMediaScrape.run(api, 42, pollIntervalMs = 1, maxWaitMs = 20) { seen += it }
+        }
+        assertEquals(listOf(TaskState.QUEUED, TaskState.FAILED), seen)
+    }
 }

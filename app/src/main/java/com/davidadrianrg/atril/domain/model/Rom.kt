@@ -35,6 +35,16 @@ data class Rom(
 )
 
 /**
+ * Aplica a [this] la URL de medio físico obtenida tras un scrapeo en RomM
+ * (la lista en memoria no la tenía). Nunca pisa una URL ya existente.
+ */
+fun Rom.withPhysicalMediaOverride(urls: Map<Int, String>): Rom {
+    if (physicalMediaUrl != null) return this
+    val url = urls[id] ?: return this
+    return copy(physicalMediaUrl = url)
+}
+
+/**
  * Subset of IGDB metadata used for gamelist.xml generation.
  */
 data class IgdbMetadata(
