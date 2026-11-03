@@ -776,6 +776,44 @@ private fun PlayCaption(
                 label = { Text(tr("launcher.display.physical")) },
             )
         }
+        if (!physicalAvailable && !manual) {
+            Spacer(Modifier.height(12.dp))
+            val scrape by state.scrapes.collectAsState()
+            val ui = scrape[entry.card.rep.id]
+            val running = ui is DesktopAppState.ScrapeUi.Running
+            OutlinedButton(
+                onClick = { state.requestPhysicalScrape(entry.card.rep.id) },
+                enabled = !running && state.connected.value,
+            ) {
+                if (running) {
+                    androidx.compose.material3.CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = PlayAmber,
+                    )
+                } else {
+                    Icon(AppIcons.Image, contentDescription = null, modifier = Modifier.size(18.dp))
+                }
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    if (ui is DesktopAppState.ScrapeUi.Finished && !ui.found) tr("scrape.retry")
+                    else tr("scrape.action"),
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                when (ui) {
+                    is DesktopAppState.ScrapeUi.Running -> ui.text
+                    is DesktopAppState.ScrapeUi.Finished -> ui.text
+                    null -> tr("scrape.explain")
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = if (ui is DesktopAppState.ScrapeUi.Finished && !ui.found) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    PlayCream.copy(alpha = 0.55f)
+                },
+                modifier = Modifier.widthIn(max = 420.dp),
+            )
+        }
         Spacer(Modifier.height(8.dp))
         Text(
             tr("launcher.desktop.play_hint"),

@@ -73,12 +73,21 @@ internal data class LauncherDetailControls(
     val physicalMediaCached: Boolean,
     val physicalMediaDownloading: Boolean,
     val onDownloadPhysicalMedia: () -> Unit,
+    /** Progreso/resultado del scrapeo pedido a RomM (null = no pedido). */
+    val scrape: ScrapeUi?,
+    val onRequestScrape: () -> Unit,
     val emulatorOptions: List<EmulatorOption>,
     /** Override de la plataforma; null = automático. */
     val selectedEmulatorId: String?,
     val automaticEmulatorName: String?,
     val onEmulatorChange: (String?) -> Unit,
 )
+
+/** Estado de una petición de scrapeo de medio físico a RomM. */
+internal sealed interface ScrapeUi {
+    data class Running(val text: String) : ScrapeUi
+    data class Finished(val text: String, val found: Boolean) : ScrapeUi
+}
 
 /**
  * Construye [LauncherDetailControls] para [rom] leyendo directamente del
@@ -119,6 +128,10 @@ internal fun rememberLauncherDetailControls(
         }
     }
     val scope = rememberCoroutineScope()
+    var scrape by remember(rom.id) { mutableStateOf<ScrapeUi?>(null) }
+    // URL conseguida tras un scrapeo: la lista de roms en memoria no se refresca sola.
+    var scrapedUrl by remember(rom.id) { mutableStateOf<String?>(null) }
+    val remoteUrl = rom.physicalMediaUrl ?: scrapedUrl
 
     return LauncherDetailControls(
         platformLabel = platformLabel,
@@ -126,11 +139,11 @@ internal fun rememberLauncherDetailControls(
         launchable = launchable,
         displayMode = mode,
         onDisplayModeChange = { repo.updateDisplayMode(listOf(rom.id), it) },
-        hasRemotePhysicalMedia = rom.physicalMediaUrl != null,
+        hasRemotePhysicalMedia = remoteUrl != null,
         physicalMediaCached = cached,
         physicalMediaDownloading = rom.id in downloading,
         onDownloadPhysicalMedia = {
-            val url = rom.physicalMediaUrl
+            val url = remoteUrl
             if (url == null) {
                 Toast.makeText(context, tr("launcher.physical.none"), Toast.LENGTH_LONG).show()
             } else {
@@ -143,6 +156,27 @@ internal fun rememberLauncherDetailControls(
                     android.os.Handler(android.os.Looper.getMainLooper()).post {
                         Toast.makeText(appContext, msg, Toast.LENGTH_SHORT).show()
                     }
+                }
+            }
+        },
+        scrape = scrape,
+        onRequestScrape = {
+            if (scrape !is ScrapeUi.Running) {
+                scrape = ScrapeUi.Running(tr("scrape.queued"))
+                scope.launch {
+                    val outcome = container.romRepository.requestPhysicalScrape(rom.id) { st ->
+                        scrape = ScrapeUi.Running(
+                            com.davidadrianrg.atril.core.scrape.PhysicalMediaScrape.describeProgress(st),
+                        )
+                    }
+                    if (outcome is com.davidadrianrg.atril.core.scrape.PhysicalMediaScrape.Outcome.Found) {
+                        scrapedUrl = com.davidadrianrg.atril.core.library.PhysicalMedia
+                            .resourceUrl(container.romRepository.getServerUrl(), outcome.rom.physicalMediaPath)
+                    }
+                    scrape = ScrapeUi.Finished(
+                        com.davidadrianrg.atril.core.scrape.PhysicalMediaScrape.describe(outcome),
+                        found = outcome is com.davidadrianrg.atril.core.scrape.PhysicalMediaScrape.Outcome.Found,
+                    )
                 }
             }
         },
@@ -259,6 +293,37 @@ internal fun LauncherControlsSection(controls: LauncherDetailControls) {
                     Text(tr("launcher.physical.download"))
                 }
             }
+        }
+
+        if (!controls.hasRemotePhysicalMedia) {
+            val ui = controls.scrape
+            val running = ui is ScrapeUi.Running
+            FilledTonalButton(
+                onClick = controls.onRequestScrape,
+                enabled = !running,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                if (running) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(if (ui is ScrapeUi.Finished && !ui.found) tr("scrape.retry") else tr("scrape.action"))
+            }
+            Text(
+                when (ui) {
+                    is ScrapeUi.Running -> ui.text
+                    is ScrapeUi.Finished -> ui.text
+                    null -> tr("scrape.explain")
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = if (ui is ScrapeUi.Finished && !ui.found) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
         }
 
         EmulatorPicker(controls)

@@ -3,6 +3,7 @@ package com.davidadrianrg.atril.core.remote
 import com.davidadrianrg.atril.core.remote.dto.PlatformDto
 import com.davidadrianrg.atril.core.remote.dto.RomDto
 import com.davidadrianrg.atril.core.remote.dto.RomResponse
+import com.davidadrianrg.atril.core.remote.dto.RomScrapeRequest
 import com.davidadrianrg.atril.core.remote.dto.ScanRequest
 import com.davidadrianrg.atril.core.remote.dto.SaveDto
 import com.davidadrianrg.atril.core.remote.dto.SearchRomDto
@@ -185,6 +186,14 @@ interface RomMApiService {
     /** POST /api/tasks/scan — escaneo rápido (202). */
     @POST("api/tasks/scan")
     suspend fun startScan(@Body payload: ScanRequest): ResponseBody
+
+    /** POST /api/tasks/scan — re-scrapeo de roms concretas (devuelve la tarea). */
+    @POST("api/tasks/scan")
+    suspend fun startRomScrape(@Body payload: RomScrapeRequest): ResponseBody
+
+    /** GET /api/tasks/{task_id} — estado de una tarea de RomM. */
+    @GET("api/tasks/{task_id}")
+    suspend fun getTask(@Path("task_id") taskId: String): ResponseBody
 
     // ── Buscar coincidencia (metadatos) ─────────────────────────────────
 

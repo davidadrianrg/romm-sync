@@ -53,6 +53,12 @@ class RomRepository(
     private fun api(): RomMApiService =
         apiService ?: throw IllegalStateException("API not configured. Call configureApi() first.")
 
+    /** Pide a RomM que scrapee el medio físico de [romId] (ver PhysicalMediaScrape). */
+    suspend fun requestPhysicalScrape(
+        romId: Int,
+        onProgress: (com.davidadrianrg.atril.core.scrape.PhysicalMediaScrape.TaskState) -> Unit,
+    ) = com.davidadrianrg.atril.core.scrape.PhysicalMediaScrape.run(api(), romId, onProgress = onProgress)
+
     // ── Platforms ──────────────────────────────────────────────────────
 
     /**
