@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import com.davidadrianrg.atril.data.local.SettingsDataStore
 import com.davidadrianrg.atril.data.update.UpdateNotificationManager
 import com.davidadrianrg.atril.ui.navigation.RomMSyncApp
@@ -39,7 +40,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             val revision by LocaleController.revision.collectAsState()
             key(revision) {
-                RomMSyncTheme {
+                val themeId by remember { SettingsDataStore(applicationContext).theme }.collectAsState(initial = "")
+                RomMSyncTheme(theme = com.davidadrianrg.atril.core.theme.AppTheme.fromId(themeId)) {
                     RomMSyncApp(startInUpdates = openUpdates)
                 }
             }

@@ -7,45 +7,10 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.graphics.Color
 import androidx.core.view.WindowCompat
-
-private val DarkColorScheme = darkColorScheme(
-    primary = DarkPrimary,
-    onPrimary = DarkOnPrimary,
-    primaryContainer = DarkPrimaryContainer,
-    onPrimaryContainer = DarkOnPrimaryContainer,
-    secondary = DarkSecondary,
-    onSecondary = DarkOnSecondary,
-    secondaryContainer = DarkSecondaryContainer,
-    onSecondaryContainer = DarkOnSecondaryContainer,
-    tertiary = DarkTertiary,
-    onTertiary = DarkOnTertiary,
-    tertiaryContainer = DarkTertiaryContainer,
-    onTertiaryContainer = DarkOnTertiaryContainer,
-    error = DarkError,
-    onError = DarkOnError,
-    errorContainer = DarkErrorContainer,
-    onErrorContainer = DarkOnErrorContainer,
-    background = DarkBackground,
-    onBackground = DarkOnBackground,
-    surface = DarkSurface,
-    onSurface = DarkOnSurface,
-    surfaceVariant = DarkSurfaceVariant,
-    onSurfaceVariant = DarkOnSurfaceVariant,
-    outline = DarkOutline,
-    outlineVariant = DarkOutlineVariant,
-    scrim = DarkScrim,
-    inverseSurface = DarkInverseSurface,
-    inverseOnSurface = DarkInverseOnSurface,
-    inversePrimary = DarkInversePrimary,
-    surfaceDim = DarkSurfaceDim,
-    surfaceBright = DarkSurfaceBright,
-    surfaceContainerLowest = DarkSurfaceContainerLowest,
-    surfaceContainerLow = DarkSurfaceContainerLow,
-    surfaceContainer = DarkSurfaceContainer,
-    surfaceContainerHigh = DarkSurfaceContainerHigh,
-    surfaceContainerHighest = DarkSurfaceContainerHighest,
-)
+import com.davidadrianrg.atril.core.theme.AppTheme
+import com.davidadrianrg.atril.core.theme.ThemePalettes
 
 private val LightColorScheme = lightColorScheme(
     primary = LightPrimary,
@@ -85,14 +50,46 @@ private val LightColorScheme = lightColorScheme(
     surfaceContainerHighest = LightSurfaceContainerHighest,
 )
 
+private fun c(argb: Long) = Color(argb.toInt())
+
+/** Esquema oscuro de [theme]; la paleta vive en :core y es la misma que en escritorio. */
+internal fun darkSchemeFor(theme: AppTheme) = ThemePalettes.of(theme).let { p ->
+    darkColorScheme(
+        primary = c(p.primary), onPrimary = c(p.onPrimary),
+        primaryContainer = c(p.primaryContainer), onPrimaryContainer = c(p.onPrimaryContainer),
+        secondary = c(p.secondary), onSecondary = c(p.onSecondary),
+        secondaryContainer = c(p.secondaryContainer), onSecondaryContainer = c(p.onSecondaryContainer),
+        tertiary = c(p.tertiary), onTertiary = c(p.onTertiary),
+        tertiaryContainer = c(p.tertiaryContainer), onTertiaryContainer = c(p.onTertiaryContainer),
+        error = c(p.error), onError = c(p.onError),
+        errorContainer = c(p.errorContainer), onErrorContainer = c(p.onErrorContainer),
+        background = c(p.background), onBackground = c(p.onBackground),
+        surface = c(p.surface), onSurface = c(p.onSurface),
+        surfaceVariant = c(p.surfaceVariant), onSurfaceVariant = c(p.onSurfaceVariant),
+        outline = c(p.outline), outlineVariant = c(p.outlineVariant), scrim = c(p.scrim),
+        inverseSurface = c(p.inverseSurface), inverseOnSurface = c(p.inverseOnSurface),
+        inversePrimary = c(p.inversePrimary),
+        surfaceDim = c(p.surfaceDim), surfaceBright = c(p.surfaceBright),
+        surfaceContainerLowest = c(p.surfaceContainerLowest), surfaceContainerLow = c(p.surfaceContainerLow),
+        surfaceContainer = c(p.surfaceContainer), surfaceContainerHigh = c(p.surfaceContainerHigh),
+        surfaceContainerHighest = c(p.surfaceContainerHighest),
+    )
+}
+
+/** Colores del lanzador que no existen en Material; siguen al tema activo. */
+val LocalLauncherColors = androidx.compose.runtime.staticCompositionLocalOf {
+    ThemePalettes.of(AppTheme.DEFAULT)
+}
+
 @Composable
 fun RomMSyncTheme(
     // La identidad de la app es oscura y cálida (papel, plástico, ámbar).
     // El tema claro sigue disponible para quien lo fuerce desde código.
     darkTheme: Boolean = true,
+    theme: AppTheme = AppTheme.DEFAULT,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val colorScheme = if (darkTheme) darkSchemeFor(theme) else LightColorScheme
 
     val view = LocalView.current
     if (!view.isInEditMode) {
@@ -106,9 +103,11 @@ fun RomMSyncTheme(
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content,
-    )
+    androidx.compose.runtime.CompositionLocalProvider(LocalLauncherColors provides ThemePalettes.of(theme)) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            content = content,
+        )
+    }
 }

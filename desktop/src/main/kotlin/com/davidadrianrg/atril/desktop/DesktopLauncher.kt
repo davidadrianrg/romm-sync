@@ -73,18 +73,21 @@ import com.davidadrianrg.atril.core.launch.LaunchPlatforms
 import com.davidadrianrg.atril.core.library.DiscEntry
 import com.davidadrianrg.atril.core.library.MultiDiscGrouper
 import com.davidadrianrg.atril.core.library.PhysicalMedia
+import com.davidadrianrg.atril.desktop.theme.LocalLauncherColors
 import com.davidadrianrg.atril.core.remote.dto.RomDto
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
-private val PlayBgTop = Color(0xFF17130D)
-private val PlayBgBottom = Color(0xFF080706)
-private val PlayCream = Color(0xFFF2E6D2)
-private val PlayAmber = Color(0xFFE7B46A)
-private val PlayInk = Color(0xFF2A1A08)
-private val PlayPlastic = Color(0xFF211B14)
+// Colores del lanzador: siguen al tema activo (Warm Archive / Midnight).
+private fun argb(v: Long) = Color(v.toInt())
+private val PlayBgTop: Color @Composable get() = argb(LocalLauncherColors.current.launcherBgTop)
+private val PlayBgBottom: Color @Composable get() = argb(LocalLauncherColors.current.launcherBgBottom)
+private val PlayCream: Color @Composable get() = MaterialTheme.colorScheme.onBackground
+private val PlayAmber: Color @Composable get() = MaterialTheme.colorScheme.primary
+private val PlayInk: Color @Composable get() = MaterialTheme.colorScheme.onPrimary
+private val PlayPlastic: Color @Composable get() = MaterialTheme.colorScheme.surfaceContainerHigh
 
 private data class LauncherEntry(
     val card: GameCard,
@@ -412,7 +415,7 @@ private fun InsertionOverlay(
                     ambientColor = PlayAmber,
                 )
                 .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFF050403))
+                .background(PlayBgBottom)
                 .border(
                     1.5.dp,
                     PlayAmber.copy(alpha = 0.35f + 0.65f * glow),
@@ -650,7 +653,7 @@ private fun CardBadge(text: String, subtle: Boolean = false) {
         color = if (subtle) PlayCream else PlayInk,
         modifier = Modifier
             .clip(RoundedCornerShape(6.dp))
-            .background(if (subtle) Color(0xCC0B0907) else PlayAmber)
+            .background(if (subtle) MaterialTheme.colorScheme.background.copy(alpha = 0.8f) else PlayAmber)
             .padding(horizontal = 7.dp, vertical = 2.dp),
     )
 }
@@ -662,7 +665,7 @@ private fun PlayCover(rep: RomDto, serverUrl: String, modifier: Modifier) {
     if (bitmap != null) {
         Image(bitmap, null, contentScale = ContentScale.Crop, modifier = modifier)
     } else {
-        Box(modifier.background(Color(0xFF1A1610)), contentAlignment = Alignment.Center) {
+        Box(modifier.background(PlayBgTop), contentAlignment = Alignment.Center) {
             Text(
                 rep.name,
                 style = MaterialTheme.typography.titleMedium,

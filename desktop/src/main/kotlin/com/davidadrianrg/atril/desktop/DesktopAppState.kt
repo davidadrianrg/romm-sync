@@ -423,6 +423,14 @@ class DesktopAppState(private val scope: CoroutineScope) {
         language.value = tag
     }
 
+    // ── Tema (persistente, se aplica al instante) ──────────────────────
+    val theme = MutableStateFlow(com.davidadrianrg.atril.core.theme.AppTheme.fromId(DesktopConfig.themeId))
+
+    fun setTheme(t: com.davidadrianrg.atril.core.theme.AppTheme) {
+        DesktopConfig.themeId = t.id
+        theme.value = t
+    }
+
     // ── Assets en el servidor ──────────────────────────────────────────
 
     suspend fun serverSaves(romId: Int): List<SaveDto> =
