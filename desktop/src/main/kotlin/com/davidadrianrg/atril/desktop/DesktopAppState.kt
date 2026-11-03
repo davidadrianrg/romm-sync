@@ -1228,6 +1228,41 @@ class DesktopAppState(private val scope: CoroutineScope) {
         return result
     }
 
+    // ── Scrapeo de medio físico (lo hace RomM, no la app) ──────────────
+    sealed interface ScrapeUi {
+        data class Running(val text: String) : ScrapeUi
+        data class Finished(val text: String, val found: Boolean) : ScrapeUi
+    }
+
+    private val _scrapes = MutableStateFlow<Map<Int, ScrapeUi>>(emptyMap())
+    val scrapes: StateFlow<Map<Int, ScrapeUi>> = _scrapes
+
+    private fun setScrape(romId: Int, ui: ScrapeUi?) {
+        _scrapes.value = if (ui == null) _scrapes.value - romId else _scrapes.value + (romId to ui)
+    }
+
+    /** Pide a RomM que scrapee [romId]; no bloquea la UI y se puede reintentar. */
+    fun requestPhysicalScrape(romId: Int) {
+        val svc = api ?: return
+        if (_scrapes.value[romId] is ScrapeUi.Running) return
+        setScrape(romId, ScrapeUi.Running(tr("scrape.queued")))
+        scope.launch {
+            val outcome = com.davidadrianrg.atril.core.scrape.PhysicalMediaScrape.run(svc, romId) { st ->
+                setScrape(romId, ScrapeUi.Running(com.davidadrianrg.atril.core.scrape.PhysicalMediaScrape.describeProgress(st)))
+            }
+            val text = com.davidadrianrg.atril.core.scrape.PhysicalMediaScrape.describe(outcome)
+            if (outcome is com.davidadrianrg.atril.core.scrape.PhysicalMediaScrape.Outcome.Found) {
+                val rom = outcome.rom
+                romMetaCache[romId] = rom
+                rom.platformSlug?.let { slug ->
+                    platformMetaCache[slug]?.let { platformMetaCache[slug] = it + (romId to rom) }
+                }
+                _downloadedVersion.value = _downloadedVersion.value + 1
+            }
+            setScrape(romId, ScrapeUi.Finished(text, found = outcome is com.davidadrianrg.atril.core.scrape.PhysicalMediaScrape.Outcome.Found))
+        }
+    }
+
     /** Abre un juego de la Estantería en la Biblioteca con su detalle. */
     fun openFromShelf(dto: RomDto) {
         _section.value = Section.LIBRARY

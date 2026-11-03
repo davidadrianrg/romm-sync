@@ -46,3 +46,14 @@ data class ScanRequest(
     val type: String = "quick",
     val platforms: List<Int> = emptyList(),
 )
+
+/**
+ * Body de POST /api/tasks/scan para pedir a RomM que vuelva a scrapear UNA rom
+ * con ScreenScraper (`apis = ["ss"]`). La app nunca habla con ScreenScraper.
+ */
+@JsonClass(generateAdapter = true)
+data class RomScrapeRequest(
+    val type: String = "update",
+    @Json(name = "roms_ids") val romsIds: List<Int>,
+    val apis: List<String> = listOf("ss"),
+)
