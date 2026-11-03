@@ -11,7 +11,13 @@ data class LocalSave(
     val file: File,
     val lastModified: Long,
     val sha1: String,
-)
+) {
+    /**
+     * MD5 del blob que se sube. Es el `content_hash` que RomM guarda y compara:
+     * con SHA-1 el servidor no detecta «contenido idéntico» y sube/choca de más.
+     */
+    val md5: String by lazy { com.davidadrianrg.atril.core.sync.SyncIntegrity.md5(file) }
+}
 
 /**
  * Interfaz base para la localización y gestión de saves por plataforma/emulador.

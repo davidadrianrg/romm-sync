@@ -119,7 +119,7 @@ class DesktopSyncCoordinator(
                         romId = romId,
                         fileName = save.fileName,
                         slot = com.davidadrianrg.atril.core.sync.SyncSlots.DEFAULT,
-                        contentHash = save.sha1,
+                        contentHash = save.md5,
                         updatedAt = formatIso8601(save.lastModified),
                         fileSizeBytes = save.file.length().toInt(),
                     )
@@ -201,6 +201,7 @@ class DesktopSyncCoordinator(
                             fileName = op.fileName,
                             savesBasePath = effectiveBasePath,
                             handler = handler,
+                            expectedHash = op.serverContentHash,
                         )
                         if (ok) {
                             completed++
@@ -258,7 +259,7 @@ class DesktopSyncCoordinator(
                                 val config = platformConfigs[rom.platformSlug]
                                 val base = resolveSavesBasePath(rom, config, retroArchBase)
                                 backupLocalSave(op.romId, op.fileName, localSavesMap[op.romId], handler)
-                                if (executeDownload(api, saveId, deviceId, rom, op.fileName, base, handler)) {
+                                if (executeDownload(api, saveId, deviceId, rom, op.fileName, base, handler, op.serverContentHash)) {
                                     completed++
                                     autoResolvedConflicts++
                                 } else {
@@ -386,7 +387,7 @@ class DesktopSyncCoordinator(
                         romId = romId,
                         fileName = save.fileName,
                         slot = com.davidadrianrg.atril.core.sync.SyncSlots.DEFAULT,
-                        contentHash = save.sha1,
+                        contentHash = save.md5,
                         updatedAt = formatIso8601(save.lastModified),
                         fileSizeBytes = save.file.length().toInt(),
                     ),
@@ -507,7 +508,7 @@ class DesktopSyncCoordinator(
                         romId = rom.romId,
                         fileName = save.fileName,
                         slot = com.davidadrianrg.atril.core.sync.SyncSlots.DEFAULT,
-                        contentHash = save.sha1,
+                        contentHash = save.md5,
                         updatedAt = formatIso8601(save.lastModified),
                         fileSizeBytes = save.file.length().toInt(),
                     )
@@ -541,6 +542,7 @@ class DesktopSyncCoordinator(
                     fileName = localFileName,
                     savesBasePath = effectiveBasePath,
                     handler = handler,
+                    expectedHash = op.serverContentHash,
                 )
                 if (ok) {
                     op.serverContentHash?.let { hash ->
@@ -645,24 +647,10 @@ class DesktopSyncCoordinator(
         romId: Int,
         deviceId: String,
         handler: SaveHandler,
-    ): Boolean {
-        return try {
-            val fileToUpload = handler.prepareForUpload(save)
-            val requestFile = fileToUpload.asRequestBody("application/octet-stream".toMediaType())
-            val filePart = MultipartBody.Part.createFormData("saveFile", save.fileName, requestFile)
-            api.uploadSave(
-                file = filePart,
-                romId = romId,
-                deviceId = deviceId,
-                slot = com.davidadrianrg.atril.core.sync.SyncSlots.DEFAULT,
-                overwrite = true,
-            )
-            true
-        } catch (e: Exception) {
-            println("Error: " + e.message)
-            false
-        }
-    }
+    ): Boolean = com.davidadrianrg.atril.core.sync.SyncTransfers.upload(
+        api = api, save = save, romId = romId, deviceId = deviceId, handler = handler,
+        log = { println("sync: $it") },
+    )
 
     private suspend fun executeDownload(
         api: RomMApiService,
@@ -672,31 +660,13 @@ class DesktopSyncCoordinator(
         fileName: String,
         savesBasePath: String,
         handler: SaveHandler,
-    ): Boolean {
-        return try {
-            val responseBody = api.downloadSave(saveId, deviceId)
-            val tempFile = File(cacheDir, "sync_dl_${rom.romId}_$fileName")
-            FileOutputStream(tempFile).use { out ->
-                responseBody.byteStream().use { input ->
-                    input.copyTo(out)
-                }
-            }
-
-            val ok = handler.extractDownload(
-                tempFile = tempFile,
-                romFileName = rom.fileName,
-                platformSlug = rom.platformSlug,
-                savesBasePath = savesBasePath,
-                targetFileName = com.davidadrianrg.atril.core.sync.SaveNames
-                    .stripVersionTag(fileName),
-            )
-            tempFile.delete()
-            ok
-        } catch (e: Exception) {
-            println("Error: " + e.message)
-            false
-        }
-    }
+        expectedHash: String?,
+    ): Boolean = com.davidadrianrg.atril.core.sync.SyncTransfers.download(
+        api = api, saveId = saveId, deviceId = deviceId, romId = rom.romId,
+        romFileName = rom.fileName, platformSlug = rom.platformSlug, fileName = fileName,
+        savesBasePath = savesBasePath, handler = handler, cacheDir = cacheDir,
+        expectedHash = expectedHash, log = { println("sync: $it") },
+    )
 
     private fun buildResultMessage(completed: Int, failed: Int, conflicts: Int): String {
         val parts = mutableListOf<String>()
