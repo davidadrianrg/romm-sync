@@ -91,11 +91,15 @@ class DownloadManager(private val context: Context) {
         }
     }
 
+    /** Cancelación explícita del usuario: el worker borra el fichero parcial. */
     fun cancelDownload(romId: Int) {
+        DownloadCancelRegistry.markCancelled(romId)
         workManager.cancelAllWorkByTag(workTagForRom(romId))
     }
 
+    /** Cancelación explícita de toda la cola: los workers borran sus parciales. */
     fun cancelAllDownloads() {
+        DownloadCancelRegistry.markAllCancelled()
         workManager.cancelAllWorkByTag(TAG_DOWNLOAD)
     }
 
@@ -122,8 +126,9 @@ class DownloadManager(private val context: Context) {
         platformSlug: String,
         romsRootPath: String? = null,
     ): String {
-        // Cancel the old failed work first so it gets cleaned up
-        cancelDownload(romId)
+        // Cancel the old failed work first so it gets cleaned up. No es una
+        // cancelación del usuario: se conserva el parcial para reanudar.
+        workManager.cancelAllWorkByTag(workTagForRom(romId))
 
         val inputData = Data.Builder()
             .putInt(DownloadWorker.KEY_ROM_ID, romId)
