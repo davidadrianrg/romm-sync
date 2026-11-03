@@ -142,7 +142,7 @@ fun DesktopPlayScreen(
                 insertProgress.snapTo(0f)
                 insertProgress.animateTo(
                     targetValue = 1f,
-                    animationSpec = tween(durationMillis = 1250, easing = LinearEasing),
+                    animationSpec = tween(durationMillis = com.davidadrianrg.atril.core.launch.InsertionMotion.DURATION_MS, easing = LinearEasing),
                 )
                 state.openLocalGame(entry.card)
             } finally {
@@ -378,16 +378,11 @@ private fun InsertionOverlay(
     progress: Float,
     onCancel: () -> Unit,
 ) {
-    val p = progress.coerceIn(0f, 1f)
-    fun seg(start: Float, end: Float) =
-        FastOutSlowInEasing.transform(((p - start) / (end - start)).coerceIn(0f, 1f))
-    val appear = seg(0f, 0.15f)
-    val lift = seg(0.02f, 0.28f)
-    val travel = seg(0.22f, 0.82f)
-    val sink = seg(0.72f, 0.94f)
-    val glow = seg(0.78f, 1f)
     val entry = insertion.entry
     val optical = LaunchPlatforms.isOptical(entry.card.rep.platformSlug ?: "")
+    val pose = com.davidadrianrg.atril.core.launch.InsertionMotion.pose(progress, optical)
+    val appear = pose.appear
+    val glow = (pose.glow + 0.5f * pose.impact).coerceAtMost(1.4f)
 
     BoxWithConstraints(
         Modifier
@@ -437,8 +432,21 @@ private fun InsertionOverlay(
                 .background(PlayBgBottom)
                 .border(
                     1.5.dp,
-                    PlayAmber.copy(alpha = 0.35f + 0.65f * glow),
+                    PlayAmber.copy(alpha = (0.35f + 0.65f * glow).coerceIn(0f, 1f)),
                     RoundedCornerShape(10.dp),
+                ),
+        )
+
+        // Sombra proyectada sobre la ranura: crece y se oscurece al acercarse.
+        Box(
+            Modifier
+                .align(Alignment.Center)
+                .offset(y = slotY - 6.dp)
+                .size(width = mediaSize * 1.08f * pose.shadowScale, height = 18.dp)
+                .graphicsLayer { alpha = pose.shadowAlpha }
+                .background(
+                    Brush.radialGradient(listOf(Color.Black, Color.Transparent)),
+                    RoundedCornerShape(50),
                 ),
         )
 
@@ -448,17 +456,15 @@ private fun InsertionOverlay(
                 .size(mediaSize)
                 .graphicsLayer {
                     val travelPx = slotY.toPx() - mediaSize.toPx() * 0.18f
-                    translationY = -mediaSize.toPx() * 0.48f * (1f - travel) + travelPx * travel
-                    val scale = (1f + 0.06f * lift) * (1f - 0.42f * travel)
-                    scaleX = scale
-                    scaleY = scale * (1f - 0.55f * sink)
-                    if (optical) {
-                        rotationZ = 540f * travel
-                    } else {
-                        rotationX = 58f * travel
-                        cameraDistance = 12f * 1000f
-                    }
-                    alpha = (1f - sink) * appear
+                    translationY = -mediaSize.toPx() * (0.30f * (1f - pose.travel) + pose.arc) +
+                        travelPx * pose.travel
+                    scaleX = pose.scale
+                    scaleY = pose.scale * pose.squashY
+                    rotationX = pose.rotationX
+                    rotationY = pose.rotationY
+                    rotationZ = pose.rotationZ
+                    cameraDistance = 12f * 1000f
+                    alpha = pose.alpha
                     transformOrigin = TransformOrigin(0.5f, if (optical) 0.5f else 1f)
                 },
             contentAlignment = Alignment.Center,

@@ -506,13 +506,9 @@ internal fun InsertionOverlay(
     progress: Float,
     onCancel: () -> Unit,
 ) {
-    val p = progress.coerceIn(0f, 1f)
-    fun seg(start: Float, end: Float) = FastOutSlowInEasing.transform(((p - start) / (end - start)).coerceIn(0f, 1f))
-    val appear = seg(0f, 0.18f)
-    val lift = seg(0.05f, 0.32f)
-    val travel = seg(0.32f, 0.82f)
-    val sink = seg(0.70f, 0.90f)
-    val glow = seg(0.78f, 1f)
+    val pose = com.davidadrianrg.atril.core.launch.InsertionMotion.pose(progress, item.isOptical)
+    val appear = pose.appear
+    val glow = (pose.glow + 0.5f * pose.impact).coerceAtMost(1.4f)
 
     BoxWithConstraints(
         Modifier
@@ -566,8 +562,23 @@ internal fun InsertionOverlay(
                 .background(Color(0xFF050403))
                 .border(
                     1.5.dp,
-                    LauncherAmber.copy(alpha = 0.35f + 0.65f * glow),
+                    LauncherAmber.copy(alpha = (0.35f + 0.65f * glow).coerceIn(0f, 1f)),
                     RoundedCornerShape(11.dp),
+                ),
+        )
+
+        // Sombra proyectada sobre la ranura: crece y se oscurece al acercarse.
+        Box(
+            Modifier
+                .align(Alignment.Center)
+                .offset(y = slotY - 6.dp)
+                .size(width = slotWidth * pose.shadowScale, height = 18.dp)
+                .graphicsLayer { alpha = pose.shadowAlpha }
+                .background(
+                    androidx.compose.ui.graphics.Brush.radialGradient(
+                        listOf(Color.Black, Color.Transparent),
+                    ),
+                    RoundedCornerShape(50),
                 ),
         )
 
@@ -579,18 +590,15 @@ internal fun InsertionOverlay(
                 .align(Alignment.Center)
                 .size(mediaSize)
                 .graphicsLayer {
-                    val up = -18.dp.toPx() * lift * (1f - travel)
-                    translationY = up + (slotY.toPx() - mediaSize.toPx() * 0.15f) * travel
-                    val s = (1f + 0.06f * lift) * (1f - 0.42f * travel)
-                    scaleX = s
-                    scaleY = s * (1f - 0.55f * sink)
-                    if (item.isOptical) {
-                        rotationZ = 540f * travel
-                    } else {
-                        rotationX = 58f * travel
-                        cameraDistance = 14f * density
-                    }
-                    alpha = (1f - sink) * appear
+                    translationY = -mediaSize.toPx() * (0.30f * (1f - pose.travel) + pose.arc) +
+                        (slotY.toPx() - mediaSize.toPx() * 0.15f) * pose.travel
+                    scaleX = pose.scale
+                    scaleY = pose.scale * pose.squashY
+                    rotationX = pose.rotationX
+                    rotationY = pose.rotationY
+                    rotationZ = pose.rotationZ
+                    cameraDistance = 14f * density
+                    alpha = pose.alpha
                     // El disco gira sobre su centro; el cartucho bascula sobre su base.
                     transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, if (item.isOptical) 0.5f else 1f)
                 },
