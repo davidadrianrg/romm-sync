@@ -1,6 +1,8 @@
 package com.davidadrianrg.atril.desktop
 
 import com.davidadrianrg.atril.core.i18n.tr
+import com.davidadrianrg.atril.core.launch.DesktopEmulatorCatalog
+import com.davidadrianrg.atril.core.launch.DesktopLaunchPlanner
 import com.davidadrianrg.atril.core.remote.dto.SaveDto
 import com.davidadrianrg.atril.core.remote.dto.SearchRomDto
 import com.davidadrianrg.atril.core.remote.dto.StateDto
@@ -562,16 +564,18 @@ class DesktopAppState(private val scope: CoroutineScope) {
         _downloadedVersion.value = _downloadedVersion.value + 1
     }
 
+    private val gameLauncher = DesktopGameLauncher()
+
     /**
-     * Abre la ROM local con la aplicación asociada del sistema. En Linux esto
-     * permite que el emulador configurado en el escritorio (RetroArch, Dolphin,
-     * PPSSPP…) arranque el fichero. Si no hay ruta local, devuelve el aviso.
+     * Lanza la ROM local con el emulador configurado para su plataforma
+     * (Plataformas → Ajustes → Lanzar juegos). No hay fallback al «abrir con»
+     * del sistema: sin emulador configurado se explica cómo configurarlo.
      */
     fun openLocalGame(card: GameCard): Boolean {
         val entry = library.rom(card.rep.id)
             ?: card.groupRoms.asSequence().mapNotNull { library.rom(it.id) }.firstOrNull()
         val path = entry?.localPath?.takeIf { it.isNotBlank() }
-        if (path == null) {
+        if (entry == null || path == null) {
             showSnackbar(tr("launcher.desktop.no_file"))
             return false
         }
@@ -580,14 +584,54 @@ class DesktopAppState(private val scope: CoroutineScope) {
             showSnackbar(tr("launcher.desktop.file_missing", path))
             return false
         }
-        return runCatching {
-            if (!java.awt.Desktop.isDesktopSupported()) error("desktop unsupported")
-            java.awt.Desktop.getDesktop().open(file)
-            true
-        }.getOrElse { error ->
-            showSnackbar(tr("launcher.desktop.open_failed", error.message ?: error.javaClass.simpleName))
-            false
+        val slug = entry.platformSlug
+        val platformName = _platforms.value.firstOrNull { it.slug == slug }?.let { it.displayName ?: it.name } ?: slug
+        val cfg = library.platform(slug)
+        val config = DesktopLaunchPlanner.Config(cfg.launchEmulatorId, cfg.launchExecutable, cfg.launchArgs)
+
+        return when (val result = gameLauncher.launch(slug, config, file)) {
+            is DesktopGameLauncher.Result.Started -> {
+                // Si el emulador muere enseguida con error (p. ej. core inexistente), avisar.
+                val emulatorName = DesktopEmulatorCatalog.byId(cfg.launchEmulatorId)?.displayName ?: platformName
+                scope.launch(Dispatchers.IO) {
+                    DesktopGameLauncher.earlyFailureCode(result.process)?.let { code ->
+                        showSnackbar(tr("launcher.desktop.exited", emulatorName, code))
+                    }
+                }
+                true
+            }
+            is DesktopGameLauncher.Result.Failed -> {
+                showSnackbar(tr("launcher.desktop.open_failed", result.message))
+                false
+            }
+            is DesktopGameLauncher.Result.Rejected -> {
+                showSnackbar(launchRejectionMessage(result.plan, platformName))
+                false
+            }
         }
+    }
+
+    private fun launchRejectionMessage(plan: DesktopLaunchPlanner.Plan, platformName: String): String = when (plan) {
+        is DesktopLaunchPlanner.Plan.NotConfigured -> tr("launcher.desktop.not_configured", platformName)
+        is DesktopLaunchPlanner.Plan.NoExecutable -> tr("launcher.desktop.no_executable", plan.emulatorName)
+        is DesktopLaunchPlanner.Plan.ExecutableMissing ->
+            tr("launcher.desktop.exe_missing", plan.emulatorName, plan.executable)
+        is DesktopLaunchPlanner.Plan.InvalidArgs -> tr("launcher.desktop.invalid_args", plan.reason)
+        is DesktopLaunchPlanner.Plan.NoCore -> tr("launcher.desktop.no_core", platformName)
+        is DesktopLaunchPlanner.Plan.Ready -> error("Ready no es un rechazo")
+    }
+
+    /** Guarda cómo se lanzan los juegos de [slug]; emulador vacío = sin configurar. */
+    fun setPlatformLaunch(slug: String, emulatorId: String?, executable: String, args: String) {
+        val cur = library.platform(slug)
+        val emu = emulatorId?.takeIf { it.isNotBlank() }
+        library.upsertPlatform(
+            cur.copy(
+                launchEmulatorId = emu,
+                launchExecutable = executable.trim().ifBlank { null }.takeIf { emu != null },
+                launchArgs = args.trim().ifBlank { null }.takeIf { emu != null },
+            ),
+        )
     }
 
     // ── Biblioteca: agrupado, filtro y búsqueda ─────────────────────────
