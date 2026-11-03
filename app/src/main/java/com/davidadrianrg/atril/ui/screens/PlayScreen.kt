@@ -69,6 +69,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -291,7 +294,12 @@ fun PlayScreen(
                                     horizontal = ((maxWidth - heroWidth) / 2).coerceAtLeast(0.dp),
                                 ),
                                 pageSpacing = 16.dp,
-                                modifier = Modifier.fillMaxSize(),
+                                // En horizontal los vecinos asoman junto al texto del
+                                // juego actual: se desvanecen en el borde (igual que en
+                                // escritorio) en lugar de cortarse contra el título.
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .then(if (landscape) Modifier.fadeEdges() else Modifier),
                             ) { page ->
                                 val item = visibleItems[page]
                                 val selected = page == pagerState.currentPage
@@ -662,3 +670,19 @@ private fun LauncherArrow(
         )
     }
 }
+
+/** Desvanece los bordes laterales del contenido (máscara DstIn sobre capa offscreen). */
+private fun Modifier.fadeEdges(): Modifier = this
+    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+    .drawWithContent {
+        drawContent()
+        drawRect(
+            brush = Brush.horizontalGradient(
+                0f to Color.Transparent,
+                0.12f to Color.Black,
+                0.80f to Color.Black,
+                1f to Color.Transparent,
+            ),
+            blendMode = BlendMode.DstIn,
+        )
+    }
