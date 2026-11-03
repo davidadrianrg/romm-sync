@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import com.squareup.moshi.JsonClass
 import org.junit.Test
 import java.io.File
 
@@ -18,6 +19,8 @@ class LocalGameStoreTest {
         assertEquals("Donkey Kong Country", LocalGameNames.titleFromFileName("/roms/snes/Donkey_Kong_Country (Europe) (Rev 1).sfc"))
         assertEquals("Gex", LocalGameNames.titleFromFileName("Gex.chd"))
         assertEquals("(USA)", LocalGameNames.titleFromFileName("(USA)"))
+        // El fallback no debe arrastrar el directorio.
+        assertEquals("(USA)", LocalGameNames.titleFromFileName("/roms/n64/(USA).z64"))
     }
 
     @Test
@@ -76,5 +79,11 @@ class LocalGameStoreTest {
         assertTrue(File(f.path + ".corrupt").readText() == "{not json")
         s.add("ok", "n64", "/ok")
         assertEquals(1, LocalGameStore(f).all().size)
+    }
+
+    @Test
+    fun `local game is annotated so R8 keeps its JSON field names`() {
+        assertTrue(LocalGame::class.java.isAnnotationPresent(JsonClass::class.java))
+        assertTrue(ScrapeStatus::class.java.isAnnotationPresent(JsonClass::class.java))
     }
 }
