@@ -12,6 +12,7 @@ import java.util.Properties
  *   rom.<id>.platform = ...
  *   platform.<slug>.emulator = ...
  *   platform.<slug>.savesPath = ...
+ *   platform.<slug>.launchEmulator / launchExe / launchArgs = ...  (lanzar juegos)
  */
 class DesktopLibrary(private val file: File) {
 
@@ -42,6 +43,12 @@ class DesktopLibrary(private val file: File) {
         val emulatorId: String? = null,
         val savesPathOverride: String? = null,
         val romsFolderOverride: String? = null,
+        /** Emulador de escritorio con el que se lanza (id de DesktopEmulatorCatalog). */
+        val launchEmulatorId: String? = null,
+        /** Ejecutable propio (vacío = el del catálogo). */
+        val launchExecutable: String? = null,
+        /** Plantilla de argumentos propia (vacío = la del catálogo). */
+        val launchArgs: String? = null,
     )
 
     fun roms(): List<RomEntry> {
@@ -76,7 +83,13 @@ class DesktopLibrary(private val file: File) {
         val emu = props.getProperty("platform.$slug.emulator")
         val saves = props.getProperty("platform.$slug.savesPath")?.takeIf { it.isNotBlank() }
         val folder = props.getProperty("platform.$slug.romsFolder")?.takeIf { it.isNotBlank() }
-        return PlatformEntry(slug, emu?.takeIf { it.isNotBlank() }, saves, folder)
+        fun prop(key: String) = props.getProperty("platform.$slug.$key")?.takeIf { it.isNotBlank() }
+        return PlatformEntry(
+            slug, emu?.takeIf { it.isNotBlank() }, saves, folder,
+            launchEmulatorId = prop("launchEmulator"),
+            launchExecutable = prop("launchExe"),
+            launchArgs = prop("launchArgs"),
+        )
     }
 
     @Synchronized
@@ -84,6 +97,9 @@ class DesktopLibrary(private val file: File) {
         props["platform.${entry.slug}.emulator"] = entry.emulatorId ?: ""
         props["platform.${entry.slug}.savesPath"] = entry.savesPathOverride ?: ""
         props["platform.${entry.slug}.romsFolder"] = entry.romsFolderOverride ?: ""
+        props["platform.${entry.slug}.launchEmulator"] = entry.launchEmulatorId ?: ""
+        props["platform.${entry.slug}.launchExe"] = entry.launchExecutable ?: ""
+        props["platform.${entry.slug}.launchArgs"] = entry.launchArgs ?: ""
         persist()
     }
 

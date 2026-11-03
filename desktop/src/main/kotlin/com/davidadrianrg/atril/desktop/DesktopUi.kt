@@ -80,6 +80,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.davidadrianrg.atril.core.i18n.tr
+import com.davidadrianrg.atril.core.launch.DesktopLaunchPlanner
+import com.davidadrianrg.atril.core.launch.DesktopEmulatorCatalog
 import com.davidadrianrg.atril.core.remote.dto.PlatformDto
 import com.davidadrianrg.atril.core.remote.dto.RomDto
 import com.davidadrianrg.atril.core.sync.platform.SaveHandlerRegistry
@@ -421,6 +423,10 @@ private fun PlatformConfigDialog(p: PlatformDto, state: DesktopAppState, onDismi
     var folder by remember { mutableStateOf(cfg.romsFolderOverride ?: p.slug) }
     var savesPath by remember { mutableStateOf(cfg.savesPathOverride ?: "") }
     var emulator by remember { mutableStateOf(cfg.emulatorId ?: "") }
+    var launchEmu by remember { mutableStateOf(cfg.launchEmulatorId ?: "") }
+    var launchExe by remember { mutableStateOf(cfg.launchExecutable ?: "") }
+    var launchArgs by remember { mutableStateOf(cfg.launchArgs ?: "") }
+    val launchChoices = remember(p.slug) { DesktopEmulatorCatalog.forPlatform(p.slug) }
 
     // Emuladores aplicables a desktop (se excluye el handler nativo Android).
     val emulators = remember(p.slug) {
@@ -436,13 +442,14 @@ private fun PlatformConfigDialog(p: PlatformDto, state: DesktopAppState, onDismi
                 state.setPlatformFolder(p.slug, folder)
                 state.setPlatformSavesPath(p.slug, savesPath)
                 state.setPlatformEmulator(p.slug, emulator)
+                state.setPlatformLaunch(p.slug, launchEmu, launchExe, launchArgs)
                 onDismiss()
             }) { Text(tr("common.save")) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(tr("common.cancel")) } },
         title = { Text(p.displayName ?: p.name) },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(
                     folder,
                     { folder = it },
@@ -474,6 +481,84 @@ private fun PlatformConfigDialog(p: PlatformDto, state: DesktopAppState, onDismi
                             label = { Text(emu.displayName) },
                         )
                     }
+                }
+
+                Spacer(Modifier.height(16.dp))
+                Text(tr("platforms.config.launch_title"), style = MaterialTheme.typography.labelMedium)
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(
+                        selected = launchEmu.isBlank(),
+                        onClick = { launchEmu = ""; launchExe = ""; launchArgs = "" },
+                        label = { Text(tr("platforms.config.launch_none")) },
+                    )
+                    launchChoices.forEach { emu ->
+                        FilterChip(
+                            selected = launchEmu == emu.id,
+                            onClick = { launchEmu = emu.id },
+                            label = { Text(emu.displayName) },
+                        )
+                    }
+                    FilterChip(
+                        selected = launchEmu == DesktopEmulatorCatalog.CUSTOM_ID,
+                        onClick = { launchEmu = DesktopEmulatorCatalog.CUSTOM_ID },
+                        label = { Text(tr("platforms.config.launch_custom")) },
+                    )
+                }
+                if (launchChoices.isEmpty()) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        tr("platforms.config.launch_no_suggestions"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                val draft = DesktopLaunchPlanner.Config(
+                    emulatorId = launchEmu.ifBlank { null },
+                    executable = launchExe.ifBlank { null },
+                    args = launchArgs.ifBlank { null },
+                )
+                if (launchEmu.isNotBlank()) {
+                    val emu = DesktopEmulatorCatalog.byId(launchEmu)
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        launchExe,
+                        { launchExe = it },
+                        label = { Text(tr("platforms.config.launch_exe")) },
+                        placeholder = { Text(emu?.defaultExecutable.orEmpty()) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        launchArgs,
+                        { launchArgs = it },
+                        label = { Text(tr("platforms.config.launch_args")) },
+                        placeholder = { Text(emu?.defaultArgs.orEmpty()) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                val exeText = DesktopLaunchPlanner.effectiveExecutable(draft)
+                val status = when {
+                    launchEmu.isBlank() -> tr("platforms.config.launch_status_unset")
+                    exeText.isBlank() -> tr("platforms.config.launch_status_noexe")
+                    else -> DesktopLaunchPlanner.resolveExecutable(exeText)
+                        ?.let { tr("platforms.config.launch_status_found", it.absolutePath) }
+                        ?: tr("platforms.config.launch_status_missing", exeText)
+                }
+                Text(
+                    status,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (launchEmu.isNotBlank()) {
+                    Text(
+                        tr("platforms.config.launch_hint"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         },
