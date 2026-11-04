@@ -67,6 +67,7 @@ class SettingsDataStore(private val context: Context) {
         val LAST_NOTIFIED_UPDATE_VERSION = stringPreferencesKey("last_notified_update_version")
         val CONFLICT_POLICY = stringPreferencesKey("conflict_policy")
         val ESDE_DATA_DIR = stringPreferencesKey("esde_data_dir")
+        val SAVE_DOWNLOAD_DIR = stringPreferencesKey("save_download_dir")
         val AUTO_PHYSICAL_MEDIA = booleanPreferencesKey("auto_physical_media")
         val MEDIA_DOWNLOAD_PATH = stringPreferencesKey("media_download_path")
         val LANGUAGE = stringPreferencesKey("language")
@@ -202,6 +203,14 @@ class SettingsDataStore(private val context: Context) {
     val esdeDataDir: Flow<String> = context.dataStore.data.map {
         it[ESDE_DATA_DIR] ?: DEFAULT_ESDE_DATA_DIR
     }
+    /** Última carpeta elegida como destino de una descarga manual de saves ("" = ruta de sync). */
+    fun getSaveDownloadDirBlocking(): String = runCatching {
+        runBlocking { context.dataStore.data.first()[SAVE_DOWNLOAD_DIR] ?: "" }
+    }.getOrDefault("")
+    suspend fun setSaveDownloadDir(dir: String) {
+        context.dataStore.edit { it[SAVE_DOWNLOAD_DIR] = dir }
+    }
+
     /** Pedir a RomM el medio físico de los juegos al descargarlos (solo con launcher en modo físico). */
     val autoPhysicalMedia: Flow<Boolean> = context.dataStore.data.map { it[AUTO_PHYSICAL_MEDIA] ?: false }
     suspend fun setAutoPhysicalMedia(enabled: Boolean) {

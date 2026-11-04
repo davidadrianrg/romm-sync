@@ -58,6 +58,11 @@ object DesktopConfig {
         get() = prefs.get("hidden_platforms", "")
         set(v) = prefs.put("hidden_platforms", v)
 
+    /** Última carpeta elegida como destino de una descarga manual de saves ("" = ruta de sync). */
+    var saveDownloadDir: String
+        get() = prefs.get("save_download_dir", "")
+        set(v) = prefs.put("save_download_dir", v)
+
     /** Pedir a RomM el medio físico al descargar un juego que no lo tenga. */
     var autoPhysicalMedia: Boolean
         get() = prefs.getBoolean("auto_physical_media", false)

@@ -19,7 +19,8 @@ import java.io.File
  */
 class ManualSaveDownloader(private val context: Context) {
 
-    suspend fun download(romId: Int, saveId: Int, fileName: String): Result<Unit> =
+    /** [destDir]: «otra carpeta»; null = la ruta de sync configurada. */
+    suspend fun download(romId: Int, saveId: Int, fileName: String, destDir: String? = null): Result<Unit> =
         withContext(Dispatchers.IO) {
             runCatching {
                 val settings = SettingsDataStore(context)
@@ -39,7 +40,7 @@ class ManualSaveDownloader(private val context: Context) {
                 val retroBase = settings.getRetroArchBasePathBlocking()
                 val emulatorId = platform?.emulatorId
                     ?: SaveHandlerRegistry.getDefaultEmulator(rom.platformSlug).id
-                val rawBase = rom.savesPathOverride?.takeIf { it.isNotBlank() }
+                val syncBase = rom.savesPathOverride?.takeIf { it.isNotBlank() }
                     ?: platform?.savesPathOverride?.takeIf { it.isNotBlank() }
                     ?: AndroidSavePathResolver.resolveDefault(
                         emulatorId = emulatorId,
@@ -48,6 +49,7 @@ class ManualSaveDownloader(private val context: Context) {
                         context = context,
                     )
 
+                val rawBase = com.davidadrianrg.atril.core.sync.SaveDownloadDestination.resolve(destDir, syncBase)
                 val api = NetworkModule.createApiService(serverUrl, apiKey)
                 val body = api.downloadSave(saveId, settings.getSyncDeviceIdStringBlocking())
                 val temp = File(context.cacheDir, "manual_save_${romId}_$saveId")

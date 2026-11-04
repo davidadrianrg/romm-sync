@@ -40,6 +40,10 @@ fun ServerAssetsPanel(romId: Int, state: DesktopAppState) {
     var downloadingId by remember { mutableStateOf<Int?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    var downloadTarget by remember { mutableStateOf<SaveDto?>(null) }
+    var deleteTarget by remember { mutableStateOf<SaveDto?>(null) }
+    var customDir by remember { mutableStateOf(state.config.saveDownloadDir) }
+    var useCustomDir by remember { mutableStateOf(state.config.saveDownloadDir.isNotBlank()) }
 
     fun reload() {
         scope.launch {
@@ -91,19 +95,18 @@ fun ServerAssetsPanel(romId: Int, state: DesktopAppState) {
                 } else {
                     TextButton(
                         enabled = downloadingId == null,
-                        onClick = {
-                            downloadingId = save.id
-                            message = null
-                            scope.launch {
-                                val result = state.downloadServerSave(romId, save.id, save.fileName)
-                                downloadingId = null
-                                message = result.fold(
-                                    { tr("saves.server.download_ok") },
-                                    { tr("saves.server.download_error", it.message ?: "") },
-                                )
-                            }
-                        },
+                        onClick = { downloadTarget = save },
                     ) { Text(tr("saves.server.download"), style = MaterialTheme.typography.labelSmall) }
+                    TextButton(
+                        enabled = downloadingId == null,
+                        onClick = { deleteTarget = save },
+                    ) {
+                        Text(
+                            tr("saves.server.delete"),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
             }
         }
@@ -146,6 +149,74 @@ fun ServerAssetsPanel(romId: Int, state: DesktopAppState) {
         message?.let {
             Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
         }
+    }
+
+    downloadTarget?.let { save ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { downloadTarget = null },
+            title = { Text(tr("saves.server.download_to", save.fileName)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.RadioButton(selected = !useCustomDir, onClick = { useCustomDir = false })
+                        Text(tr("saves.server.dest_sync"))
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.RadioButton(
+                            selected = useCustomDir,
+                            enabled = customDir.isNotBlank(),
+                            onClick = { useCustomDir = true },
+                        )
+                        Text(if (customDir.isBlank()) tr("saves.server.dest_folder") else customDir)
+                    }
+                    TextButton(onClick = {
+                        pickDirectory(tr("saves.server.choose_folder"))?.let {
+                            customDir = it.absolutePath
+                            useCustomDir = true
+                            state.config.saveDownloadDir = customDir // se recuerda
+                        }
+                    }) { Text(tr("saves.server.choose_folder")) }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val dir = if (useCustomDir) customDir else null
+                    downloadTarget = null
+                    downloadingId = save.id
+                    message = null
+                    scope.launch {
+                        val result = state.downloadServerSave(romId, save.id, save.fileName, dir)
+                        downloadingId = null
+                        message = result.fold(
+                            { tr("saves.server.download_ok") },
+                            { tr("saves.server.download_error", it.message ?: "") },
+                        )
+                    }
+                }) { Text(tr("saves.server.download")) }
+            },
+            dismissButton = { TextButton(onClick = { downloadTarget = null }) { Text(tr("common.cancel")) } },
+        )
+    }
+    deleteTarget?.let { save ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text(tr("saves.server.delete")) },
+            text = { Text(tr("saves.server.delete_confirm", save.fileName)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    deleteTarget = null
+                    scope.launch {
+                        val result = state.deleteServerSave(save.id)
+                        message = result.fold(
+                            { tr("saves.server.delete_ok") },
+                            { tr("saves.server.delete_error", it.message ?: "") },
+                        )
+                        if (result.isSuccess) reload()
+                    }
+                }) { Text(tr("saves.server.delete"), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text(tr("common.cancel")) } },
+        )
     }
 }
 

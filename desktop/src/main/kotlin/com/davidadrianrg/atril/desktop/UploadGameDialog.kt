@@ -256,7 +256,7 @@ fun UploadGameDialogDesktop(
 }
 
 /** Selector de carpeta nativo (JFileChooser, solo directorios). */
-private fun pickDirectory(title: String): File? {
+internal fun pickDirectory(title: String): File? {
     val chooser = JFileChooser()
     chooser.fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
     chooser.dialogTitle = title

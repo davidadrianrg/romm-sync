@@ -516,7 +516,14 @@ class DesktopAppState(private val scope: CoroutineScope) {
         runCatching { api?.getStates(romId) ?: emptyList() }.getOrDefault(emptyList())
 
     /** Descarga un save concreto del servidor a la carpeta local del juego. */
-    suspend fun downloadServerSave(romId: Int, saveId: Int, fileName: String): Result<Unit> =
+    suspend fun deleteServerSave(saveId: Int): Result<Unit> = runCatching {
+        val svc = api ?: error(tr("common.server_not_configured"))
+        svc.deleteSaves(mapOf("saves" to listOf(saveId)))
+        Unit
+    }
+
+    /** [destDir]: «otra carpeta»; null = ruta de sync configurada. */
+    suspend fun downloadServerSave(romId: Int, saveId: Int, fileName: String, destDir: String? = null): Result<Unit> =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             runCatching {
                 val svc = api ?: error(tr("common.server_not_configured"))
@@ -526,10 +533,11 @@ class DesktopAppState(private val scope: CoroutineScope) {
                 val emulatorId = platform.emulatorId
                     ?: com.davidadrianrg.atril.core.sync.platform.SaveHandlerRegistry
                         .getDefaultEmulator(entry.platformSlug).id
-                val base = entry.savesPathOverride?.takeIf { it.isNotBlank() }
+                val syncBase = entry.savesPathOverride?.takeIf { it.isNotBlank() }
                     ?: platform.savesPathOverride?.takeIf { it.isNotBlank() }
                     ?: com.davidadrianrg.atril.core.sync.platform.SaveHandlerRegistry
                         .getDefaultSavesPath(emulatorId, entry.platformSlug, "")
+                val base = com.davidadrianrg.atril.core.sync.SaveDownloadDestination.resolve(destDir, syncBase)
                 val body = svc.downloadSave(saveId, config.deviceId)
                 val temp = File(
                     System.getProperty("java.io.tmpdir") ?: ".",

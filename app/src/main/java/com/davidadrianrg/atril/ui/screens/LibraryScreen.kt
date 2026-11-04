@@ -1509,11 +1509,7 @@ internal fun RomDetailSheet(
 
         // ── RomM: guardados del servidor y emparejado (plegable) ──
         if (serverUrl.isNotBlank() && apiKey.isNotBlank()) DetailGroup(tr("game.group.romm")) {
-            com.davidadrianrg.atril.ui.components.ServerAssetsSection(
-                romId = rom.id,
-                serverUrl = serverUrl,
-                apiKey = apiKey,
-            )
+            RomMStatusRows(serverUrl)
 
             // ── Buscar coincidencia (si el escaneo no reconoció el juego) ──
             Spacer(modifier = Modifier.size(20.dp))
@@ -1660,9 +1656,10 @@ internal fun RomDetailSheet(
         // ── Configuración de sincronización de partidas ────────────────
         // Solo tiene sentido para juegos descargados (son los que se sincronizan)
         // y si la función de sync no está desactivada en Configuración.
-        if (isDownloaded && syncEnabled) {
+        if ((isDownloaded && syncEnabled) || (serverUrl.isNotBlank() && apiKey.isNotBlank())) {
             Spacer(modifier = Modifier.size(16.dp))
-            DetailGroup(tr("common.save_sync")) {
+            DetailGroup(tr("game.group.saves")) {
+                if (isDownloaded && syncEnabled) {
 
             // Toggle de exclusión
             Row(
@@ -1825,6 +1822,14 @@ internal fun RomDetailSheet(
                     }
                 }
             }
+            }
+                if (serverUrl.isNotBlank() && apiKey.isNotBlank()) {
+                    com.davidadrianrg.atril.ui.components.ServerAssetsSection(
+                        romId = rom.id,
+                        serverUrl = serverUrl,
+                        apiKey = apiKey,
+                    )
+                }
             }
         }
 

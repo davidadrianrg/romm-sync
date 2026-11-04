@@ -130,6 +130,10 @@ interface RomMApiService {
         @Body request: SessionCompleteRequest,
     ): ResponseBody
 
+    /** POST /api/saves/delete {"saves":[ids]} → borra guardados del servidor. */
+    @POST("api/saves/delete")
+    suspend fun deleteSaves(@Body body: Map<String, List<Int>>): ResponseBody
+
     // ── Assets en el servidor (listado + subida manual) ─────────────────
 
     /** GET /api/saves?rom_id=... → guardados subidos del juego. */
