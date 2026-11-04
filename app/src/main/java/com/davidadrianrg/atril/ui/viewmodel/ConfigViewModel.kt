@@ -210,6 +210,13 @@ class ConfigViewModel(
 
     val theme = settingsRepository.theme
 
+    /** Claves de SteamGridDB / ScreenScraper para las carátulas de juegos locales. */
+    val scraperCredentials = settingsRepository.scraperCredentials
+
+    fun saveScraperCredentials(c: com.davidadrianrg.atril.core.localgames.ScraperCredentials) {
+        viewModelScope.launch { settingsRepository.setScraperCredentials(c) }
+    }
+
     fun setTheme(t: com.davidadrianrg.atril.core.theme.AppTheme) {
         viewModelScope.launch { settingsRepository.setTheme(t.id) }
     }

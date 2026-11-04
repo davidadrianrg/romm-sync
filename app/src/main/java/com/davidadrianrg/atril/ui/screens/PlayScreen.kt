@@ -576,10 +576,11 @@ private fun Caption(
     }
     val meta = buildList {
         add(item.platformLabel)
-        add(formatBytesForUi(item.fileSizeBytes))
+        if (!item.isLocalSource || item.fileSizeBytes > 0) add(formatBytesForUi(item.fileSizeBytes))
         if (item.discCount > 1) add(tr("launcher.badge.discs", item.discCount))
         emulatorName?.let { add(it) }
-        if (syncEnabled && item.excludedFromSync) add(tr("play.excluded"))
+        // Los juegos locales no se sincronizan con RomM: no tiene sentido decirlo.
+        if (syncEnabled && item.excludedFromSync && !item.isLocalSource) add(tr("play.excluded"))
     }
     LauncherCaption(
         item = item,
