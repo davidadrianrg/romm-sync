@@ -15,6 +15,7 @@ import androidx.core.content.ContextCompat
 import com.davidadrianrg.atril.MainActivity
 import com.davidadrianrg.atril.R
 import com.davidadrianrg.atril.core.i18n.tr
+import com.davidadrianrg.atril.core.sync.WatchScope
 import com.davidadrianrg.atril.core.sync.platform.SaveHandlerRegistry
 import com.davidadrianrg.atril.data.local.RomSyncDatabase
 import com.davidadrianrg.atril.data.local.SettingsDataStore
@@ -45,6 +46,8 @@ class SaveSyncWatchService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var settings: SettingsDataStore
     private val observers = mutableMapOf<String, FileObserver>()
+    private var lastWatchedFolders = 0
+    private var lastWatchedGames = 0
     private var debounceJob: Job? = null
     private var lastFolderCount = -1
     private val saveSyncManager by lazy { SaveSyncManager(applicationContext) }
@@ -119,20 +122,10 @@ class SaveSyncWatchService : Service() {
     private fun refreshWatchers(): Int {
         val wanted = LinkedHashSet<String>()
         for (root in collectRoots()) {
-            if (!root.isDirectory || !root.canRead()) continue
-            runCatching {
-                root.walkTopDown().maxDepth(MAX_DEPTH).forEach { dir ->
-                    if (wanted.size >= MAX_DIRS) return@forEach
-                    if (!dir.isDirectory || !dir.canRead()) return@forEach
-                    val path = dir.absolutePath
-                    // FUSE no entrega eventos de estas rutas en Android 11+.
-                    if (path.contains("/Android/data/") || path.contains("/Android/obb/")) {
-                        return@forEach
-                    }
-                    wanted.add(path)
-                }
-            }
+            if (!root.isDirectory || !root.canRead() || WatchScope.isExcludedPath(root.absolutePath)) continue
+            runCatching { collectDirs(root, 0, wanted) }
         }
+        lastWatchedFolders = wanted.size
 
         (observers.keys - wanted).forEach { path ->
             observers.remove(path)?.let { runCatching { it.stopWatching() } }
@@ -154,13 +147,32 @@ class SaveSyncWatchService : Service() {
         return observers.size
     }
 
+    /** Recorrido acotado: poca profundidad y sin directorios de ROMs/cachés/medios. */
+    private fun collectDirs(dir: File, depth: Int, out: MutableSet<String>) {
+        if (out.size >= WatchScope.MAX_DIRS || !dir.isDirectory || !dir.canRead()) return
+        out.add(dir.absolutePath)
+        if (depth >= WatchScope.MAX_DEPTH) return
+        dir.listFiles()?.forEach { child ->
+            if (child.isDirectory && WatchScope.shouldDescend(child.name, depth + 1)) collectDirs(child, depth + 1, out)
+        }
+    }
+
     private fun collectRoots(): Set<File> {
         val roots = mutableSetOf<File>()
         val database = RomSyncDatabase.getDatabase(this)
         val retroBase = settings.getRetroArchBasePathBlocking()
 
+        val roms = runCatching { database.romDao().getAllDownloadedRomsBlocking() }
+            .getOrDefault(emptyList())
+        val activeRoms = roms.filter { !it.excludedFromSync }
+        val active = WatchScope.activePlatforms(roms.map { WatchScope.DownloadedGame(it.platformSlug, it.excludedFromSync) })
+        lastWatchedGames = activeRoms.size
+        if (active.isEmpty()) return emptySet() // nada con sync activo: no se vigila nada
+
+        // Solo plataformas con juegos descargados y sync activo (no las ~70 del servidor).
         val platforms = runCatching { database.platformDao().getAllPlatformsBlocking() }
             .getOrDefault(emptyList())
+            .filter { it.slug in active }
         for (platform in platforms) {
             val emulatorId = platform.emulatorId
                 ?: SaveHandlerRegistry.getDefaultEmulator(platform.slug).id
@@ -173,16 +185,13 @@ class SaveSyncWatchService : Service() {
             if (path.isNotBlank()) roots.add(File(path))
         }
 
-        // Aunque no haya plataformas RetroArch dadas de alta, su carpeta base
-        // es la fuente más habitual de saves.
-        if (retroBase.isNotBlank()) {
+        // Carpeta base de RetroArch solo si alguna plataforma activa la usa por defecto.
+        if (retroBase.isNotBlank() && platforms.any { it.savesPathOverride.isNullOrBlank() }) {
             roots.add(File(retroBase, "saves"))
             roots.add(File(retroBase, "states"))
         }
 
-        val roms = runCatching { database.romDao().getAllDownloadedRomsBlocking() }
-            .getOrDefault(emptyList())
-        for (rom in roms) {
+        for (rom in activeRoms) {
             rom.savesPathOverride?.takeIf { it.isNotBlank() }?.let { roots.add(File(it)) }
         }
 
@@ -250,7 +259,7 @@ class SaveSyncWatchService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val text = if (folders > 0) {
-            tr("android.sync.watch.notification.watching", folders.toString())
+            tr("android.sync.watch.notification.watching_scope", folders.toString(), lastWatchedGames.toString())
         } else {
             tr("android.sync.watch.notification.starting")
         }
@@ -272,8 +281,6 @@ class SaveSyncWatchService : Service() {
         private const val REFRESH_MS = 60_000L
         private const val DEBOUNCE_MS = 8_000L
         private const val COOLDOWN_MS = 30_000L
-        private const val MAX_DEPTH = 4
-        private const val MAX_DIRS = 400
 
         private const val EVENT_MASK = FileObserver.CLOSE_WRITE or
             FileObserver.MOVED_TO or

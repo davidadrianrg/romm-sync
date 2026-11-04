@@ -385,6 +385,12 @@ fun SyncScreen() {
                     }
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
+                        tr("android.sync.watch.scope"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
                         tr("android.sync.watch.limit"),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
