@@ -95,6 +95,7 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
                     pathCover = rep.pathCoverLarge ?: rep.pathCoverSmall,
                     serverUrl = state.config.serverUrl,
                     aspectRatio = 2f / 3f,
+                    naturalRatio = true,
                 )
             }
             Spacer(Modifier.width(36.dp))
