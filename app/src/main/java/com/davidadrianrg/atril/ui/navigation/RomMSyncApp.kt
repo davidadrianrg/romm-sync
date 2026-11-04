@@ -109,8 +109,11 @@ fun RomMSyncApp(startInUpdates: Boolean = false) {
     // mando o el botón de menú); en Play lo gestiona la propia pantalla.
     var appMenuOpen by remember { mutableStateOf(false) }
     LaunchedEffect(immersive) { if (immersive) appMenuOpen = false }
+    // El colector vive todo el tiempo: lee el estado actual (en el primer frame needsOnboarding
+    // es true porque los ajustes aún no han cargado, y capturarlo dejaba el menú siempre cerrado).
+    val menuAllowed by androidx.compose.runtime.rememberUpdatedState(!immersive && !needsOnboarding)
     LaunchedEffect(Unit) {
-        com.davidadrianrg.atril.ui.input.PadEvents.menu.collect { if (!immersive && !needsOnboarding) appMenuOpen = !appMenuOpen }
+        com.davidadrianrg.atril.ui.input.PadEvents.menu.collect { if (menuAllowed) appMenuOpen = !appMenuOpen }
     }
     androidx.activity.compose.BackHandler(enabled = appMenuOpen) { appMenuOpen = false }
 
