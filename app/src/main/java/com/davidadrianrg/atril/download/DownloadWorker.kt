@@ -395,6 +395,14 @@ class DownloadWorker(
                 }
             }
 
+            // Medio físico automático (opcional, solo con el launcher en modo físico).
+            runCatching {
+                val st = com.davidadrianrg.atril.data.local.SettingsDataStore(applicationContext)
+                if (st.getAutoPhysicalMediaBlocking() && st.getLauncherDefaultDisplayBlocking() == "physical") {
+                    com.davidadrianrg.atril.data.metadata.AutoPhysicalMediaWorker.enqueue(applicationContext, romId, romName)
+                }
+            }
+
             Result.success(workDataOf(
                 KEY_ROM_ID to romId, KEY_ROM_NAME to romName,
                 KEY_FILE_NAME to fileName, KEY_PLATFORM_SLUG to platformSlug,

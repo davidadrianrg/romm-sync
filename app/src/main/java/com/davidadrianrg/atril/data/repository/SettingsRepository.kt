@@ -66,6 +66,8 @@ class SettingsRepository(private val dataStore: SettingsDataStore) {
     suspend fun setSaveSyncIntervalMinutes(minutes: Int) =
         dataStore.setSaveSyncIntervalMinutes(minutes)
     suspend fun setEsdeDataDir(path: String) = dataStore.setEsdeDataDir(path)
+    val autoPhysicalMedia: Flow<Boolean> = dataStore.autoPhysicalMedia
+    suspend fun setAutoPhysicalMedia(enabled: Boolean) = dataStore.setAutoPhysicalMedia(enabled)
     suspend fun setMediaDownloadPath(path: String) = dataStore.setMediaDownloadPath(path)
     suspend fun setEsdeExportEnabled(enabled: Boolean) = dataStore.setEsdeExportEnabled(enabled)
     suspend fun setMediaDownloadEnabled(enabled: Boolean) =

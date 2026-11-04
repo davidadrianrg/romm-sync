@@ -116,3 +116,17 @@ object PhysicalMediaScrape {
         }
     }
 }
+
+/**
+ * Decide si, al terminar la descarga de un juego, hay que pedir a RomM su medio físico
+ * automáticamente. Pura y compartida (Android + escritorio) para poder probarla.
+ */
+object AutoPhysicalMedia {
+    fun shouldRequest(
+        enabled: Boolean,
+        romMConnected: Boolean,
+        isLocalGame: Boolean,
+        alreadyHasPhysicalMedia: Boolean,
+        requestInProgress: Boolean,
+    ): Boolean = enabled && romMConnected && !isLocalGame && !alreadyHasPhysicalMedia && !requestInProgress
+}

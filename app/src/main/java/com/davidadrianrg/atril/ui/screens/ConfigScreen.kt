@@ -689,6 +689,30 @@ fun ConfigScreen(
                         },
                     )
                 }
+                // Medio físico automático: solo se ofrece con el launcher en modo físico y RomM conectado.
+                if (launcherDefault == "physical" && settings.isConfigured) {
+                    val autoPhysical by container.settingsRepository.autoPhysicalMedia.collectAsState(initial = false)
+                    Spacer(Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(tr("settings.launcher.auto_physical"), style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                tr("settings.launcher.auto_physical_desc"),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Switch(
+                            checked = autoPhysical,
+                            onCheckedChange = { on -> launcherScope.launch { container.settingsRepository.setAutoPhysicalMedia(on) } },
+                        )
+                    }
+                }
             }
             }
 

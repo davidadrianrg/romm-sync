@@ -877,6 +877,16 @@ class DesktopAppState(private val scope: CoroutineScope) {
                         updateTask(rom.id) { it.copy(status = "done", message = msg) }
                         refreshLocalStats()
                         fetchGameMedia(rom)
+                        if (com.davidadrianrg.atril.core.scrape.AutoPhysicalMedia.shouldRequest(
+                                enabled = config.autoPhysicalMedia,
+                                romMConnected = config.serverUrl.isNotBlank() && config.apiKey.isNotBlank(),
+                                isLocalGame = false,
+                                alreadyHasPhysicalMedia = !rom.physicalMediaPath.isNullOrBlank(),
+                                requestInProgress = _scrapes.value[rom.id] is ScrapeUi.Running,
+                            )
+                        ) {
+                            requestPhysicalScrape(rom.id) // no bloquea; reintentable desde el detalle
+                        }
                         if (shouldNotify(rom.id)) {
                             DesktopNotifier.notify(tr("common.download_completed"), rom.name)
                         }

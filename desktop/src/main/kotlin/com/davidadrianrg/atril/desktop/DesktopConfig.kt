@@ -58,6 +58,11 @@ object DesktopConfig {
         get() = prefs.get("hidden_platforms", "")
         set(v) = prefs.put("hidden_platforms", v)
 
+    /** Pedir a RomM el medio físico al descargar un juego que no lo tenga. */
+    var autoPhysicalMedia: Boolean
+        get() = prefs.getBoolean("auto_physical_media", false)
+        set(v) = prefs.putBoolean("auto_physical_media", v)
+
     /** Descargar la media del juego (covers, screenshots, vídeo, manual) al descargarlo. */
     var mediaDownloadEnabled: Boolean
         get() = prefs.getBoolean("media_download_enabled", false)
