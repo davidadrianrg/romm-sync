@@ -91,7 +91,7 @@ class ShelfViewModel(
     private val settingsRepository: SettingsRepository,
     private val physicalMediaRepository: PhysicalMediaRepository,
     private val emulatorLauncher: EmulatorLauncher,
-    private val localGames: com.davidadrianrg.atril.data.localgames.LocalGamesRepository,
+    private val localGames: com.davidadrianrg.atril.core.localgames.LocalGamesRepository,
 ) : ViewModel() {
 
     private val dtoCache = mutableMapOf<Int, RomDto>()

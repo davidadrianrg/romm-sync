@@ -47,7 +47,7 @@ class AppContainer(private val appContext: Context) {
     )
 
     /** Juegos añadidos a mano (fuera de RomM) y su scrapeo de carátulas. */
-    val localGamesRepository = com.davidadrianrg.atril.data.localgames.LocalGamesRepository(
+    val localGamesRepository = com.davidadrianrg.atril.core.localgames.LocalGamesRepository(
         store = com.davidadrianrg.atril.core.localgames.LocalGameStore(java.io.File(appContext.filesDir, "local_games.json")),
         coversDir = java.io.File(appContext.filesDir, "local-covers"),
         credentials = { settingsRepository.scraperCredentials.first() },

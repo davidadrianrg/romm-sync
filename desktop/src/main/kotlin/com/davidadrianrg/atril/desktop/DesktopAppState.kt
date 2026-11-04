@@ -96,6 +96,13 @@ class DesktopAppState(private val scope: CoroutineScope) {
     val config = DesktopConfig
     val library = DesktopLibrary(File(DesktopConfig.configDir, "library.properties"))
 
+    /** Juegos añadidos a mano (fuera de RomM), separados de la biblioteca de RomM. */
+    val localGames = com.davidadrianrg.atril.core.localgames.LocalGamesRepository(
+        store = com.davidadrianrg.atril.core.localgames.LocalGameStore(File(DesktopConfig.configDir, "local_games.json")),
+        coversDir = File(DesktopConfig.configDir, "local-covers"),
+        credentials = { DesktopConfig.scraperCredentials() },
+    )
+
     /** Versionado local de saves (restaurables desde el detalle de juego). */
     val saveBackups = SaveBackupManager(File(DesktopConfig.configDir, "save-backups"))
 
@@ -176,6 +183,28 @@ class DesktopAppState(private val scope: CoroutineScope) {
     }
 
     fun showSnackbar(message: String) { _snackbar.value = message }
+
+    // ── Acciones sobre juegos locales ──────────────────────────────────
+    fun addLocalGame(title: String, platformSlug: String, path: String) {
+        scope.launch {
+            val game = localGames.add(title, platformSlug, path)
+            scrapeLocalGame(game.id)
+        }
+    }
+
+    fun scrapeLocalGame(id: String) {
+        scope.launch {
+            showSnackbar(
+                when (val out = localGames.scrape(id)) {
+                    is com.davidadrianrg.atril.core.localgames.ScrapeOutcome.Found -> tr("local.scrape.done", out.game.source)
+                    com.davidadrianrg.atril.core.localgames.ScrapeOutcome.NotFound -> tr("local.scrape.not_found")
+                    is com.davidadrianrg.atril.core.localgames.ScrapeOutcome.BadCredentials -> tr("local.scrape.bad_credentials", out.provider)
+                    is com.davidadrianrg.atril.core.localgames.ScrapeOutcome.Retryable -> tr("local.scrape.failed", out.provider)
+                    com.davidadrianrg.atril.core.localgames.ScrapeOutcome.NotConfigured -> tr("local.scrape.not_configured")
+                },
+            )
+        }
+    }
 
     fun consumeSnackbar() { _snackbar.value = null }
 
@@ -587,12 +616,18 @@ class DesktopAppState(private val scope: CoroutineScope) {
             showSnackbar(tr("launcher.desktop.no_file"))
             return false
         }
-        val file = File(path)
+        return launchFile(entry.platformSlug, File(path))
+    }
+
+    /** Lanza un juego LOCAL (fuera de RomM) con el emulador configurado de su plataforma. */
+    fun launchLocalGame(game: com.davidadrianrg.atril.core.localgames.LocalGame): Boolean =
+        launchFile(game.platformSlug, File(game.path))
+
+    private fun launchFile(slug: String, file: File): Boolean {
         if (!file.exists()) {
-            showSnackbar(tr("launcher.desktop.file_missing", path))
+            showSnackbar(tr("launcher.desktop.file_missing", file.path))
             return false
         }
-        val slug = entry.platformSlug
         val platformName = _platforms.value.firstOrNull { it.slug == slug }?.let { it.displayName ?: it.name } ?: slug
         val cfg = library.platform(slug)
         val config = DesktopLaunchPlanner.Config(cfg.launchEmulatorId, cfg.launchExecutable, cfg.launchArgs)
