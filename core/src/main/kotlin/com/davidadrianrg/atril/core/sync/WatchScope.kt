@@ -27,11 +27,15 @@ object WatchScope {
     fun activePlatforms(games: List<DownloadedGame>): Set<String> =
         games.filter { !it.excludedFromSync }.map { it.platformSlug }.toSet()
 
-    /** ¿Se debe ignorar este camino (o cualquiera de sus segmentos)? */
+    /**
+     * ¿Se debe ignorar esta raíz de saves? Solo cuenta la propia carpeta (y las rutas FUSE),
+     * no sus ancestros: `/sdcard/Games/RetroArch/saves` es una raíz válida aunque cuelgue de
+     * una carpeta «Games»/«ROMs».
+     */
     fun isExcludedPath(path: String): Boolean {
-        val p = path.replace('\\', '/')
+        val p = path.replace('\\', '/').trimEnd('/')
         if (p.contains("/Android/data/") || p.contains("/Android/obb/")) return true // FUSE: sin eventos
-        return p.split('/').any { it.lowercase() in IGNORED_DIR_NAMES }
+        return p.substringAfterLast('/').lowercase() in IGNORED_DIR_NAMES
     }
 
     /** ¿Entrar en el subdirectorio [name] a profundidad [depth]? */

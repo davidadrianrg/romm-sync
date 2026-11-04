@@ -17,12 +17,16 @@ class WatchScopeTest {
     }
 
     @Test fun romAndCachePathsAreExcluded() {
-        assertTrue(WatchScope.isExcludedPath("/storage/emulated/0/ROMs/gba"))
-        assertTrue(WatchScope.isExcludedPath("/storage/emulated/0/RetroArch/thumbnails/GBA"))
+        assertTrue(WatchScope.isExcludedPath("/storage/emulated/0/ROMs"))
+        assertTrue(WatchScope.isExcludedPath("/storage/emulated/0/RetroArch/cache/"))
+        assertTrue(WatchScope.isExcludedPath("/storage/emulated/0/RetroArch/thumbnails"))
         assertTrue(WatchScope.isExcludedPath("/storage/emulated/0/Android/data/org.dolphinemu.dolphinemu/files/GC"))
         assertTrue(WatchScope.isExcludedPath("/x/Android/obb/foo"))
         assertFalse(WatchScope.isExcludedPath("/storage/emulated/0/RetroArch/saves"))
         assertFalse(WatchScope.isExcludedPath("/storage/emulated/0/dolphin/GC/USA/Card A"))
+        // Ancestros con nombres «ruidosos» no invalidan una raíz de saves real.
+        assertFalse(WatchScope.isExcludedPath("/storage/emulated/0/Games/RetroArch/saves"))
+        assertFalse(WatchScope.isExcludedPath("/storage/emulated/0/ROMs/saves"))
     }
 
     @Test fun descentIsShallowAndSkipsNoiseDirs() {
