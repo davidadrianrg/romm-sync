@@ -449,7 +449,9 @@ class SettingsDataStore(private val context: Context) {
     }
 
     suspend fun setMediaDownloadPath(path: String) {
-        context.dataStore.edit { it[MEDIA_DOWNLOAD_PATH] = path.trim().trimEnd('/') }
+        // Se guarda tal cual: el campo de texto está ligado a este valor y recortar aquí
+        // borraría el '/' o el espacio recién tecleado. GameMediaPaths.resolveRoot normaliza al leer.
+        context.dataStore.edit { it[MEDIA_DOWNLOAD_PATH] = path }
     }
 
     // ── Blocking readers (for WorkManager / non-coroutine callers) ────
