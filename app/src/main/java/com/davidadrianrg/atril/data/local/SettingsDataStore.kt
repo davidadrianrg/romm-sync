@@ -67,7 +67,7 @@ class SettingsDataStore(private val context: Context) {
         val LAST_NOTIFIED_UPDATE_VERSION = stringPreferencesKey("last_notified_update_version")
         val CONFLICT_POLICY = stringPreferencesKey("conflict_policy")
         val ESDE_DATA_DIR = stringPreferencesKey("esde_data_dir")
-        val RETROHRAI_MEDIA_PATH = stringPreferencesKey("retrohrai_media_path")
+        val MEDIA_DOWNLOAD_PATH = stringPreferencesKey("media_download_path")
         val LANGUAGE = stringPreferencesKey("language")
         val THEME = stringPreferencesKey("theme")
         val SGDB_KEY = stringPreferencesKey("scraper_steamgriddb_key")
@@ -76,7 +76,7 @@ class SettingsDataStore(private val context: Context) {
 
         // Toggles de funciones opcionales (opt-out: ausencia = activado)
         val ESDE_EXPORT_ENABLED = booleanPreferencesKey("esde_export_enabled")
-        val RETROHRAI_EXPORT_ENABLED = booleanPreferencesKey("retrohrai_export_enabled")
+        val MEDIA_DOWNLOAD_ENABLED = booleanPreferencesKey("media_download_enabled")
 
         /**
          * Legacy DataStore key where the API key used to live (plaintext).
@@ -94,7 +94,6 @@ class SettingsDataStore(private val context: Context) {
         const val DEFAULT_MAX_DOWNLOADS = 2
         const val DEFAULT_RETROARCH_PATH = "/storage/emulated/0/RetroArch"
         const val DEFAULT_ESDE_DATA_DIR = "/storage/emulated/0/ES-DE"
-        const val DEFAULT_RETROHRAI_MEDIA_PATH = "/storage/emulated/0/RetroHrai/media"
     }
 
     /**
@@ -202,14 +201,16 @@ class SettingsDataStore(private val context: Context) {
     val esdeDataDir: Flow<String> = context.dataStore.data.map {
         it[ESDE_DATA_DIR] ?: DEFAULT_ESDE_DATA_DIR
     }
-    val retroHraiMediaPath: Flow<String> = context.dataStore.data.map {
-        it[RETROHRAI_MEDIA_PATH] ?: DEFAULT_RETROHRAI_MEDIA_PATH
+    /** Carpeta de media genérica; vacío = `<romsRoot>/downloaded_media`. */
+    val mediaDownloadPath: Flow<String> = context.dataStore.data.map {
+        it[MEDIA_DOWNLOAD_PATH] ?: ""
     }
     val esdeExportEnabled: Flow<Boolean> = context.dataStore.data.map {
         it[ESDE_EXPORT_ENABLED] ?: false
     }
-    val retroHraiExportEnabled: Flow<Boolean> = context.dataStore.data.map {
-        it[RETROHRAI_EXPORT_ENABLED] ?: false
+    /** Descargar la media del juego (covers, screenshots, vídeo, manual) al descargarlo. */
+    val mediaDownloadEnabled: Flow<Boolean> = context.dataStore.data.map {
+        it[MEDIA_DOWNLOAD_ENABLED] ?: false
     }
 
     /** Combined settings snapshot */
@@ -443,12 +444,12 @@ class SettingsDataStore(private val context: Context) {
         context.dataStore.edit { it[ESDE_EXPORT_ENABLED] = enabled }
     }
 
-    suspend fun setRetroHraiExportEnabled(enabled: Boolean) {
-        context.dataStore.edit { it[RETROHRAI_EXPORT_ENABLED] = enabled }
+    suspend fun setMediaDownloadEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[MEDIA_DOWNLOAD_ENABLED] = enabled }
     }
 
-    suspend fun setRetroHraiMediaPath(path: String) {
-        context.dataStore.edit { it[RETROHRAI_MEDIA_PATH] = path.trimEnd('/') }
+    suspend fun setMediaDownloadPath(path: String) {
+        context.dataStore.edit { it[MEDIA_DOWNLOAD_PATH] = path.trim().trimEnd('/') }
     }
 
     // ── Blocking readers (for WorkManager / non-coroutine callers) ────
@@ -563,11 +564,13 @@ class SettingsDataStore(private val context: Context) {
         }.getOrDefault(DEFAULT_ESDE_DATA_DIR)
     }
 
-    fun getRetroHraiMediaPathBlocking(): String {
-        return runCatching {
-            runBlocking { context.dataStore.data.first()[RETROHRAI_MEDIA_PATH] ?: DEFAULT_RETROHRAI_MEDIA_PATH }
-        }.getOrDefault(DEFAULT_RETROHRAI_MEDIA_PATH)
-    }
+    fun getMediaDownloadPathBlocking(): String = runCatching {
+        runBlocking { context.dataStore.data.first()[MEDIA_DOWNLOAD_PATH] ?: "" }
+    }.getOrDefault("")
+
+    fun getMediaDownloadEnabledBlocking(): Boolean = runCatching {
+        runBlocking { context.dataStore.data.first()[MEDIA_DOWNLOAD_ENABLED] ?: false }
+    }.getOrDefault(false)
 }
 
 data class ServerConfig(

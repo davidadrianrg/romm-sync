@@ -221,6 +221,8 @@ object GamelistWriter {
         romsRootPath: String,
         platformSlug: String,
         mediaBaseName: String,
+        /** Rutas reales de la media ya descargada ("covers"/"screenshots"/"videos"/"manuals"). */
+        mediaFiles: Map<String, String> = emptyMap(),
     ): GameEntry {
         // path del ROM: relativo a %ROMPATH%
         val romPath = "./$platformSlug/${rom.fileName}"
@@ -232,10 +234,10 @@ object GamelistWriter {
             path = romPath,
             name = rom.name,
             desc = rom.summary,
-            image = rom.coverUrlLarge?.let { "$mediaBase/covers/${mediaBaseName}.jpg" },
-            screenshot = if (rom.screenshots.isNotEmpty())
+            image = mediaFiles["covers"] ?: rom.coverUrlLarge?.let { "$mediaBase/covers/${mediaBaseName}.jpg" },
+            screenshot = mediaFiles["screenshots"] ?: if (rom.screenshots.isNotEmpty())
                 "$mediaBase/screenshots/${mediaBaseName}.jpg" else null,
-            video = rom.videoPath?.let { "$mediaBase/videos/${mediaBaseName}.mp4" },
+            video = mediaFiles["videos"] ?: rom.videoPath?.let { "$mediaBase/videos/${mediaBaseName}.mp4" },
             rating = rom.igdbMetadata?.totalRating?.let { String.format("%.2f", it / 100.0) },
             releasedate = rom.igdbMetadata?.firstReleaseDate?.let { ts ->
                 // IGDB devuelve timestamp en segundos
@@ -247,7 +249,7 @@ object GamelistWriter {
             genre = (rom.genres + (rom.igdbMetadata?.genres ?: emptyList()))
                 .distinct().joinToString(", ").ifBlank { null },
             players = rom.igdbMetadata?.playerCount,
-            manual = rom.manualPath?.let { "$mediaBase/manuals/${mediaBaseName}.pdf" },
+            manual = mediaFiles["manuals"] ?: rom.manualPath?.let { "$mediaBase/manuals/${mediaBaseName}.pdf" },
         )
     }
 }

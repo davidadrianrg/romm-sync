@@ -82,7 +82,7 @@ RomM supports OAuth/OIDC login behind proxies (Authentik, Authelia...), which us
 - **⬇️ Downloads** — Queue with configurable parallel downloads (1–5), automatic resume if the network drops, hash-based integrity verification and an out-of-space warning. *WiFi-only* option to avoid using data.
 - **🔔 Update notifications** — checks GitHub on launch and once a day; posts a notification when a new Atril version is available.
 - **💾 Save sync** — Your save files always up to date on every device, using RomM's [Device Sync Protocol](https://docs.romm.app/latest/developers/device-sync-protocol/) (v4.9+): upload what changed on the handheld, download what you played on the PC. Resolves conflicts explicitly instead of overwriting.
-- **🗂️ Metadata export** — Generates ES-DE `gamelist.xml` files or copies the media (covers, fanart, logos, screenshots) into the RetroHRAI structure.
+- **🗂️ Metadata export** — Generic "Download media with games" option (covers, screenshots, video and manual under `<ROMs>/downloaded_media/<platform>/…` plus a metadata JSON per game, usable from any frontend) and ES-DE `gamelist.xml` export built on that same media.
 - **🔄 Auto-update** — Checks, downloads and installs new versions from GitHub Releases without uninstalling anything (see Installation).
 - **🖥️ Linux on par with Android** — The desktop app shares the theme ("Midnight Arcade"), library with cover art and full game details (screenshots, IGDB metadata), download queue with cancel/retry/resume, save sync with conflict resolution and ES-DE export with non-destructive merge.
 - **🌐 English & Spanish UI** — The interface is available in both English and Spanish.

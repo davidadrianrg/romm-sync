@@ -300,8 +300,8 @@ class ConfigViewModel(
         viewModelScope.launch { settingsRepository.setEsdeDataDir(path) }
     }
 
-    fun setRetroHraiMediaPath(path: String) {
-        viewModelScope.launch { settingsRepository.setRetroHraiMediaPath(path) }
+    fun setMediaDownloadPath(path: String) {
+        viewModelScope.launch { settingsRepository.setMediaDownloadPath(path) }
     }
 
     /** Muestra/oculta la exportación de metadatos a ES-DE. */
@@ -310,8 +310,8 @@ class ConfigViewModel(
     }
 
     /** Muestra/oculta la exportación de metadatos a RetroHRAI. */
-    fun setRetroHraiExportEnabled(enabled: Boolean) {
-        viewModelScope.launch { settingsRepository.setRetroHraiExportEnabled(enabled) }
+    fun setMediaDownloadEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setMediaDownloadEnabled(enabled) }
     }
 }
 

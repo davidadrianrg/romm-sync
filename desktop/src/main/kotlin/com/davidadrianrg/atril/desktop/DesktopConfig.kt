@@ -58,6 +58,16 @@ object DesktopConfig {
         get() = prefs.get("hidden_platforms", "")
         set(v) = prefs.put("hidden_platforms", v)
 
+    /** Descargar la media del juego (covers, screenshots, vídeo, manual) al descargarlo. */
+    var mediaDownloadEnabled: Boolean
+        get() = prefs.getBoolean("media_download_enabled", false)
+        set(v) = prefs.putBoolean("media_download_enabled", v)
+
+    /** Carpeta de media genérica; vacío = `<romsRoot>/downloaded_media`. */
+    var mediaDownloadPath: String
+        get() = prefs.get("media_download_path", "")
+        set(v) = prefs.put("media_download_path", v.trim().trimEnd('/'))
+
     /** Directorio de datos de ES-DE (donde vive gamelists/). */
     var esdeDataDir: String
         get() = prefs.get("esde_data_dir", File(System.getProperty("user.home", "."), "ES-DE").absolutePath)

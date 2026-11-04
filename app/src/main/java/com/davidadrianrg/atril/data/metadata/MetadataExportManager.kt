@@ -34,7 +34,6 @@ class MetadataExportManager(private val context: Context) {
         videos: Boolean = true,
         manuals: Boolean = true,
         gamelist: Boolean = true,
-        retroHrai: Boolean = false,
     ) {
         val workName = "${MetadataExportWorker.WORK_NAME_PREFIX}$platformSlug"
 
@@ -46,7 +45,6 @@ class MetadataExportManager(private val context: Context) {
             .putBoolean(MetadataExportWorker.KEY_VIDEOS, videos)
             .putBoolean(MetadataExportWorker.KEY_MANUALS, manuals)
             .putBoolean(MetadataExportWorker.KEY_GAMELIST, gamelist)
-            .putBoolean(MetadataExportWorker.KEY_RETROHRAI, retroHrai)
             .build()
 
         val constraints = Constraints.Builder()
