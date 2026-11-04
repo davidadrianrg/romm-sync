@@ -481,7 +481,9 @@ fun PlayScreen(
             sheetMaxWidth = 1600.dp,
             // Let the scrolling content run to the screen edge; the sheet
             // body pads its own bottom for the gesture bar (no dead band).
-            contentWindowInsets = { androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0) },
+            // Keep the top inset so the drag handle never sits under the
+            // status bar when the sheet is fully expanded in landscape.
+            contentWindowInsets = { WindowInsets.safeDrawing.only(WindowInsetsSides.Top) },
         ) {
             RomDetailSheet(
                 rom = item.rom,
