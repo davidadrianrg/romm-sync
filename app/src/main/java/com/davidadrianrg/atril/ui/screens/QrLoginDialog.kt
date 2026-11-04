@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,6 +34,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.davidadrianrg.atril.core.auth.DeviceAuthError
 import com.davidadrianrg.atril.core.auth.QrMatrix
 import com.davidadrianrg.atril.core.i18n.tr
@@ -64,14 +66,16 @@ fun QrLoginDialog(
     onRetry: () -> Unit,
     onClose: () -> Unit,
 ) {
-    Dialog(onDismissRequest = onClose) {
-        Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(
+            modifier = Modifier.padding(horizontal = 24.dp).widthIn(max = 640.dp),
+            shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
             Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp)) {
                 Text(tr("romm.qr.title"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(14.dp))
                 val landscape = rememberWindowInfo().isLandscape
                 val qr: @Composable () -> Unit = {
-                    if (state is QrLoginState.Waiting) QrImage(state.qr, Modifier.size(200.dp))
+                    if (state is QrLoginState.Waiting) QrImage(state.qr, Modifier.size(if (landscape) 176.dp else 220.dp))
                 }
                 val status: @Composable () -> Unit = {
                     when (state) {
@@ -106,7 +110,7 @@ fun QrLoginDialog(
                     // Horizontal: QR a la izquierda, estado y acciones a la derecha.
                     Row(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
                         qr()
-                        Column(Modifier.width(260.dp)) { status() }
+                        Column(Modifier.weight(1f)) { status() }
                     }
                 } else {
                     // Vertical: apilado; en fila el texto quedaba en ~50 dp.
