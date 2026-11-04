@@ -11,6 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import com.davidadrianrg.atril.core.library.CoverRatio
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
@@ -111,26 +112,32 @@ fun produceCover(url: String): ImageBitmap? {
  * mediana. Mientras no haya muestra suficiente devuelve el default 2:3.
  */
 @Composable
-fun rememberMedianCoverRatio(cards: List<GameCard>, serverUrl: String, sample: Int = 24): Float {
-    val ratio by produceState(2f / 3f, cards, serverUrl) {
+fun rememberMedianCoverRatio(cards: List<GameCard>, serverUrl: String, sample: Int = 24): Float? {
+    // null = aún midiendo: la biblioteca no pinta tarjetas hasta tener el ratio real,
+    // para que no aparezcan con un tamaño y se reajusten segundos después.
+    val ratio by produceState<Float?>(null, cards, serverUrl) {
         val urls = cards.take(sample).mapNotNull { resolveMediaUrl(it.rep.urlCover, it.rep.pathCoverLarge, serverUrl) }
-        if (urls.isNotEmpty()) {
-            withContext(Dispatchers.IO) {
-                val ratios = urls.mapNotNull { url ->
+        if (urls.isEmpty()) {
+            value = CoverRatio.DEFAULT
+            return@produceState
+        }
+        val measured = withContext(Dispatchers.IO) {
+            // Tope de tiempo: con red lenta se usa lo medido hasta entonces.
+            val out = java.util.concurrent.CopyOnWriteArrayList<Float>()
+            kotlinx.coroutines.withTimeoutOrNull(4_000) {
+                urls.forEach { url ->
                     runCatching {
                         CoverCache.fetch(url)?.let { f ->
                             FileInputStream(f).use { loadImageBitmap(it) }.let { bmp ->
-                                if (bmp.height > 0) bmp.width.toFloat() / bmp.height.toFloat() else null
+                                out += CoverRatio.of(bmp.width, bmp.height)
                             }
                         }
-                    }.getOrNull()
-                }
-                if (ratios.isNotEmpty()) {
-                    val sorted = ratios.sorted()
-                    value = sorted[sorted.size / 2].coerceIn(0.5f, 1.2f)
+                    }
                 }
             }
+            out.toList()
         }
+        value = CoverRatio.median(measured).coerceIn(0.5f, 1.2f)
     }
     return ratio
 }

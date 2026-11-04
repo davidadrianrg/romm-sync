@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -377,6 +378,14 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
         )
     }
 
+    // No pintar la rejilla hasta tener el ratio real medido (si no, las portadas
+    // aparecen con 2:3 y saltan al reajustarse). Con tope de 4 s para no bloquear.
+    var ratioTimedOut by remember(selectedPlatformId) { mutableStateOf(false) }
+    LaunchedEffect(selectedPlatformId) { kotlinx.coroutines.delay(4_000); ratioTimedOut = true }
+    val ratioPending = !ratioTimedOut && selectedPlatformId != null &&
+        platforms.find { it.id == selectedPlatformId }?.measuredAspectRatio == null &&
+        romsWithStatus.any { (it.rom.coverUrlLarge ?: it.rom.coverUrlSmall) != null }
+
     // ── Infinite scroll state ──────────────────────────────────────────
     val gridState = rememberLazyGridState()
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
@@ -630,11 +639,21 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
             }
 
             // ── Grid of games ───────────────────────────────────────────
-            if (isLoading && romsWithStatus.isEmpty()) {
+            if ((isLoading && romsWithStatus.isEmpty()) || ratioPending) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
-                ) { CircularProgressIndicator() }
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator()
+                        Spacer(Modifier.size(12.dp))
+                        Text(
+                            tr("library.loading"),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 return@Column
             }
 
@@ -1280,8 +1299,13 @@ internal fun RomDetailSheet(
                     val sz = st.painter.intrinsicSize
                     if (sz.isSpecified) coverRatio = CoverRatio.of(sz.width.toInt(), sz.height.toInt())
                 },
+                // Ancho acotado: una carátula apaisada (ratio hasta 2.5) no debe
+                // comerse la columna del título, sobre todo en horizontal.
                 modifier = Modifier
-                    .height(if (wide) 216.dp else 140.dp)
+                    .sizeIn(
+                        maxWidth = if (wide) 216.dp else 140.dp,
+                        maxHeight = if (wide) 216.dp else 140.dp,
+                    )
                     .aspectRatio(coverRatio)
                     .clip(RoundedCornerShape(8.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
