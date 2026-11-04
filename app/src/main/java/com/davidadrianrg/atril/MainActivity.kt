@@ -3,6 +3,13 @@ package com.davidadrianrg.atril
 import android.Manifest
 import android.os.Build
 import android.os.Bundle
+import android.view.InputDevice
+import android.view.KeyEvent
+import android.view.MotionEvent
+import com.davidadrianrg.atril.core.input.PadAction
+import com.davidadrianrg.atril.core.input.PadKeyMap
+import com.davidadrianrg.atril.core.input.StickRepeater
+import com.davidadrianrg.atril.ui.input.PadEvents
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -20,6 +27,60 @@ import com.davidadrianrg.atril.util.hasNotificationPermission
 import kotlinx.coroutines.runBlocking
 
 class MainActivity : ComponentActivity() {
+
+    private val leftStick = StickRepeater()
+
+    /**
+     * Mando: A → "pulsar" el elemento enfocado (DPAD_CENTER), B → atrás, Start/Mode → menú.
+     * El D-pad ya lo traduce Android a DPAD_* y Compose mueve el foco; el stick izquierdo se
+     * convierte en DPAD con repetición (ver [onGenericMotionEvent]). Solo actúa con eventos
+     * de dispositivos de mando, nunca con el teclado, y no escribe texto.
+     */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val fromPad = event.source and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
+            event.source and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK
+        if (!fromPad) return super.dispatchKeyEvent(event)
+        when (PadKeyMap.fromAndroidKeyCode(event.keyCode)) {
+            PadAction.SELECT ->
+                if (event.keyCode == KeyEvent.KEYCODE_BUTTON_A) {
+                    return super.dispatchKeyEvent(
+                        KeyEvent(event.downTime, event.eventTime, event.action, KeyEvent.KEYCODE_DPAD_CENTER, event.repeatCount),
+                    )
+                }
+            PadAction.BACK -> {
+                if (event.action == KeyEvent.ACTION_UP) onBackPressedDispatcher.onBackPressed()
+                return true
+            }
+            PadAction.MENU -> {
+                if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) PadEvents.menu.tryEmit(Unit)
+                return true
+            }
+            else -> {}
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
+    override fun onGenericMotionEvent(event: MotionEvent): Boolean {
+        if (event.source and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK &&
+            event.action == MotionEvent.ACTION_MOVE
+        ) {
+            val dir = leftStick.update(event.getAxisValue(MotionEvent.AXIS_X), event.getAxisValue(MotionEvent.AXIS_Y), event.eventTime)
+            val code = when (dir) {
+                PadAction.UP -> KeyEvent.KEYCODE_DPAD_UP
+                PadAction.DOWN -> KeyEvent.KEYCODE_DPAD_DOWN
+                PadAction.LEFT -> KeyEvent.KEYCODE_DPAD_LEFT
+                PadAction.RIGHT -> KeyEvent.KEYCODE_DPAD_RIGHT
+                else -> null
+            }
+            if (code != null) {
+                val t = event.eventTime
+                super.dispatchKeyEvent(KeyEvent(t, t, KeyEvent.ACTION_DOWN, code, 0))
+                super.dispatchKeyEvent(KeyEvent(t, t, KeyEvent.ACTION_UP, code, 0))
+                return true
+            }
+        }
+        return super.onGenericMotionEvent(event)
+    }
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),

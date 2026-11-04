@@ -921,6 +921,24 @@ fun ConfigScreen(
             }
 
             if (settingsCat == SettingsCategory.ABOUT) {
+            // ── Controles (mando / teclado) ────────────────────────────
+            SettingsSection(
+                icon = Icons.Outlined.SportsEsports,
+                title = tr("controls.title"),
+            ) {
+                listOf("controls.dpad", "controls.select", "controls.back", "controls.menu").forEach { k ->
+                    Text(tr(k), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 3.dp))
+                }
+                Text(
+                    tr("controls.note"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+            }
+
+            if (settingsCat == SettingsCategory.ABOUT) {
             // ── Actualizaciones ────────────────────────────────────────
             SettingsSection(
                 icon = Icons.Outlined.SystemUpdateAlt,

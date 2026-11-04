@@ -6,6 +6,14 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.composed
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -196,3 +204,15 @@ fun formatTimestamp(epochMillis: Long): String {
 
 /** Ancho de contenido máximo de las pantallas de formulario (Ajustes). */
 val SettingsMaxWidth: Dp = 560.dp
+
+/**
+ * Anillo de foco visible para navegar con teclado o mando. Debe ir ANTES de `clickable`
+ * (el foco lo toma el clickable, que queda como hijo de este modificador).
+ */
+fun Modifier.focusHighlight(shape: Shape = RoundedCornerShape(12.dp)): Modifier = composed {
+    var focused by remember { mutableStateOf(false) }
+    val ring = MaterialTheme.colorScheme.primary
+    this
+        .onFocusChanged { focused = it.hasFocus }
+        .then(if (focused) Modifier.border(2.5.dp, ring, shape) else Modifier)
+}

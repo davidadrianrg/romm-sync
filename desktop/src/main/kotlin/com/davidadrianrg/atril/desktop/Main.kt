@@ -8,6 +8,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Tray
@@ -54,6 +56,20 @@ fun main() {
                 exitApplication()
             }
         },
+        // Esc / botón B del mando: cerrar el detalle abierto. Va en onKeyEvent (fase de
+        // burbuja) y no en el KeyEventDispatcher global para que los diálogos abiertos sobre
+        // el detalle (confirmar borrado, visor de capturas…) se cierren primero con su Esc.
+        onKeyEvent = { ev ->
+            if (ev.type == androidx.compose.ui.input.key.KeyEventType.KeyDown &&
+                ev.key == androidx.compose.ui.input.key.Key.Escape &&
+                state.selectedGame.value != null
+            ) {
+                state.closeGame()
+                true
+            } else {
+                false
+            }
+        },
         title = "Atril",
         icon = painterResource("atril-icon.png"),
         state = rememberWindowState(width = 1280.dp, height = 832.dp),
@@ -91,6 +107,25 @@ fun main() {
             }
             KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(dispatcher)
             onDispose { KeyboardFocusManager.getCurrentKeyboardFocusManager().removeKeyEventDispatcher(dispatcher) }
+        }
+
+        // Mando (evdev, sin dependencias): si no hay mando o no hay permiso, no hace nada.
+        DisposableEffect(Unit) {
+            val pad = GamepadInput { GamepadInput.dispatchAsKey(it) }
+            pad.start()
+            // Autoprueba (solo desarrollo): ATRIL_PAD_SELFTEST="right,menu,back" inyecta esas acciones
+            // por la misma vía que el mando (evdev → tecla AWT), sin necesitar hardware.
+            System.getenv("ATRIL_PAD_SELFTEST")?.takeIf { it.isNotBlank() }?.let { script ->
+                Thread {
+                    Thread.sleep(((System.getenv("ATRIL_PAD_SELFTEST_DELAY_MS")?.toLongOrNull()) ?: 6000L))
+                    script.split(',').forEach { name ->
+                        runCatching { com.davidadrianrg.atril.core.input.PadAction.valueOf(name.trim().uppercase()) }
+                            .getOrNull()?.let { GamepadInput.dispatchAsKey(it) }
+                        Thread.sleep(2500)
+                    }
+                }.apply { isDaemon = true; start() }
+            }
+            onDispose { pad.stop() }
         }
 
         val theme by state.theme.collectAsState()
