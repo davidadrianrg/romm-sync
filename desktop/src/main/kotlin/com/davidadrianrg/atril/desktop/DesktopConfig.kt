@@ -93,6 +93,23 @@ object DesktopConfig {
         get() = prefs.get("skipped_version", "")
         set(v) = prefs.put("skipped_version", v)
 
+    /** Claves de SteamGridDB / ScreenScraper para las carátulas de juegos locales. */
+    fun scraperCredentials() = com.davidadrianrg.atril.core.localgames.ScraperCredentials(
+        steamGridDbKey = prefs.get("scraper_sgdb_key", ""),
+        ssDevId = prefs.get("scraper_ss_dev_id", ""),
+        ssDevPassword = prefs.get("scraper_ss_dev_password", ""),
+        ssUser = prefs.get("scraper_ss_user", ""),
+        ssPassword = prefs.get("scraper_ss_password", ""),
+    )
+
+    fun saveScraperCredentials(c: com.davidadrianrg.atril.core.localgames.ScraperCredentials) {
+        prefs.put("scraper_sgdb_key", c.steamGridDbKey.trim())
+        prefs.put("scraper_ss_dev_id", c.ssDevId.trim())
+        prefs.put("scraper_ss_dev_password", c.ssDevPassword.trim())
+        prefs.put("scraper_ss_user", c.ssUser.trim())
+        prefs.put("scraper_ss_password", c.ssPassword.trim())
+    }
+
     /** Idioma: "" = sistema, "en", "es". */
     /** Id de tema ([com.davidadrianrg.atril.core.theme.AppTheme.id]); vacío = por defecto. */
     var themeId: String

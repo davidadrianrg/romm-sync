@@ -78,6 +78,7 @@ import com.davidadrianrg.atril.core.library.MultiDiscGrouper
 import com.davidadrianrg.atril.core.library.PhysicalMedia
 import com.davidadrianrg.atril.desktop.theme.LocalLauncherColors
 import com.davidadrianrg.atril.core.remote.dto.RomDto
+import java.io.File
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -96,7 +97,34 @@ private data class LauncherEntry(
     val card: GameCard,
     val platformLabel: String,
     val physicalUrl: String?,
-)
+    /** Juego añadido a mano (NO está en RomM); null para los de RomM. */
+    val local: com.davidadrianrg.atril.core.localgames.LocalGame? = null,
+) {
+    /** Plataforma tal cual se muestra en la carta/pie: los locales llevan la marca «Local». */
+    val displayPlatform: String get() = if (local != null) "$platformLabel · ${tr("local.badge")}" else platformLabel
+}
+
+/** Id sintético y NEGATIVO para un juego local: nunca choca con un id de RomM. */
+private fun com.davidadrianrg.atril.core.localgames.LocalGame.syntheticRomId(): Int =
+    -((id.hashCode().toLong() and 0x7FFFFFFF).toInt().coerceAtLeast(1))
+
+private fun com.davidadrianrg.atril.core.localgames.LocalGame.toLauncherEntry(platformName: String): LauncherEntry {
+    val rep = RomDto(
+        id = syntheticRomId(),
+        name = title,
+        fileName = File(path).name,
+        platformId = 0,
+        platformSlug = platformSlug,
+        fileSizeBytes = File(path).takeIf { it.isFile }?.length() ?: 0L,
+        urlCover = coverPath?.let { "file://$it" },
+    )
+    return LauncherEntry(
+        card = GameCard(rep, 1, listOf(rep), downloaded = true),
+        platformLabel = platformName,
+        physicalUrl = null,
+        local = this,
+    )
+}
 
 /** Objeto que se está insertando en la ranura antes de abrir el juego. */
 private data class Insertion(
@@ -122,7 +150,15 @@ fun DesktopPlayScreen(
     val connected by state.connected.collectAsState()
     val activeDownloads = tasks.count { it.active }
 
-    var entries by remember { mutableStateOf<List<LauncherEntry>>(emptyList()) }
+    var remoteEntries by remember { mutableStateOf<List<LauncherEntry>>(emptyList()) }
+    val localGames by state.localGames.games.collectAsState()
+    val platformsState by state.platforms.collectAsState()
+    val entries = remember(remoteEntries, localGames, platformsState) {
+        val names = platformsState.associate { it.slug to (it.displayName ?: it.name) }
+        (remoteEntries + localGames.map { it.toLauncherEntry(names[it.platformSlug] ?: it.platformSlug.uppercase()) })
+            .sortedBy { it.card.rep.name.lowercase() }
+    }
+    var pendingAddPath by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(true) }
     var platformFilter by remember { mutableStateOf<String?>(null) }
     var menuOpen by remember { mutableStateOf(false) }
@@ -144,7 +180,8 @@ fun DesktopPlayScreen(
                     targetValue = 1f,
                     animationSpec = tween(durationMillis = com.davidadrianrg.atril.core.launch.InsertionMotion.DURATION_MS, easing = LinearEasing),
                 )
-                state.openLocalGame(entry.card)
+                val game = entry.local
+                if (game != null) state.launchLocalGame(game) else state.openLocalGame(entry.card)
             } finally {
                 insertion = null
                 insertProgress.snapTo(0f)
@@ -157,10 +194,10 @@ fun DesktopPlayScreen(
         // Pinta primero lo que ya está en library.properties: la red solo
         // enriquece portada/medio físico y nunca debe dejar la ventana vacía.
         val local = localLauncherEntries(state)
-        entries = local
+        remoteEntries = local
         loading = false
         val enriched = runCatching { loadLauncherEntries(state) }.getOrDefault(local)
-        if (enriched.isNotEmpty()) entries = enriched
+        if (enriched.isNotEmpty()) remoteEntries = enriched
     }
 
     val platforms = remember(entries) {
@@ -186,7 +223,8 @@ fun DesktopPlayScreen(
     val selected = selectedGame
     if (selected != null) {
         Surface(Modifier.fillMaxSize().background(PlayBgBottom)) {
-            GameDetailPanel(selected, state)
+            val local = localGames.firstOrNull { it.syntheticRomId() == selected.rep.id }
+            if (local != null) LocalGameDetailPanel(local, state) else GameDetailPanel(selected, state)
         }
         return
     }
@@ -214,6 +252,7 @@ fun DesktopPlayScreen(
                 onMenuDismiss = { menuOpen = false },
                 onOpenDownloads = onOpenDownloads,
                 onNavigate = onNavigate,
+                onAddLocal = { scope.launch { pickLocalGameFile()?.let { pendingAddPath = it } } },
             )
 
             if (platforms.size > 1) {
@@ -246,7 +285,7 @@ fun DesktopPlayScreen(
                     contentAlignment = Alignment.Center,
                 ) { CircularProgressIndicator(color = PlayAmber) }
 
-                visible.isEmpty() -> EmptyLauncher(onOpenLibrary)
+                visible.isEmpty() -> EmptyLauncher(onOpenLibrary, onAddLocal = { scope.launch { pickLocalGameFile()?.let { pendingAddPath = it } } })
 
                 else -> BoxWithConstraints(Modifier.fillMaxSize()) {
                     val landscape = maxWidth > 900.dp
@@ -358,6 +397,19 @@ fun DesktopPlayScreen(
                     }
                 }
             }
+        }
+
+        pendingAddPath?.let { path ->
+            val choices = platformsState.map { it.slug to (it.displayName ?: it.name) }
+                .distinctBy { it.first }.sortedBy { it.second.lowercase() }
+            AddLocalGameDialog(
+                path = path,
+                platforms = choices,
+                initialSlug = com.davidadrianrg.atril.core.localgames.LocalGamePaths
+                    .guessPlatform(path, choices.map { it.first }),
+                onConfirm = { title, slug -> pendingAddPath = null; state.addLocalGame(title, slug, path) },
+                onDismiss = { pendingAddPath = null },
+            )
         }
 
         insertion?.let { ins ->
@@ -491,6 +543,7 @@ private fun PlayHeader(
     onMenuDismiss: () -> Unit,
     onOpenDownloads: () -> Unit,
     onNavigate: (Section) -> Unit,
+    onAddLocal: () -> Unit,
 ) {
     Row(
         Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 10.dp),
@@ -548,6 +601,8 @@ private fun PlayHeader(
             )
             Spacer(Modifier.width(8.dp))
         }
+        RoundIconButton(icon = AppIcons.Add, description = tr("local.add"), onClick = onAddLocal)
+        Spacer(Modifier.width(8.dp))
         RoundIconButton(
             icon = AppIcons.Download,
             description = tr("nav.downloads"),
@@ -647,7 +702,7 @@ private fun LauncherCard(entry: LauncherEntry, state: DesktopAppState, modifier:
                 .padding(start = 14.dp, end = 14.dp, top = 28.dp, bottom = 12.dp),
         ) {
             Text(
-                entry.platformLabel.uppercase(),
+                entry.displayPlatform.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
                 letterSpacing = 1.4.sp,
                 color = PlayAmber,
@@ -759,7 +814,7 @@ private fun PlayCaption(
         Spacer(Modifier.height(5.dp))
         Text(
             buildList {
-                add(entry.platformLabel)
+                add(entry.displayPlatform)
                 add(formatBytes(entry.card.rep.fileSizeBytes))
                 if (entry.card.discCount > 1) add(tr("launcher.badge.discs", entry.card.discCount))
                 if (manual) add(tr("launcher.badge.manual"))
@@ -801,7 +856,7 @@ private fun PlayCaption(
                 label = { Text(tr("launcher.display.physical")) },
             )
         }
-        if (!physicalAvailable && !manual) {
+        if (!physicalAvailable && !manual && entry.local == null) {
             Spacer(Modifier.height(12.dp))
             val scrape by state.scrapes.collectAsState()
             val ui = scrape[entry.card.rep.id]
@@ -849,7 +904,7 @@ private fun PlayCaption(
 }
 
 @Composable
-private fun EmptyLauncher(onOpenLibrary: () -> Unit) {
+private fun EmptyLauncher(onOpenLibrary: () -> Unit, onAddLocal: () -> Unit) {
     Box(Modifier.fillMaxSize().padding(40.dp), contentAlignment = Alignment.Center) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,

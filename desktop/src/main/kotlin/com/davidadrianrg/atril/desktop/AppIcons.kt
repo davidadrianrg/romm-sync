@@ -31,6 +31,11 @@ object AppIcons {
         "M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" to null
     }
 
+    /** Más: añadir un juego local. */
+    val Add: ImageVector = icon("add") {
+        "M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" to null
+    }
+
     /** Flecha hacia bandeja: descarga de ROM. */
     val Download: ImageVector = icon("download") {
         "M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" to null

@@ -1,10 +1,5 @@
-package com.davidadrianrg.atril.data.localgames
+package com.davidadrianrg.atril.core.localgames
 
-import com.davidadrianrg.atril.core.localgames.LocalGame
-import com.davidadrianrg.atril.core.localgames.LocalGameStore
-import com.davidadrianrg.atril.core.localgames.ScrapeOutcome
-import com.davidadrianrg.atril.core.localgames.ScrapeStatus
-import com.davidadrianrg.atril.core.localgames.ScraperCredentials
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

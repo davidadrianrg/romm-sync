@@ -1454,6 +1454,50 @@ fun SettingsScreen(state: DesktopAppState) {
         Text(tr("nav.settings"), style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(12.dp))
 
+        // ── Carátulas de juegos locales (SteamGridDB / ScreenScraper) ──
+        SettingsSection(icon = AppIcons.Image, title = tr("config.localmeta.title")) {
+            val saved = remember { DesktopConfig.scraperCredentials() }
+            var draft by remember { mutableStateOf(saved) }
+            var current by remember { mutableStateOf(saved) }
+            var justSaved by remember { mutableStateOf(false) }
+            Text(
+                tr("config.localmeta.hint"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            @Composable
+            fun field(label: String, value: String, secret: Boolean, onChange: (String) -> Unit) {
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = { onChange(it); justSaved = false },
+                    label = { Text(label) },
+                    singleLine = true,
+                    visualTransformation = if (secret) {
+                        androidx.compose.ui.text.input.PasswordVisualTransformation()
+                    } else {
+                        androidx.compose.ui.text.input.VisualTransformation.None
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
+            }
+            field(tr("config.localmeta.sgdb"), draft.steamGridDbKey, true) { draft = draft.copy(steamGridDbKey = it) }
+            field(tr("config.localmeta.ss_devid"), draft.ssDevId, false) { draft = draft.copy(ssDevId = it) }
+            field(tr("config.localmeta.ss_devpw"), draft.ssDevPassword, true) { draft = draft.copy(ssDevPassword = it) }
+            field(tr("config.localmeta.ss_user"), draft.ssUser, false) { draft = draft.copy(ssUser = it) }
+            field(tr("config.localmeta.ss_pw"), draft.ssPassword, true) { draft = draft.copy(ssPassword = it) }
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Button(
+                    onClick = { DesktopConfig.saveScraperCredentials(draft); current = draft; justSaved = true },
+                    enabled = draft != current,
+                ) { Text(tr("config.localmeta.save")) }
+                if (justSaved) {
+                    Spacer(Modifier.width(12.dp))
+                    Text(tr("config.localmeta.saved"), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+
         // ── Temas ──
         SettingsSection(icon = AppIcons.Storage, title = tr("config.theme.title")) {
             val current by state.theme.collectAsState()

@@ -19,6 +19,7 @@ import androidx.compose.ui.res.loadImageBitmap
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.io.FileInputStream
 
 /**
@@ -88,7 +89,8 @@ fun produceCover(url: String): ImageBitmap? {
     // Carga async: caché LRU en disco (CoverCache) + decodificación en IO.
     val bitmap by produceState<ImageBitmap?>(null, url) {
         withContext(Dispatchers.IO) {
-            val cached = CoverCache.fetch(url)
+            // Carátulas de juegos locales: ya están en disco, sin caché ni red.
+            val cached = if (url.startsWith("file://")) File(url.removePrefix("file://")).takeIf { it.isFile } else CoverCache.fetch(url)
             if (cached != null) {
                 runCatching {
                     FileInputStream(cached).use { input -> value = loadImageBitmap(input) }
