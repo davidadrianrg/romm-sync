@@ -1,8 +1,6 @@
 package com.davidadrianrg.atril.core.auth
 
-import com.squareup.moshi.Json
 import com.squareup.moshi.Moshi
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -82,7 +80,9 @@ class DeviceAuthClient(
 ) {
     private val origin: String = normalizeOrigin(serverUrl)
     private val base = origin.toHttpUrlOrNull()
-    private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+    // Sin reflexión: en release R8 renombra los campos de las clases de datos y el Moshi
+    // reflexivo lanza un Error (no una Exception) que tumbaba la app al pulsar «QR».
+    private val anyAdapter = Moshi.Builder().build().adapter(Any::class.java)
     private val json = "application/json".toMediaType()
 
     val isValid: Boolean get() = base != null
@@ -91,8 +91,15 @@ class DeviceAuthClient(
     suspend fun init(req: DeviceAuthRequest): Result<DeviceCode> = withContext(Dispatchers.IO) {
         val url = base?.newBuilder()?.addEncodedPathSegments("api/auth/device/init")?.build()
             ?: return@withContext Result.failure(DeviceAuthException(DeviceAuthError.INVALID_URL))
-        val body = moshi.adapter(InitBody::class.java).toJson(
-            InitBody(req.clientDeviceIdentifier, req.name, DeviceAuth.CLIENT, req.platform, req.clientVersion, req.scopes),
+        val body = anyAdapter.toJson(
+            mapOf(
+                "client_device_identifier" to req.clientDeviceIdentifier,
+                "name" to req.name,
+                "client" to DeviceAuth.CLIENT,
+                "platform" to req.platform,
+                "client_version" to req.clientVersion,
+                "requested_scopes" to req.scopes,
+            ),
         ).toRequestBody(json)
         try {
             http.newCall(Request.Builder().url(url).post(body).build()).execute().use { r ->
@@ -100,15 +107,20 @@ class DeviceAuthClient(
                 if (!r.isSuccessful) {
                     return@withContext Result.failure(DeviceAuthException(classify(r.code), "HTTP ${r.code}"))
                 }
-                val parsed = moshi.adapter(InitResponse::class.java).fromJson(text)
-                    ?: return@withContext Result.failure(DeviceAuthException(DeviceAuthError.SERVER, "bad init body"))
+                val m = parseMap(text)
+                val deviceCode = m?.str("device_code")
+                val userCode = m?.str("user_code")
+                val path = m?.str("verification_path_complete")
+                if (deviceCode == null || userCode == null || path == null) {
+                    return@withContext Result.failure(DeviceAuthException(DeviceAuthError.SERVER, "bad init body"))
+                }
                 Result.success(
                     DeviceCode(
-                        deviceCode = parsed.deviceCode,
-                        userCode = parsed.userCode,
-                        verificationUrl = origin + parsed.verificationPathComplete,
-                        expiresInSeconds = parsed.expiresIn,
-                        intervalSeconds = parsed.interval.coerceAtLeast(1),
+                        deviceCode = deviceCode,
+                        userCode = userCode,
+                        verificationUrl = origin + path,
+                        expiresInSeconds = m.int("expires_in") ?: 600,
+                        intervalSeconds = (m.int("interval") ?: 5).coerceAtLeast(1),
                     ),
                 )
             }
@@ -116,7 +128,7 @@ class DeviceAuthClient(
             throw e
         } catch (e: IOException) {
             Result.failure(DeviceAuthException(DeviceAuthError.NETWORK, e.javaClass.simpleName))
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Result.failure(DeviceAuthException(DeviceAuthError.SERVER, e.javaClass.simpleName))
         }
     }
@@ -125,14 +137,19 @@ class DeviceAuthClient(
     suspend fun pollOnce(deviceCode: String): DevicePoll = withContext(Dispatchers.IO) {
         val url = base?.newBuilder()?.addEncodedPathSegments("api/auth/device/token")?.build()
             ?: return@withContext DevicePoll.Failure(DeviceAuthError.INVALID_URL)
-        val body = moshi.adapter(TokenBody::class.java).toJson(TokenBody(deviceCode)).toRequestBody(json)
+        val body = anyAdapter.toJson(mapOf("device_code" to deviceCode)).toRequestBody(json)
         try {
             http.newCall(Request.Builder().url(url).post(body).build()).execute().use { r ->
                 val text = r.body?.string().orEmpty()
                 if (r.isSuccessful) {
-                    val t = moshi.adapter(TokenResponse::class.java).fromJson(text)
-                        ?: return@withContext DevicePoll.Failure(DeviceAuthError.SERVER, "bad token body")
-                    return@withContext DevicePoll.Approved(DeviceToken(t.accessToken, t.deviceId, t.scopes))
+                    val t = parseMap(text)
+                    val token = t?.str("access_token")
+                    val deviceId = t?.str("device_id")
+                    if (token == null || deviceId == null) {
+                        return@withContext DevicePoll.Failure(DeviceAuthError.SERVER, "bad token body")
+                    }
+                    val scopes = (t["scopes"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
+                    return@withContext DevicePoll.Approved(DeviceToken(token, deviceId, scopes))
                 }
                 parsePollError(r.code, text)
             }
@@ -140,7 +157,7 @@ class DeviceAuthClient(
             throw e
         } catch (e: IOException) {
             DevicePoll.Failure(DeviceAuthError.NETWORK, e.javaClass.simpleName)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             DevicePoll.Failure(DeviceAuthError.SERVER, e.javaClass.simpleName)
         }
     }
@@ -177,9 +194,7 @@ class DeviceAuthClient(
     }
 
     private fun parsePollError(code: Int, text: String): DevicePoll {
-        val detail = runCatching {
-            moshi.adapter(ErrorBody::class.java).fromJson(text)?.detail
-        }.getOrNull()?.lowercase()
+        val detail = parseMap(text)?.str("detail")?.lowercase()
         return when (detail) {
             "authorization_pending" -> DevicePoll.Pending
             "slow_down" -> DevicePoll.SlowDown
@@ -195,33 +210,12 @@ class DeviceAuthClient(
         else -> DeviceAuthError.SERVER
     }
 
-    // ── wire types ─────────────────────────────────────────────
-    private data class InitBody(
-        @Json(name = "client_device_identifier") val clientDeviceIdentifier: String,
-        val name: String,
-        val client: String,
-        val platform: String?,
-        @Json(name = "client_version") val clientVersion: String?,
-        @Json(name = "requested_scopes") val requestedScopes: List<String>,
-    )
+    private fun parseMap(text: String): Map<*, *>? =
+        runCatching { anyAdapter.fromJson(text) as? Map<*, *> }.getOrNull()
 
-    private data class InitResponse(
-        @Json(name = "device_code") val deviceCode: String,
-        @Json(name = "user_code") val userCode: String,
-        @Json(name = "verification_path_complete") val verificationPathComplete: String,
-        @Json(name = "expires_in") val expiresIn: Int,
-        val interval: Int,
-    )
+    private fun Map<*, *>.str(key: String): String? = (this[key] as? String)?.takeIf { it.isNotBlank() }
 
-    private data class TokenBody(@Json(name = "device_code") val deviceCode: String)
-
-    private data class TokenResponse(
-        @Json(name = "access_token") val accessToken: String,
-        @Json(name = "device_id") val deviceId: String,
-        val scopes: List<String> = emptyList(),
-    )
-
-    private data class ErrorBody(val detail: String? = null)
+    private fun Map<*, *>.int(key: String): Int? = (this[key] as? Number)?.toInt()
 
     companion object {
         /**

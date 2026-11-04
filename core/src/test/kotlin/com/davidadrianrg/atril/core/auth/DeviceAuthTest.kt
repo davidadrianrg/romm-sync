@@ -165,3 +165,36 @@ class QrLoginFlowTest {
         } finally { server.shutdown() }
     }
 }
+
+class ReleaseSafetyTest {
+    private lateinit var server: MockWebServer
+    @Before fun up() { server = MockWebServer().also { it.start() } }
+    @After fun down() = server.shutdown()
+
+    @Test fun garbageInitBodyIsAFailureNotACrash() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(201).setBody("<html>not json</html>"))
+        val r = DeviceAuthClient(server.url("/").toString()).init(DeviceAuthRequest("d", "n", "linux", "1"))
+        assertEquals(DeviceAuthError.SERVER, (r.exceptionOrNull() as DeviceAuthException).kind)
+    }
+
+    @Test fun initBodyMissingFieldsIsAFailure() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(201).setBody("""{"device_code":"x"}"""))
+        val r = DeviceAuthClient(server.url("/").toString()).init(DeviceAuthRequest("d", "n", "linux", "1"))
+        assertTrue(r.isFailure)
+    }
+
+    @Test fun tokenBodyWithoutTokenIsAFailureNotApproval() = runBlocking {
+        server.enqueue(MockResponse().setBody("""{"device_id":"d"}"""))
+        assertTrue(DeviceAuthClient(server.url("/").toString()).pollOnce("x") is DevicePoll.Failure)
+    }
+
+    /** R8 renames fields of plain data classes, which breaks reflective Moshi with an Error (app crash). */
+    @Test fun authAndMediaCodeDoNotUseReflectiveMoshi() {
+        val roots = listOf("src/main/kotlin/com/davidadrianrg/atril/core/auth", "src/main/kotlin/com/davidadrianrg/atril/core/media")
+        roots.forEach { r ->
+            java.io.File(r).walkTopDown().filter { it.extension == "kt" }.forEach { f ->
+                assertFalse("${f.name} must not use KotlinJsonAdapterFactory (R8-unsafe)", f.readText().contains("KotlinJsonAdapterFactory"))
+            }
+        }
+    }
+}
