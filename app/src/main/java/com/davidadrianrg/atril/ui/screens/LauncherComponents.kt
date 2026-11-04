@@ -290,7 +290,7 @@ internal fun LauncherCaption(
         if (!item.launchable) {
             Spacer(Modifier.height(4.dp))
             Text(
-                tr("launcher.not_launchable"),
+                tr(if (item.isLocalSource) "local.file_missing" else "launcher.not_launchable"),
                 style = MaterialTheme.typography.labelSmall,
                 color = LauncherAmber.copy(alpha = 0.8f),
             )

@@ -747,6 +747,53 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
                 )
             }
 
+            // ── Carátulas de juegos locales (SteamGridDB / ScreenScraper) ──
+            SettingsSection(
+                icon = Icons.Outlined.Language,
+                title = tr("config.localmeta.title"),
+            ) {
+                val saved by viewModel.scraperCredentials.collectAsState(
+                    initial = com.davidadrianrg.atril.core.localgames.ScraperCredentials(),
+                )
+                var draft by remember(saved) { mutableStateOf(saved) }
+                var justSaved by remember { mutableStateOf(false) }
+                Text(
+                    tr("config.localmeta.hint"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                @Composable
+                fun field(label: String, value: String, secret: Boolean, onChange: (String) -> Unit) {
+                    OutlinedTextField(
+                        value = value,
+                        onValueChange = { onChange(it); justSaved = false },
+                        label = { Text(label) },
+                        singleLine = true,
+                        visualTransformation = if (secret) {
+                            androidx.compose.ui.text.input.PasswordVisualTransformation()
+                        } else {
+                            androidx.compose.ui.text.input.VisualTransformation.None
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    )
+                }
+                field(tr("config.localmeta.sgdb"), draft.steamGridDbKey, true) { draft = draft.copy(steamGridDbKey = it) }
+                field(tr("config.localmeta.ss_devid"), draft.ssDevId, false) { draft = draft.copy(ssDevId = it) }
+                field(tr("config.localmeta.ss_devpw"), draft.ssDevPassword, true) { draft = draft.copy(ssDevPassword = it) }
+                field(tr("config.localmeta.ss_user"), draft.ssUser, false) { draft = draft.copy(ssUser = it) }
+                field(tr("config.localmeta.ss_pw"), draft.ssPassword, true) { draft = draft.copy(ssPassword = it) }
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Button(onClick = { viewModel.saveScraperCredentials(draft); justSaved = true }, enabled = draft != saved) {
+                        Text(tr("config.localmeta.save"))
+                    }
+                    if (justSaved) {
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(tr("config.localmeta.saved"), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+
             // ── Temas ──────────────────────────────────────────────────
             SettingsSection(
                 icon = Icons.Outlined.Language,

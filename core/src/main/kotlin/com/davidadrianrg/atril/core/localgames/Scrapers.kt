@@ -180,3 +180,25 @@ class CompositeScraper(private val scrapers: List<GameScraper>) {
         return best
     }
 }
+
+/** Credenciales que el usuario configura en Ajustes (todas vacías por defecto). */
+data class ScraperCredentials(
+    val steamGridDbKey: String = "",
+    val ssDevId: String = "",
+    val ssDevPassword: String = "",
+    val ssUser: String = "",
+    val ssPassword: String = "",
+) {
+    val hasAny: Boolean get() = steamGridDbKey.isNotBlank() || screenScraper() != null
+
+    fun screenScraper(): ScreenScraperScraper.Credentials? =
+        ScreenScraperScraper.Credentials(ssDevId, ssDevPassword, ssUser, ssPassword).takeIf { it.isComplete }
+
+    /** Proveedores en orden de preferencia: SteamGridDB (carátula) y luego ScreenScraper. */
+    fun buildScraper(fetcher: HttpFetcher = OkHttpFetcher(), language: String = "en") = CompositeScraper(
+        listOf(
+            SteamGridDbScraper(steamGridDbKey.ifBlank { null }, fetcher),
+            ScreenScraperScraper(screenScraper(), fetcher, language),
+        ),
+    )
+}

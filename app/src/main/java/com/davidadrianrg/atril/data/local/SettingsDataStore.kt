@@ -68,6 +68,11 @@ class SettingsDataStore(private val context: Context) {
         val RETROHRAI_MEDIA_PATH = stringPreferencesKey("retrohrai_media_path")
         val LANGUAGE = stringPreferencesKey("language")
         val THEME = stringPreferencesKey("theme")
+        val SGDB_KEY = stringPreferencesKey("scraper_steamgriddb_key")
+        val SS_DEV_ID = stringPreferencesKey("scraper_ss_dev_id")
+        val SS_DEV_PASSWORD = stringPreferencesKey("scraper_ss_dev_password")
+        val SS_USER = stringPreferencesKey("scraper_ss_user")
+        val SS_PASSWORD = stringPreferencesKey("scraper_ss_password")
 
         // Toggles de funciones opcionales (opt-out: ausencia = activado)
         val ESDE_EXPORT_ENABLED = booleanPreferencesKey("esde_export_enabled")
@@ -157,6 +162,17 @@ class SettingsDataStore(private val context: Context) {
     /** "" = idioma del sistema; "en"/"es" = forzado. */
     /** Id de tema ([com.davidadrianrg.atril.core.theme.AppTheme.id]); "" = por defecto. */
     val theme: Flow<String> = context.dataStore.data.map { it[THEME] ?: "" }
+    /** Credenciales de SteamGridDB / ScreenScraper para los juegos locales. */
+    val scraperCredentials: Flow<com.davidadrianrg.atril.core.localgames.ScraperCredentials> =
+        context.dataStore.data.map {
+            com.davidadrianrg.atril.core.localgames.ScraperCredentials(
+                steamGridDbKey = it[SGDB_KEY].orEmpty(),
+                ssDevId = it[SS_DEV_ID].orEmpty(),
+                ssDevPassword = it[SS_DEV_PASSWORD].orEmpty(),
+                ssUser = it[SS_USER].orEmpty(),
+                ssPassword = it[SS_PASSWORD].orEmpty(),
+            )
+        }
     val language: Flow<String> = context.dataStore.data.map { it[LANGUAGE] ?: "" }
     val syncDeviceId: Flow<Int?> = context.dataStore.data.map { it[DEVICE_ID] }
     val syncDeviceIdString: Flow<String?> = context.dataStore.data.map { it[DEVICE_ID_STRING] }
@@ -307,6 +323,16 @@ class SettingsDataStore(private val context: Context) {
 
     suspend fun setTheme(id: String) {
         context.dataStore.edit { it[THEME] = id }
+    }
+
+    suspend fun setScraperCredentials(c: com.davidadrianrg.atril.core.localgames.ScraperCredentials) {
+        context.dataStore.edit {
+            it[SGDB_KEY] = c.steamGridDbKey.trim()
+            it[SS_DEV_ID] = c.ssDevId.trim()
+            it[SS_DEV_PASSWORD] = c.ssDevPassword.trim()
+            it[SS_USER] = c.ssUser.trim()
+            it[SS_PASSWORD] = c.ssPassword.trim()
+        }
     }
 
     suspend fun setLanguage(tag: String) {
