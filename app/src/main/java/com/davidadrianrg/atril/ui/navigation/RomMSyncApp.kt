@@ -275,6 +275,11 @@ private fun AppNavHost(
         composable(Screen.Config.route) {
             ConfigScreen(
                 onOpenPlatforms = { navController.navigate(Screen.Platforms.route) },
+                initialCategory = if (startInUpdates && !needsOnboarding) {
+                    com.davidadrianrg.atril.core.settings.SettingsCategory.ABOUT
+                } else {
+                    com.davidadrianrg.atril.core.settings.SettingsCategory.CONNECTION
+                },
             )
         }
     }

@@ -80,6 +80,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.davidadrianrg.atril.core.i18n.tr
+import com.davidadrianrg.atril.core.settings.SettingsCategory
 import com.davidadrianrg.atril.core.launch.DesktopLaunchPlanner
 import com.davidadrianrg.atril.core.launch.DesktopEmulatorCatalog
 import com.davidadrianrg.atril.core.remote.dto.PlatformDto
@@ -1448,6 +1449,7 @@ fun SettingsScreen(state: DesktopAppState) {
     val connected by state.connected.collectAsState()
     var showApiKey by remember { mutableStateOf(false) }
     var showManualToken by remember { mutableStateOf(false) }
+    var settingsCat by remember { mutableStateOf(SettingsCategory.CONNECTION) }
     var showQr by remember { mutableStateOf(false) }
     val qrState by state.qrLogin.collectAsState()
     // DesktopConfig no es estado de Compose: se refresca a mano tras conectar/desconectar.
@@ -1460,6 +1462,23 @@ fun SettingsScreen(state: DesktopAppState) {
         Text(tr("nav.settings"), style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(12.dp))
 
+        SettingsCategoryBar(settingsCat) { settingsCat = it }
+        Spacer(Modifier.height(12.dp))
+        if (showQr) {
+            QrLoginDialog(
+                qrState,
+                onRetry = { state.startQrLogin(serverUrl.value) },
+                onClose = { state.cancelQrLogin(); showQr = false },
+            )
+            LaunchedEffect(qrState) {
+                if (qrState is com.davidadrianrg.atril.core.auth.QrLoginState.Success) {
+                    kotlinx.coroutines.delay(1200)
+                    state.cancelQrLogin(); showQr = false
+                }
+            }
+        }
+
+        if (settingsCat == SettingsCategory.LOCAL) {
         // ── Carátulas de juegos locales (SteamGridDB / ScreenScraper) ──
         SettingsSection(icon = AppIcons.Image, title = tr("config.localmeta.title")) {
             val saved = remember { DesktopConfig.scraperCredentials() }
@@ -1503,7 +1522,9 @@ fun SettingsScreen(state: DesktopAppState) {
                 }
             }
         }
+        }
 
+        if (settingsCat == SettingsCategory.APPEARANCE) {
         // ── Temas ──
         SettingsSection(icon = AppIcons.Storage, title = tr("config.theme.title")) {
             val current by state.theme.collectAsState()
@@ -1523,7 +1544,9 @@ fun SettingsScreen(state: DesktopAppState) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        }
 
+        if (settingsCat == SettingsCategory.APPEARANCE) {
         // ── Idioma ──
         SettingsSection(icon = AppIcons.Storage, title = tr("config.language.title")) {
             val langTag by state.language.collectAsState()
@@ -1557,20 +1580,8 @@ fun SettingsScreen(state: DesktopAppState) {
                 hasCredentials = configHasCredentials()
             }
         }
-        if (showQr) {
-            QrLoginDialog(
-                qrState,
-                onRetry = { state.startQrLogin(serverUrl.value) },
-                onClose = { state.cancelQrLogin(); showQr = false },
-            )
-            LaunchedEffect(qrState) {
-                if (qrState is com.davidadrianrg.atril.core.auth.QrLoginState.Success) {
-                    kotlinx.coroutines.delay(1200)
-                    state.cancelQrLogin(); showQr = false
-                }
-            }
         }
-
+        if (settingsCat == SettingsCategory.CONNECTION) {
         // ── Servidor ──
         SettingsSection(icon = AppIcons.Storage, title = tr("settings.server.title")) {
             OutlinedTextField(
@@ -1643,7 +1654,9 @@ fun SettingsScreen(state: DesktopAppState) {
             ) { Text(tr("settings.server.save_and_connect")) }
             }
         }
+        }
 
+        if (settingsCat == SettingsCategory.CONNECTION) {
         // ── Plataformas ──
         SettingsSection(icon = AppIcons.Storage, title = tr("settings.platforms.title")) {
             Text(
@@ -1658,7 +1671,9 @@ fun SettingsScreen(state: DesktopAppState) {
                 Text(tr("settings.platforms.open"))
             }
         }
+        }
 
+        if (settingsCat == SettingsCategory.LOCAL) {
         // ── Directorio de ROMs ──
         SettingsSection(icon = AppIcons.Folder, title = tr("settings.roms.title")) {
             OutlinedTextField(
@@ -1686,7 +1701,9 @@ fun SettingsScreen(state: DesktopAppState) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        }
 
+        if (settingsCat == SettingsCategory.LOCAL) {
         // ── Escanear biblioteca ──
         SettingsSection(icon = AppIcons.Storage, title = tr("common.scan_library")) {
             Text(
@@ -1720,7 +1737,9 @@ fun SettingsScreen(state: DesktopAppState) {
                 }
             }
         }
+        }
 
+        if (settingsCat == SettingsCategory.DOWNLOADS) {
         // ── Descargas simultáneas ──
         val maxDowns by state.maxConcurrentDownloads.collectAsState()
         SettingsSection(icon = AppIcons.Download, title = tr("settings.downloads.title")) {
@@ -1736,7 +1755,9 @@ fun SettingsScreen(state: DesktopAppState) {
                 modifier = Modifier.fillMaxWidth(),
             )
         }
+        }
 
+        if (settingsCat == SettingsCategory.ADVANCED) {
         // ── ES-DE ──
         SettingsSection(icon = AppIcons.Image, title = tr("settings.esde.title")) {
             var esdeDir by remember { mutableStateOf(state.config.esdeDataDir) }
@@ -1787,7 +1808,9 @@ fun SettingsScreen(state: DesktopAppState) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        }
 
+        if (settingsCat == SettingsCategory.SYNC) {
         // ── Saves y conflictos ──
         SettingsSection(icon = AppIcons.Sync, title = tr("settings.saves.title")) {
             Text(
@@ -1812,7 +1835,9 @@ fun SettingsScreen(state: DesktopAppState) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        }
 
+        if (settingsCat == SettingsCategory.ADVANCED) {
         // ── Sistema ──
         SettingsSection(icon = AppIcons.Gamepad, title = tr("settings.system.title")) {
             var closeToTray by remember { mutableStateOf(DesktopConfig.closeToTray) }
@@ -1831,7 +1856,9 @@ fun SettingsScreen(state: DesktopAppState) {
                 })
             }
         }
+        }
 
+        if (settingsCat == SettingsCategory.ABOUT) {
         // ── Actualizaciones ──
         SettingsSection(icon = AppIcons.Refresh, title = tr("settings.updates.title")) {
             val updState by state.updateState.collectAsState()
@@ -1916,7 +1943,9 @@ fun SettingsScreen(state: DesktopAppState) {
                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+        }
 
+        if (settingsCat == SettingsCategory.ABOUT) {
         // ── Acerca de ──
         SettingsSection(icon = AppIcons.Gamepad, title = tr("settings.about.title")) {
             Text(
@@ -1927,6 +1956,23 @@ fun SettingsScreen(state: DesktopAppState) {
                 tr("settings.about.shortcuts"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        }
+    }
+}
+
+@Composable
+private fun SettingsCategoryBar(selected: SettingsCategory, onSelect: (SettingsCategory) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        SettingsCategory.entries.forEach { c ->
+            androidx.compose.material3.FilterChip(
+                selected = c == selected,
+                onClick = { onSelect(c) },
+                label = { Text(tr(c.labelKey)) },
             )
         }
     }

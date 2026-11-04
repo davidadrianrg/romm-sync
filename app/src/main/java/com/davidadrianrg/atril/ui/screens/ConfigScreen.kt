@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
@@ -72,6 +73,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.davidadrianrg.atril.RomMSyncApplication
 import com.davidadrianrg.atril.core.i18n.tr
+import com.davidadrianrg.atril.core.settings.SettingsCategory
 import com.davidadrianrg.atril.data.update.UpdateCheckResult
 import com.davidadrianrg.atril.data.update.UpdateDownloadState
 import com.davidadrianrg.atril.ui.components.FolderPickerDialog
@@ -82,7 +84,10 @@ import com.davidadrianrg.atril.util.rememberNotificationPermissionState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
+fun ConfigScreen(
+    onOpenPlatforms: () -> Unit = {},
+    initialCategory: SettingsCategory = SettingsCategory.CONNECTION,
+) {
     val context = LocalContext.current
     val container = (context.applicationContext as RomMSyncApplication).container
 
@@ -113,6 +118,7 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
     var apiKey by remember { mutableStateOf("") }
     var apiKeyVisible by remember { mutableStateOf(false) }
     var showManualToken by remember { mutableStateOf(false) }
+    var settingsCat by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(initialCategory) }
     var showQrDialog by remember { mutableStateOf(false) }
     val qrState by viewModel.qrLogin.collectAsState()
 
@@ -156,6 +162,8 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            SettingsCategoryBar(settingsCat) { settingsCat = it }
+
             // ── Permiso de almacenamiento ───────────────────────────────
             if (!hasAllFilesAccess()) {
                 Card(
@@ -194,6 +202,7 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
                 }
             }
 
+            if (settingsCat == SettingsCategory.CONNECTION) {
             // ── Servidor ────────────────────────────────────────────────
             SettingsSection(
                 icon = Icons.Outlined.Dns,
@@ -281,7 +290,9 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
                 )
                 }
             }
+            }
 
+            if (settingsCat == SettingsCategory.LOCAL) {
             // ── Almacenamiento ──────────────────────────────────────────
             SettingsSection(
                 icon = Icons.Outlined.Folder,
@@ -362,7 +373,9 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
                     }
                 }
             }
+            }
 
+            if (settingsCat == SettingsCategory.CONNECTION) {
             // ── Plataformas ─────────────────────────────────────────────
             SettingsSection(
                 icon = Icons.Outlined.Storage,
@@ -387,7 +400,9 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
                     Text(tr("settings.platforms.open"))
                 }
             }
+            }
 
+            if (settingsCat == SettingsCategory.LOCAL) {
             // ── Escanear biblioteca local ───────────────────────────────
             SettingsSection(
                 icon = Icons.Outlined.Search,
@@ -467,7 +482,9 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
                     )
                 }
             }
+            }
 
+            if (settingsCat == SettingsCategory.ADVANCED) {
             // ── ES-DE Data Dir ───────────────────────────────────────────
             SettingsSection(
                 icon = Icons.Outlined.Folder,
@@ -529,7 +546,9 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
                 )
                 }
             }
+            }
 
+            if (settingsCat == SettingsCategory.ADVANCED) {
             // ── RetroHRAI Media ──────────────────────────────────────────
             SettingsSection(
                 icon = Icons.Outlined.Folder,
@@ -591,7 +610,9 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
                 )
                 }
             }
+            }
 
+            if (settingsCat == SettingsCategory.DOWNLOADS) {
             // ── Descargas ───────────────────────────────────────────────
             SettingsSection(
                 icon = Icons.Outlined.DownloadForOffline,
@@ -633,7 +654,9 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
                     )
                 }
             }
+            }
 
+            if (settingsCat == SettingsCategory.APPEARANCE) {
             // ── Launcher: presentación por defecto ──────────────────────
             val launcherDefault by container.settingsRepository.launcherDefaultDisplay
                 .collectAsState(initial = "card")
@@ -668,7 +691,9 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
                     )
                 }
             }
+            }
 
+            if (settingsCat == SettingsCategory.SYNC) {
             // ── Sincronización de partidas ──────────────────────────────
             // Guardamos el estado local del toggle para que la UI no parpadee
             // con el valor inicial por defecto mientras carga DataStore.
@@ -768,7 +793,9 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
                     )
                 }
             }
+            }
 
+            if (settingsCat == SettingsCategory.APPEARANCE) {
             // ── Idioma ─────────────────────────────────────────────────
             SettingsSection(
                 icon = Icons.Outlined.Language,
@@ -795,7 +822,9 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            }
 
+            if (settingsCat == SettingsCategory.LOCAL) {
             // ── Carátulas de juegos locales (SteamGridDB / ScreenScraper) ──
             SettingsSection(
                 icon = Icons.Outlined.Language,
@@ -842,7 +871,9 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
                     }
                 }
             }
+            }
 
+            if (settingsCat == SettingsCategory.APPEARANCE) {
             // ── Temas ──────────────────────────────────────────────────
             SettingsSection(
                 icon = Icons.Outlined.Language,
@@ -866,7 +897,9 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            }
 
+            if (settingsCat == SettingsCategory.ABOUT) {
             // ── Actualizaciones ────────────────────────────────────────
             SettingsSection(
                 icon = Icons.Outlined.SystemUpdateAlt,
@@ -1055,7 +1088,9 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
             }
 
             Spacer(modifier = Modifier.height(4.dp))
+            }
 
+            if (settingsCat == SettingsCategory.CONNECTION) {
             // ── Guardar (token manual) ─────────────────────────────────
             if (showManualToken) Button(
                 onClick = {
@@ -1091,6 +1126,7 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
                         color = MaterialTheme.colorScheme.secondary,
                     )
                 }
+            }
             }
         }
     }
@@ -1191,6 +1227,22 @@ private fun SettingsSection(
             }
             Spacer(modifier = Modifier.height(14.dp))
             content()
+        }
+    }
+}
+
+@Composable
+private fun SettingsCategoryBar(selected: SettingsCategory, onSelect: (SettingsCategory) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        SettingsCategory.entries.forEach { c ->
+            androidx.compose.material3.FilterChip(
+                selected = c == selected,
+                onClick = { onSelect(c) },
+                label = { Text(tr(c.labelKey)) },
+            )
         }
     }
 }
