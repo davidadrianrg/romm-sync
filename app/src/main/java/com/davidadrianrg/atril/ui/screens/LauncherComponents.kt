@@ -52,6 +52,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -509,8 +511,9 @@ internal fun AppMark() {
  */
 @Composable
 internal fun InsertionOverlay(
-    item: ShelfItem,
-    mediaPath: String,
+    title: String,
+    isOptical: Boolean,
+    model: Any?,
     progress: Float,
     onCancel: () -> Unit,
 ) {
@@ -528,11 +531,11 @@ internal fun InsertionOverlay(
                 onClickLabel = tr("common.cancel"),
                 onClick = onCancel,
             )
-            .semantics { contentDescription = tr("launcher.inserting", item.rom.name) },
+            .semantics { contentDescription = tr("launcher.inserting", title) },
     ) {
         val mediaSize = minOf(maxWidth, maxHeight) * 0.40f
         val consoleH = maxHeight * 0.17f
-        val slotWidth = mediaSize * if (item.isOptical) 1.02f else 0.94f
+        val slotWidth = mediaSize * if (isOptical) 1.02f else 0.94f
 
         Column(
             Modifier
@@ -543,7 +546,7 @@ internal fun InsertionOverlay(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                tr("launcher.inserting", item.rom.name),
+                tr("launcher.inserting", title),
                 style = MaterialTheme.typography.titleLarge,
                 color = LauncherCream,
                 textAlign = TextAlign.Center,
@@ -574,7 +577,7 @@ internal fun InsertionOverlay(
 
         // Medio: baja en vertical y se hunde en la ranura (la consola lo tapa).
         AsyncImage(
-            model = File(mediaPath),
+            model = model,
             contentDescription = null,
             contentScale = ContentScale.Fit,
             modifier = Modifier
@@ -679,5 +682,56 @@ private fun SlotConsole(
                     androidx.compose.foundation.shape.CircleShape,
                 ),
         )
+    }
+}
+
+
+/** Qué se está insertando (título, imagen —fichero de medio físico o URL de carátula— y tipo). */
+internal data class InsertionSpec(val title: String, val model: Any?, val isOptical: Boolean)
+
+/**
+ * Secuencia única para jugar desde cualquier pantalla: preparar → overlay de inserción
+ * (~1,3 s, sin adelantar) → lanzar. El overlay se mantiene hasta que el intent de
+ * lanzamiento se haya enviado y siempre se cierra (también si falla o se cancela).
+ */
+@androidx.compose.runtime.Stable
+internal class InsertionState {
+    var active by androidx.compose.runtime.mutableStateOf<InsertionSpec?>(null)
+        private set
+    val progress = androidx.compose.animation.core.Animatable(0f)
+
+    /** Devuelve el mensaje de error del lanzamiento (null si fue bien). */
+    suspend fun run(spec: InsertionSpec, launch: suspend () -> String?): String? {
+        active = spec
+        progress.snapTo(0f)
+        try {
+            progress.animateTo(
+                1f,
+                androidx.compose.animation.core.tween(
+                    com.davidadrianrg.atril.core.launch.InsertionMotion.DURATION_MS,
+                    easing = androidx.compose.animation.core.LinearEasing,
+                ),
+            )
+            return launch()
+        } finally {
+            active = null
+            progress.snapTo(0f)
+        }
+    }
+}
+
+/** Overlay a pantalla completa en una ventana propia: queda por encima de hojas/diálogos. */
+@Composable
+internal fun InsertionDialogLayer(state: InsertionState, onCancel: () -> Unit) {
+    val spec = state.active ?: return
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onCancel,
+        properties = androidx.compose.ui.window.DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false,
+            dismissOnClickOutside = false,
+        ),
+    ) {
+        InsertionOverlay(spec.title, spec.isOptical, spec.model, state.progress.value, onCancel)
     }
 }
