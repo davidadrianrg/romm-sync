@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -1280,8 +1281,13 @@ internal fun RomDetailSheet(
                     val sz = st.painter.intrinsicSize
                     if (sz.isSpecified) coverRatio = CoverRatio.of(sz.width.toInt(), sz.height.toInt())
                 },
+                // Ancho acotado: una carátula apaisada (ratio hasta 2.5) no debe
+                // comerse la columna del título, sobre todo en horizontal.
                 modifier = Modifier
-                    .height(if (wide) 216.dp else 140.dp)
+                    .sizeIn(
+                        maxWidth = if (wide) 216.dp else 140.dp,
+                        maxHeight = if (wide) 216.dp else 140.dp,
+                    )
                     .aspectRatio(coverRatio)
                     .clip(RoundedCornerShape(8.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant),

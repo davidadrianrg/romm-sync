@@ -1570,7 +1570,11 @@ fun SettingsScreen(state: DesktopAppState) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        }
 
+        // Fuera de cualquier categoría: el QR se lanza desde RomM y este efecto debe
+        // ejecutarse siempre, o el formulario manual reescribiría la config con la
+        // URL/token anteriores.
         LaunchedEffect(qrState) {
             if (qrState is com.davidadrianrg.atril.core.auth.QrLoginState.Success) {
                 // El token del QR ya está guardado: alinear los campos para que el formulario
@@ -1580,7 +1584,7 @@ fun SettingsScreen(state: DesktopAppState) {
                 hasCredentials = configHasCredentials()
             }
         }
-        }
+
         if (settingsCat == SettingsCategory.CONNECTION) {
         // ── Servidor ──
         SettingsSection(icon = AppIcons.Storage, title = tr("settings.server.title")) {
