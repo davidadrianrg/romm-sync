@@ -14,15 +14,16 @@ import androidx.work.workDataOf
 import com.davidadrianrg.atril.data.local.RomSyncDatabase
 import com.davidadrianrg.atril.data.local.SettingsDataStore
 import com.davidadrianrg.atril.core.i18n.tr
+import com.davidadrianrg.atril.core.media.GameMediaDownloader
+import com.davidadrianrg.atril.core.media.GameMediaPaths
+import com.davidadrianrg.atril.core.media.GameMediaPlanner
+import com.davidadrianrg.atril.core.media.MediaKind
 import com.davidadrianrg.atril.core.remote.NetworkModule
 import com.davidadrianrg.atril.domain.model.Rom
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
-import okhttp3.Request
 import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
 
 /**
  * Worker que descarga metadatos (covers, screenshots, videos, manuals) de RomM
@@ -31,10 +32,8 @@ import java.io.IOException
  *
  * Estructura destino:
  * ```
- * <roms_root>/downloaded_media/<slug>/covers/<name>.jpg
- * <roms_root>/downloaded_media/<slug>/screenshots/<name>.jpg
- * <roms_root>/downloaded_media/<slug>/videos/<name>.mp4
- * <roms_root>/downloaded_media/<slug>/manuals/<name>.pdf
+ * <mediaRoot>/<slug>/{covers,screenshots,videos,manuals}/<name>.<ext>
+ * (mediaRoot = carpeta de media genérica; por defecto <roms_root>/downloaded_media)
  * <esde_data_dir>/gamelists/<slug>/gamelist.xml
  * ```
  */
@@ -55,7 +54,7 @@ class MetadataExportWorker(
         val apiKey = dataStore.getApiKeyBlocking()
         val romsRootPath = dataStore.getRomsRootPathBlocking()
         val esdeDataDir = dataStore.getEsdeDataDirBlocking()
-        val retroHraiMediaPath = dataStore.getRetroHraiMediaPathBlocking()
+        val mediaRoot = GameMediaPaths.resolveRoot(dataStore.getMediaDownloadPathBlocking(), romsRootPath)
 
         if (apiKey.isEmpty() || serverUrl.isEmpty()) {
             return@withContext Result.failure()
@@ -67,7 +66,6 @@ class MetadataExportWorker(
         val exportVideos = inputData.getBoolean(KEY_VIDEOS, true)
         val exportManuals = inputData.getBoolean(KEY_MANUALS, true)
         val exportGamelist = inputData.getBoolean(KEY_GAMELIST, true)
-        val exportRetroHrai = inputData.getBoolean(KEY_RETROHRAI, false)
 
         createNotificationChannel()
         try {
@@ -77,7 +75,7 @@ class MetadataExportWorker(
         }
 
         val api = NetworkModule.createApiService(serverUrl, apiKey)
-        val httpClient = OkHttpClient.Builder().build()
+        val mediaDownloader = GameMediaDownloader(OkHttpClient.Builder().build(), apiKey, serverUrl) { Log.w(TAG, it) }
         val db = RomSyncDatabase.getDatabase(applicationContext)
 
         // Paginación: obtener todos los ROMs de la plataforma
@@ -112,75 +110,25 @@ class MetadataExportWorker(
                     .replace(Regex("[^a-zA-Z0-9._ -]"), "")
                     .trim()
 
-                // Nombre limpio del juego para RetroHRAI
-                val gameName = rom.name
-                    .replace(Regex("[^a-zA-Z0-9._ -]"), "")
-                    .trim()
-
-                // Descargar cover a ES-DE + RetroHRAI
-                if (exportCovers && rom.coverUrlLarge != null) {
-                    val esdeFile = downloadToFile(
-                        httpClient, apiKey, rom.coverUrlLarge,
-                        getMediaDir(romsRootPath, platformSlug, "covers"),
-                        "$mediaBaseName.jpg",
-                    )
-                    if (esdeFile != null) mediaDownloaded++ else mediaSkipped++
-
-                    // Copiar a RetroHRAI con naming {gameName}_cover_0.jpg
-                    if (exportRetroHrai && esdeFile != null) {
-                        copyToRetroHrai(
-                            esdeFile, retroHraiMediaPath, platformSlug, "covers",
-                            "${gameName}_cover_0.jpg",
-                        )
-                    }
+                // Media genérica: mismas carpetas y descargador que la descarga de juegos
+                // (sin duplicar ficheros). Los tipos desmarcados se omiten.
+                val wanted = buildSet {
+                    if (exportCovers) add(MediaKind.COVERS)
+                    if (exportScreenshots) add(MediaKind.SCREENSHOTS)
+                    if (exportVideos) add(MediaKind.VIDEOS)
+                    if (exportManuals) add(MediaKind.MANUALS)
                 }
-
-                // Descargar screenshots a ES-DE + RetroHRAI
-                if (exportScreenshots && rom.screenshots.isNotEmpty()) {
-                    val firstScreenshot = rom.screenshots.first()
-                    val esdeFile = downloadToFile(
-                        httpClient, apiKey, firstScreenshot,
-                        getMediaDir(romsRootPath, platformSlug, "screenshots"),
-                        "$mediaBaseName.jpg",
-                    )
-                    if (esdeFile != null) mediaDownloaded++ else mediaSkipped++
-
-                    if (exportRetroHrai && esdeFile != null) {
-                        // Screenshot_0 + fanart_0 (primera screenshot como fanart)
-                        copyToRetroHrai(
-                            esdeFile, retroHraiMediaPath, platformSlug, "screenshots",
-                            "${gameName}_screenshot_0.jpg",
-                        )
-                        copyToRetroHrai(
-                            esdeFile, retroHraiMediaPath, platformSlug, "fanart",
-                            "${gameName}_fanart_0.jpg",
-                        )
-                    }
-                }
-
-                // Descargar videos a ES-DE
-                if (exportVideos && rom.videoPath != null) {
-                    val esdeFile = downloadToFile(
-                        httpClient, apiKey, rom.videoPath,
-                        getMediaDir(romsRootPath, platformSlug, "videos"),
-                        "$mediaBaseName.mp4",
-                    )
-                    if (esdeFile != null) mediaDownloaded++ else mediaSkipped++
-                }
-
-                // Descargar manuals a ES-DE
-                if (exportManuals && rom.manualPath != null) {
-                    val esdeFile = downloadToFile(
-                        httpClient, apiKey, rom.manualPath,
-                        getMediaDir(romsRootPath, platformSlug, "manuals"),
-                        "$mediaBaseName.pdf",
-                    )
-                    if (esdeFile != null) mediaDownloaded++ else mediaSkipped++
-                }
+                val report = mediaDownloader.run(romDto, mediaRoot, kinds = wanted)
+                mediaDownloaded += report.downloaded
+                mediaSkipped += report.failed.size
+                val mediaFiles = GameMediaPlanner.plan(romDto, serverUrl, mediaRoot)
+                    .filter { it.kind in wanted && it.target.exists() }
+                    .groupBy { it.kind.dir }
+                    .mapValues { (_, v) -> esdePath(v.first().target, romsRootPath) }
 
                 // Crear entry para gamelist
                 allRomEntries.add(
-                    GamelistWriter.romToEntry(rom, romsRootPath, platformSlug, mediaBaseName)
+                    GamelistWriter.romToEntry(rom, romsRootPath, platformSlug, mediaBaseName, mediaFiles)
                 )
 
                 // Actualizar notificación
@@ -214,72 +162,10 @@ class MetadataExportWorker(
         ))
     }
 
-    /**
-     * Descarga un fichero desde una URL con autenticación Bearer.
-     * Omite la descarga si el fichero ya existe.
-     * Devuelve el File descargado, o null si falló/skip.
-     */
-    private fun downloadToFile(
-        client: OkHttpClient,
-        apiKey: String,
-        url: String,
-        targetDir: File,
-        fileName: String,
-    ): File? {
-        val targetFile = File(targetDir, fileName)
-        if (targetFile.exists()) return targetFile // ya existe, lo reutilizamos
-
-        targetDir.mkdirs()
-        return try {
-            val request = Request.Builder()
-                .url(url)
-                .header("Authorization", "Bearer $apiKey")
-                .build()
-
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    Log.w(TAG, "Failed to download $url: HTTP ${response.code}")
-                    return null
-                }
-                response.body?.byteStream()?.use { input ->
-                    FileOutputStream(targetFile).use { output ->
-                        input.copyTo(output)
-                    }
-                } ?: return null
-            }
-            targetFile
-        } catch (e: IOException) {
-            Log.w(TAG, "IO error downloading $fileName", e)
-            if (targetFile.exists()) targetFile.delete()
-            null
-        }
-    }
-
-    /**
-     * Copia un archivo ya descargado a la estructura de RetroHRAI.
-     * Estructura: {retroHraiMediaPath}/{slug}/{type}/{fileName}
-     * Omite si el destino ya existe.
-     */
-    private fun copyToRetroHrai(
-        source: File,
-        retroHraiMediaPath: String,
-        platformSlug: String,
-        type: String,
-        fileName: String,
-    ) {
-        val targetDir = File("$retroHraiMediaPath/$platformSlug/$type")
-        targetDir.mkdirs()
-        val target = File(targetDir, fileName)
-        if (target.exists()) return
-        try {
-            source.copyTo(target, overwrite = false)
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to copy to RetroHRAI: $fileName", e)
-        }
-    }
-
-    private fun getMediaDir(romsRoot: String, slug: String, type: String): File {
-        return File("$romsRoot/downloaded_media/$slug/$type")
+    /** Ruta para el gamelist: relativa a %ROMPATH% (./…) si la media está bajo la raíz de ROMs. */
+    private fun esdePath(file: File, romsRoot: String): String {
+        val rel = runCatching { file.relativeTo(File(romsRoot)).invariantSeparatorsPath }.getOrNull()
+        return if (rel != null && !rel.startsWith("..")) "./$rel" else file.absolutePath
     }
 
     /**
@@ -367,7 +253,6 @@ class MetadataExportWorker(
         const val KEY_VIDEOS = "export_videos"
         const val KEY_MANUALS = "export_manuals"
         const val KEY_GAMELIST = "export_gamelist"
-        const val KEY_RETROHRAI = "export_retrohrai"
 
         const val KEY_MEDIA_DOWNLOADED = "media_downloaded"
         const val KEY_MEDIA_SKIPPED = "media_skipped"

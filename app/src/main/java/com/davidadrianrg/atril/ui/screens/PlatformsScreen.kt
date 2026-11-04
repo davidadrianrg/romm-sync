@@ -100,7 +100,6 @@ fun PlatformsScreen(onBack: () -> Unit = {}) {
     // función está activada en Configuración.
     val saveSyncEnabled by container.settingsRepository.saveSyncEnabled.collectAsState(initial = true)
     val esdeExportEnabled by container.settingsRepository.esdeExportEnabled.collectAsState(initial = false)
-    val retroHraiExportEnabled by container.settingsRepository.retroHraiExportEnabled.collectAsState(initial = false)
 
     LaunchedEffect(settings.isConfigured) {
         if (settings.isConfigured && platforms.isEmpty()) {
@@ -371,7 +370,6 @@ fun PlatformsScreen(onBack: () -> Unit = {}) {
                         container = container,
                         syncEnabled = saveSyncEnabled,
                         esdeEnabled = esdeExportEnabled,
-                        retroHraiEnabled = retroHraiExportEnabled,
                         dualPathsEnabled = settings.dualRomsPathsEnabled,
                         secondaryRomsPath = settings.secondaryRomsPath,
                         onToggle = { viewModel.togglePlatformVisibility(it) },
@@ -394,7 +392,6 @@ private fun PlatformCard(
     container: com.davidadrianrg.atril.data.AppContainer,
     syncEnabled: Boolean,
     esdeEnabled: Boolean,
-    retroHraiEnabled: Boolean,
     dualPathsEnabled: Boolean,
     secondaryRomsPath: String,
     onToggle: (Platform) -> Unit,
@@ -478,7 +475,7 @@ private fun PlatformCard(
                 // Botón de expandir configuración (sync, export y destino de
                 // descarga): sin sentido si todas las funciones configurables
                 // están desactivadas.
-                if (syncEnabled || esdeEnabled || retroHraiEnabled || dualPathsEnabled) {
+                if (syncEnabled || esdeEnabled || dualPathsEnabled) {
                     IconButton(onClick = { expanded = !expanded }) {
                         Icon(
                             if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
@@ -660,30 +657,21 @@ private fun PlatformCard(
                 }
                 } // end if (syncEnabled)
 
-                // ── Exportar metadatos (ES-DE / RetroHRAI) ────────────────
-                // Visible si al menos uno de los dos frontends está activado
-                // en Configuración.
-                if (esdeEnabled || retroHraiEnabled) {
+                // ── Exportar metadatos a ES-DE ────────────────────────────
+                // Usa la misma media genérica (carpeta de Ajustes → Descargas).
+                if (esdeEnabled) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    if (esdeEnabled) tr("android.platforms.export_esde") else tr("android.platforms.export_retrohrai"),
+                    tr("android.platforms.export_esde"),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                if (esdeEnabled) {
-                    Text(
-                        tr("android.platforms.export_esde_desc"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    Text(
-                        tr("android.platforms.export_retrohrai_desc"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                Text(
+                    tr("android.platforms.export_esde_desc"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Spacer(modifier = Modifier.height(8.dp))
 
                 val exportState by container.metadataExportManager
@@ -693,42 +681,12 @@ private fun PlatformCard(
                 val isExporting = exportState is com.davidadrianrg.atril.data.metadata.ExportState.Running ||
                     exportState is com.davidadrianrg.atril.data.metadata.ExportState.Pending
 
-                // Toggle: incluir RetroHRAI además de ES-DE (solo si ambos
-                // frontends están activados)
-                var exportRetroHrai by remember { mutableStateOf(false) }
-
-                if (retroHraiEnabled && esdeEnabled) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Switch(
-                            checked = exportRetroHrai,
-                            onCheckedChange = { exportRetroHrai = it },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                            ),
-                        )
-                        Spacer(modifier = Modifier.size(10.dp))
-                        Text(
-                            tr("android.platforms.export_retrohrai_too"),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-
                 FilledTonalButton(
                     onClick = {
                         container.metadataExportManager.triggerExport(
                             platformId = platform.id,
                             platformSlug = platform.slug,
-                            gamelist = esdeEnabled,
-                            retroHrai = retroHraiEnabled && (exportRetroHrai || !esdeEnabled),
+                            gamelist = true,
                         )
                     },
                     enabled = !isExporting,
@@ -771,7 +729,7 @@ private fun PlatformCard(
                     }
                     else -> {}
                 }
-                } // end if (esdeEnabled || retroHraiEnabled)
+                } // end if (esdeEnabled)
             }
         }
     }

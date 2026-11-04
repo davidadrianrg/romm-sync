@@ -1765,6 +1765,47 @@ fun SettingsScreen(state: DesktopAppState) {
                 modifier = Modifier.fillMaxWidth(),
             )
         }
+        // ── Media genérica al descargar ──
+        SettingsSection(icon = AppIcons.Image, title = tr("media.download.title")) {
+            var mediaOn by remember { mutableStateOf(state.config.mediaDownloadEnabled) }
+            var mediaPath by remember { mutableStateOf(state.config.mediaDownloadPath) }
+            val canUse = hasCredentials
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(tr("media.download.toggle"), style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        tr("media.download.hint"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Switch(
+                    checked = mediaOn && canUse,
+                    enabled = canUse,
+                    onCheckedChange = { mediaOn = it; state.config.mediaDownloadEnabled = it },
+                )
+            }
+            if (canUse && mediaOn) {
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    mediaPath,
+                    { mediaPath = it; state.config.mediaDownloadPath = it },
+                    label = { Text(tr("media.download.path_label")) },
+                    placeholder = {
+                        Text(com.davidadrianrg.atril.core.media.GameMediaPaths.resolveRoot("", romsRoot.value))
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    tr("media.download.path_hint"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+        }
         }
 
         if (settingsCat == SettingsCategory.ADVANCED) {

@@ -126,7 +126,7 @@ fun ConfigScreen(
     var showRomsPicker by remember { mutableStateOf(false) }
     var showSecondaryRomsPicker by remember { mutableStateOf(false) }
     var showEsdePicker by remember { mutableStateOf(false) }
-    var showRetroHraiPicker by remember { mutableStateOf(false) }
+    var showMediaPicker by remember { mutableStateOf(false) }
 
     LaunchedEffect(settings.serverUrl, settings.apiKey) {
         if (serverUrl.isEmpty() && settings.serverUrl.isNotEmpty()) serverUrl = settings.serverUrl
@@ -138,10 +138,8 @@ fun ConfigScreen(
         initial = com.davidadrianrg.atril.data.local.SettingsDataStore.DEFAULT_ESDE_DATA_DIR,
     )
 
-    // Cargar ruta de media de RetroHRAI
-    val retroHraiMediaPath by container.settingsRepository.retroHraiMediaPath.collectAsState(
-        initial = com.davidadrianrg.atril.data.local.SettingsDataStore.DEFAULT_RETROHRAI_MEDIA_PATH,
-    )
+    // Ruta de la media genérica ("" = <ROMs>/downloaded_media)
+    val mediaDownloadPath by container.settingsRepository.mediaDownloadPath.collectAsState(initial = "")
 
     Scaffold(
         topBar = {
@@ -548,50 +546,51 @@ fun ConfigScreen(
             }
             }
 
-            if (settingsCat == SettingsCategory.ADVANCED) {
-            // ── RetroHRAI Media ──────────────────────────────────────────
+            if (settingsCat == SettingsCategory.DOWNLOADS) {
+            // ── Media del juego al descargar (genérica) ───────────────────
             SettingsSection(
                 icon = Icons.Outlined.Folder,
-                title = tr("android.config.retrohrai_section"),
+                title = tr("media.download.title"),
             ) {
-                // Toggle maestro: oculta la exportación a RetroHRAI
-                var retroHraiEnabledLocal by remember { mutableStateOf<Boolean?>(null) }
-                val retroHraiEnabled by container.settingsRepository.retroHraiExportEnabled.collectAsState(initial = false)
+                // Toggle maestro: sin RomM no tiene sentido (la media viene de RomM).
+                var mediaEnabledLocal by remember { mutableStateOf<Boolean?>(null) }
+                val mediaEnabled by container.settingsRepository.mediaDownloadEnabled.collectAsState(initial = false)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(tr("android.config.use_retrohrai"), style = MaterialTheme.typography.bodyLarge)
+                        Text(tr("media.download.toggle"), style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            tr("android.config.use_retrohrai_hint"),
+                            tr("media.download.hint"),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Switch(
-                        checked = retroHraiEnabledLocal ?: retroHraiEnabled,
+                        checked = mediaEnabledLocal ?: mediaEnabled,
                         onCheckedChange = { enabled ->
-                            retroHraiEnabledLocal = enabled
-                            viewModel.setRetroHraiExportEnabled(enabled)
+                            mediaEnabledLocal = enabled
+                            viewModel.setMediaDownloadEnabled(enabled)
                         },
+                        enabled = settings.isConfigured,
                     )
                 }
-                if (retroHraiEnabledLocal ?: retroHraiEnabled) {
+                if (settings.isConfigured && (mediaEnabledLocal ?: mediaEnabled)) {
                 OutlinedTextField(
-                    value = retroHraiMediaPath,
-                    onValueChange = { viewModel.setRetroHraiMediaPath(it) },
-                    label = { Text(tr("android.config.retrohrai_media_path_label")) },
-                    placeholder = { Text("/storage/emulated/0/RetroHrai/media") },
+                    value = mediaDownloadPath,
+                    onValueChange = { viewModel.setMediaDownloadPath(it) },
+                    label = { Text(tr("media.download.path_label")) },
+                    placeholder = { Text(com.davidadrianrg.atril.core.media.GameMediaPaths.resolveRoot("", settings.romsRootPath)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 FilledTonalButton(
-                    onClick = { showRetroHraiPicker = true },
+                    onClick = { showMediaPicker = true },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Icon(
@@ -604,7 +603,7 @@ fun ConfigScreen(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    tr("android.config.retrohrai_media_hint"),
+                    tr("media.download.path_hint"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1181,15 +1180,15 @@ fun ConfigScreen(
             },
         )
     }
-    if (showRetroHraiPicker) {
+    if (showMediaPicker) {
         FolderPickerDialog(
-            initialPath = retroHraiMediaPath.ifBlank {
-                com.davidadrianrg.atril.data.local.SettingsDataStore.DEFAULT_RETROHRAI_MEDIA_PATH
+            initialPath = mediaDownloadPath.ifBlank {
+                com.davidadrianrg.atril.core.media.GameMediaPaths.resolveRoot("", settings.romsRootPath)
             },
-            onDismiss = { showRetroHraiPicker = false },
+            onDismiss = { showMediaPicker = false },
             onSelect = { path ->
-                viewModel.setRetroHraiMediaPath(path)
-                showRetroHraiPicker = false
+                viewModel.setMediaDownloadPath(path)
+                showMediaPicker = false
             },
         )
     }

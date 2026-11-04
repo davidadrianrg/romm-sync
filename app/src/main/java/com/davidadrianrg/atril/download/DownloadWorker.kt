@@ -385,6 +385,16 @@ class DownloadWorker(
                 ),
             )
 
+            // Media genérica del juego (opcional, desactivada por defecto): trabajo aparte,
+            // nunca afecta al resultado de la descarga del ROM.
+            runCatching {
+                if (com.davidadrianrg.atril.data.local.SettingsDataStore(applicationContext)
+                        .getMediaDownloadEnabledBlocking()
+                ) {
+                    com.davidadrianrg.atril.data.metadata.GameMediaWorker.enqueue(applicationContext, romId)
+                }
+            }
+
             Result.success(workDataOf(
                 KEY_ROM_ID to romId, KEY_ROM_NAME to romName,
                 KEY_FILE_NAME to fileName, KEY_PLATFORM_SLUG to platformSlug,

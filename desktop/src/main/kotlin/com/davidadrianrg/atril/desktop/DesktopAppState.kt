@@ -5,6 +5,8 @@ import com.davidadrianrg.atril.core.auth.DeviceAuthRequest
 import com.davidadrianrg.atril.core.auth.QrLoginState
 import com.davidadrianrg.atril.core.auth.runQrLogin
 import com.davidadrianrg.atril.core.launch.DesktopEmulatorCatalog
+import com.davidadrianrg.atril.core.media.GameMediaDownloader
+import com.davidadrianrg.atril.core.media.GameMediaPaths
 import com.davidadrianrg.atril.core.launch.DesktopLaunchPlanner
 import com.davidadrianrg.atril.core.remote.dto.SaveDto
 import com.davidadrianrg.atril.core.remote.dto.SearchRomDto
@@ -874,6 +876,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
                         _downloadedVersion.value = _downloadedVersion.value + 1
                         updateTask(rom.id) { it.copy(status = "done", message = msg) }
                         refreshLocalStats()
+                        fetchGameMedia(rom)
                         if (shouldNotify(rom.id)) {
                             DesktopNotifier.notify(tr("common.download_completed"), rom.name)
                         }
@@ -887,6 +890,27 @@ class DesktopAppState(private val scope: CoroutineScope) {
         }
         taskJobs[rom.id] = job
         job.invokeOnCompletion { taskJobs.remove(rom.id, job) }
+    }
+
+    /**
+     * Media genérica del juego (opcional, desactivada por defecto): se baja aparte, sin
+     * bloquear ni afectar al resultado de la descarga del ROM; un fallo se registra y sigue.
+     */
+    private fun fetchGameMedia(rom: RomDto) {
+        if (!config.mediaDownloadEnabled || config.serverUrl.isBlank() || config.apiKey.isBlank()) return
+        val serverUrl = config.serverUrl
+        val apiKey = config.apiKey
+        val root = GameMediaPaths.resolveRoot(config.mediaDownloadPath, config.romsRoot)
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                val report = GameMediaDownloader(okhttp3.OkHttpClient(), apiKey, serverUrl) {
+                    System.err.println("[media] $it")
+                }.run(rom, root)
+                if (report.failed.isNotEmpty()) {
+                    System.err.println("[media] ${rom.name}: ${report.failed.size} file(s) failed, ${report.downloaded} ok")
+                }
+            }
+        }
     }
 
     /** Cancela la descarga activa/en cola de un ROM y la quita de la lista. */
