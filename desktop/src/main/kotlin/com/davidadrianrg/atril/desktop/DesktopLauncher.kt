@@ -917,6 +917,7 @@ private fun EmptyLauncher(onOpenLibrary: () -> Unit, onAddLocal: () -> Unit) {
             )
             Spacer(Modifier.height(16.dp))
             Button(onClick = onOpenLibrary) { Text(tr("play.open_library")) }
+            androidx.compose.material3.TextButton(onClick = onAddLocal) { Text(tr("local.add")) }
         }
     }
 }

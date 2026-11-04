@@ -45,7 +45,9 @@ class LocalGamesRepository(
         runCatching {
             val dest = coverFile(id)
             input.use { src -> dest.outputStream().use { src.copyTo(it) } }
+            val old = store.get(id)?.coverPath
             store.update(id) { it.copy(coverPath = dest.path, scrapeSource = "manual", scrapeStatus = ScrapeStatus.DONE) }
+            deleteStaleCover(old, dest.path)
             refresh()
         }.isSuccess
     }
@@ -62,6 +64,7 @@ class LocalGamesRepository(
                 if (outcome.game.coverUrl != null && cover == null && outcome.game.summary == null) {
                     mark(id, ScrapeStatus.FAILED)
                 } else {
+                    val old = store.get(id)?.coverPath
                     store.update(id) {
                         it.copy(
                             coverPath = cover ?: it.coverPath,
@@ -70,6 +73,7 @@ class LocalGamesRepository(
                             scrapeStatus = ScrapeStatus.DONE,
                         )
                     }
+                    if (cover != null) deleteStaleCover(old, cover)
                     refresh()
                 }
             }
@@ -85,7 +89,17 @@ class LocalGamesRepository(
         refresh()
     }
 
-    private fun coverFile(id: String): File = File(coversDir, "$id.img").also { it.parentFile?.mkdirs() }
+    /**
+     * Fichero NUEVO en cada escritura: si se reutilizara la misma ruta, la UI
+     * (produceCover en escritorio, Coil en Android) cachea por URL y seguiría
+     * mostrando la carátula anterior tras re-scrapear o elegirla a mano.
+     */
+    private fun coverFile(id: String): File =
+        File(coversDir, "$id-${System.nanoTime()}.img").also { it.parentFile?.mkdirs() }
+
+    private fun deleteStaleCover(old: String?, current: String) {
+        if (old != null && old != current) File(old).delete()
+    }
 
     private fun downloadCover(id: String, url: String): String? = runCatching {
         http.newCall(Request.Builder().url(url).header("User-Agent", "Atril/1.0").build()).execute().use { r ->
