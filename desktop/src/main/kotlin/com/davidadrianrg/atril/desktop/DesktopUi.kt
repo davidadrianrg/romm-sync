@@ -878,6 +878,7 @@ private fun GameCardItem(card: GameCard, state: DesktopAppState, ratio: Float, t
         modifier = Modifier
             .padding(2.dp)
             .fillMaxWidth()
+            .focusHighlight()
             .clickable { state.openGame(card) },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
@@ -2017,6 +2018,19 @@ fun SettingsScreen(state: DesktopAppState) {
         }
 
         if (settingsCat == SettingsCategory.ABOUT) {
+        // ── Controles (mando / teclado) ──
+        SettingsSection(icon = AppIcons.Gamepad, title = tr("controls.title")) {
+            listOf("controls.dpad", "controls.select", "controls.back", "controls.menu").forEach { k ->
+                Text(tr(k), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 2.dp))
+            }
+            Text(
+                tr("controls.note"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
+
         // ── Acerca de ──
         SettingsSection(icon = AppIcons.Gamepad, title = tr("settings.about.title")) {
             Text(

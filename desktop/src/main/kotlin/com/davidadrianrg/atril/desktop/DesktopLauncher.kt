@@ -9,6 +9,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -230,8 +235,40 @@ fun DesktopPlayScreen(
         return
     }
 
+    // Teclado / mando: ←/→ cambian de juego, Enter juega, F10 (Start) abre el menú,
+    // Esc (B) cierra el menú o cancela la inserción. Los botones enfocados conservan su Enter.
+    val rootFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(selectedGame == null) { runCatching { rootFocus.requestFocus() } }
     Box(
-        Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(PlayBgTop, PlayBgBottom))),
+        Modifier
+            .fillMaxSize()
+            .background(Brush.verticalGradient(listOf(PlayBgTop, PlayBgBottom)))
+            .focusRequester(rootFocus)
+            .focusable()
+            .onKeyEvent { ev ->
+                if (ev.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onKeyEvent false
+                val busy = insertion != null
+                when (ev.key) {
+                    androidx.compose.ui.input.key.Key.Escape -> when {
+                        busy -> { launchJob?.cancel(); true }
+                        menuOpen -> { menuOpen = false; true }
+                        else -> false
+                    }
+                    androidx.compose.ui.input.key.Key.F10, androidx.compose.ui.input.key.Key.Menu ->
+                        if (busy) false else { menuOpen = !menuOpen; true }
+                    androidx.compose.ui.input.key.Key.DirectionLeft ->
+                        if (busy || menuOpen || visible.isEmpty()) false else {
+                            scope.launch { pagerState.animateScrollToPage((pagerState.currentPage - 1).coerceAtLeast(0)) }; true
+                        }
+                    androidx.compose.ui.input.key.Key.DirectionRight ->
+                        if (busy || menuOpen || visible.isEmpty()) false else {
+                            scope.launch { pagerState.animateScrollToPage((pagerState.currentPage + 1).coerceAtMost(visible.lastIndex)) }; true
+                        }
+                    androidx.compose.ui.input.key.Key.Enter, androidx.compose.ui.input.key.Key.NumPadEnter ->
+                        if (busy || menuOpen) false else current?.let { play(it); true } ?: false
+                    else -> false
+                }
+            },
     ) {
         Box(
             Modifier
@@ -723,6 +760,7 @@ private fun PlayPill(label: String, selected: Boolean, onClick: () -> Unit) {
     Box(
         Modifier
             .heightIn(min = 36.dp)
+            .focusHighlight(RoundedCornerShape(50))
             .clip(RoundedCornerShape(50))
             .background(if (selected) PlayAmber else Color(0x22F2E6D2))
             .border(
