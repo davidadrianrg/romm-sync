@@ -1286,7 +1286,7 @@ internal fun RomDetailSheet(
         // Cover + title row
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(20.dp),
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             // Respeta el ratio real de la carátula (cuadrada, apaisada…): alto fijo y
             // ancho derivado, sin recortar ni deformar.
@@ -1312,7 +1312,7 @@ internal fun RomDetailSheet(
             )
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
                     text = rom.name,
@@ -1546,21 +1546,6 @@ internal fun RomDetailSheet(
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.secondary,
                         )
-                    }
-                    OutlinedButton(
-                        onClick = onDelete,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error,
-                        ),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
-                    ) {
-                        Icon(
-                            Icons.Outlined.DeleteOutline,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                        )
-                        Text("  " + tr("game.delete_download"))
                     }
                     if (isManualDownloaded) {
                         OutlinedButton(
@@ -1833,6 +1818,29 @@ internal fun RomDetailSheet(
             }
             }
         }
+
+        // ── Eliminar descarga: siempre al final y con confirmación (el diálogo lo abre onDelete) ──
+        if (isDownloaded) {
+            Spacer(modifier = Modifier.size(32.dp))
+            androidx.compose.material3.HorizontalDivider()
+            Spacer(modifier = Modifier.size(20.dp))
+            OutlinedButton(
+                onClick = onDelete,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error,
+                ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+            ) {
+                Icon(
+                    Icons.Outlined.DeleteOutline,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+                Text("  " + tr("game.delete_download"))
+            }
+        }
+
     }
 
     if (showFolderPicker) {

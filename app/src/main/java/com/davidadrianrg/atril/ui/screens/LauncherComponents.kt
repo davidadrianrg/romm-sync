@@ -17,6 +17,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -430,20 +432,24 @@ internal fun LauncherMenuOverlay(
                             },
                         ),
                     )
-                    .padding(horizontal = 16.dp, vertical = 18.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                    // En horizontal la lista puede no caber: que se desplace.
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f).padding(start = 8.dp)) {
                         AppMark()
+                        Spacer(Modifier.height(4.dp))
                         Text(
                             "Atril",
                             style = MaterialTheme.typography.titleLarge,
                             color = LauncherCream,
                         )
+                        Spacer(Modifier.height(6.dp))
                         Text(
                             tr("launcher.tagline"),
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.labelSmall.copy(lineHeight = 16.sp),
                             color = LauncherCream.copy(alpha = 0.55f),
                         )
                     }
@@ -451,7 +457,7 @@ internal fun LauncherMenuOverlay(
                         Icon(Icons.Filled.Close, contentDescription = tr("launcher.menu.close"), tint = LauncherCream)
                     }
                 }
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(12.dp))
                 items.forEach { screen ->
                     val selected = screen == Screen.Play
                     Row(

@@ -540,14 +540,14 @@ fun PlayScreen(
     pendingDelete?.let { item ->
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
-            title = { Text(tr("common.delete")) },
+            title = { Text(tr("game.delete_download")) },
             text = {
                 Text(
-                    tr(
-                        "android.library.delete_confirm_multi",
-                        item.rom.name,
-                        item.discCount.toString(),
-                    ),
+                    if (item.discCount > 1) {
+                        tr("android.library.delete_confirm_multi", item.rom.name, item.discCount.toString())
+                    } else {
+                        tr("android.library.delete_confirm_single", item.rom.name)
+                    },
                 )
             },
             confirmButton = {
