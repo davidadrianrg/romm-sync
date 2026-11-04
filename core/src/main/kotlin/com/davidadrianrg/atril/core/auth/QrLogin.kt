@@ -32,7 +32,15 @@ suspend fun runQrLogin(
         onState(QrLoginState.Failed((it as? DeviceAuthException)?.kind ?: DeviceAuthError.SERVER))
         return
     }
-    onState(QrLoginState.Waiting(code, QrCode.encode(code.verificationUrl)))
+    val qr = try {
+        QrCode.encode(code.verificationUrl)
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        onState(QrLoginState.Failed(DeviceAuthError.SERVER))
+        return
+    }
+    onState(QrLoginState.Waiting(code, qr))
     when (val out = client.awaitApproval(code)) {
         is DeviceAuthOutcome.Success -> {
             onApproved(DeviceAuthClient.normalizeOrigin(serverUrl), out.token)

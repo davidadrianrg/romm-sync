@@ -93,29 +93,20 @@ object GameMediaPlanner {
         return items
     }
 
-    private data class Meta(
-        val title: String,
-        val platform: String,
-        val description: String?,
-        val source: String,
-        val romId: Int,
-        val files: Map<String, List<String>>,
-    )
-
     /** Small, frontend-agnostic description of the game and its media (paths relative to the platform dir). */
     fun metadataJson(dto: RomDto, serverUrl: String, items: List<MediaItem>, mediaRoot: String): String {
         val platformDir = File(File(mediaRoot), GameMediaPaths.safeSlug(dto.platformSlug))
         val rel = items.groupBy({ it.kind.dir }, { it.target.relativeTo(platformDir).invariantSeparatorsPath })
-        val meta = Meta(
-            title = dto.name.ifBlank { dto.fileName },
-            platform = GameMediaPaths.safeSlug(dto.platformSlug),
-            description = dto.summary?.takeIf { it.isNotBlank() },
-            source = "RomM ${serverUrl.trimEnd('/')} (id ${dto.id})",
-            romId = dto.id,
-            files = rel,
+        // Mapa en vez de una clase de datos: Moshi reflexivo se rompe con R8 (campos renombrados).
+        val meta = linkedMapOf<String, Any?>(
+            "title" to dto.name.ifBlank { dto.fileName },
+            "platform" to GameMediaPaths.safeSlug(dto.platformSlug),
+            "description" to dto.summary?.takeIf { it.isNotBlank() },
+            "source" to "RomM ${serverUrl.trimEnd('/')} (id ${dto.id})",
+            "romId" to dto.id,
+            "files" to rel,
         )
-        return Moshi.Builder().add(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory()).build()
-            .adapter(Meta::class.java).indent("  ").toJson(meta)
+        return Moshi.Builder().build().adapter(Any::class.java).indent("  ").serializeNulls().toJson(meta)
     }
 }
 
