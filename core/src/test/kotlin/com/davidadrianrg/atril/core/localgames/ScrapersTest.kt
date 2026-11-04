@@ -65,7 +65,7 @@ class ScrapersTest {
 
     // ── ScreenScraper ──
 
-    private val ssCreds = ScreenScraperScraper.Credentials("dev", "devpw", "user", "p&ss word")
+    private val ssCreds = ScreenScraperScraper.Credentials("user", "p&ss word")
 
     @Test
     fun `screenscraper parses cover and synopsis and encodes credentials`() {
@@ -86,7 +86,7 @@ class ScrapersTest {
         assertEquals(ScrapeOutcome.NotConfigured, ScreenScraperScraper(null, f).scrape("x", "n64"))
         assertEquals(
             ScrapeOutcome.NotConfigured,
-            ScreenScraperScraper(ScreenScraperScraper.Credentials("d", "", "u", "p"), f).scrape("x", "n64"),
+            ScreenScraperScraper(ScreenScraperScraper.Credentials("u", ""), f).scrape("x", "n64"),
         )
         assertTrue(f.urls.isEmpty())
     }

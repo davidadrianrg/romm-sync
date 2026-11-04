@@ -71,8 +71,6 @@ class SettingsDataStore(private val context: Context) {
         val LANGUAGE = stringPreferencesKey("language")
         val THEME = stringPreferencesKey("theme")
         val SGDB_KEY = stringPreferencesKey("scraper_steamgriddb_key")
-        val SS_DEV_ID = stringPreferencesKey("scraper_ss_dev_id")
-        val SS_DEV_PASSWORD = stringPreferencesKey("scraper_ss_dev_password")
         val SS_USER = stringPreferencesKey("scraper_ss_user")
         val SS_PASSWORD = stringPreferencesKey("scraper_ss_password")
 
@@ -169,8 +167,6 @@ class SettingsDataStore(private val context: Context) {
         context.dataStore.data.map {
             com.davidadrianrg.atril.core.localgames.ScraperCredentials(
                 steamGridDbKey = it[SGDB_KEY].orEmpty(),
-                ssDevId = it[SS_DEV_ID].orEmpty(),
-                ssDevPassword = it[SS_DEV_PASSWORD].orEmpty(),
                 ssUser = it[SS_USER].orEmpty(),
                 ssPassword = it[SS_PASSWORD].orEmpty(),
             )
@@ -354,8 +350,6 @@ class SettingsDataStore(private val context: Context) {
     suspend fun setScraperCredentials(c: com.davidadrianrg.atril.core.localgames.ScraperCredentials) {
         context.dataStore.edit {
             it[SGDB_KEY] = c.steamGridDbKey.trim()
-            it[SS_DEV_ID] = c.ssDevId.trim()
-            it[SS_DEV_PASSWORD] = c.ssDevPassword.trim()
             it[SS_USER] = c.ssUser.trim()
             it[SS_PASSWORD] = c.ssPassword.trim()
         }

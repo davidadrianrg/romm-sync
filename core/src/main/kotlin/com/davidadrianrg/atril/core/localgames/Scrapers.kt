@@ -97,9 +97,10 @@ class SteamGridDbScraper(
 }
 
 /**
- * ScreenScraper: carátula (box-2D) y sinopsis. ScreenScraper exige credenciales
- * de desarrollador (devid/devpassword) además de las del usuario; todas las
- * configura el usuario en Ajustes y no se incluye ninguna en el código.
+ * ScreenScraper: carátula (box-2D) y sinopsis. Se autentica con el usuario y
+ * la contraseña normales de ScreenScraper; no hacen falta credenciales de
+ * desarrollador. El usuario las configura en Ajustes y no se incluye ninguna
+ * en el código.
  */
 class ScreenScraperScraper(
     private val creds: Credentials?,
@@ -109,15 +110,14 @@ class ScreenScraperScraper(
 ) : GameScraper {
     override val id = "screenscraper"
 
-    data class Credentials(val devId: String, val devPassword: String, val userId: String, val userPassword: String) {
-        val isComplete get() = listOf(devId, devPassword, userId, userPassword).all { it.isNotBlank() }
+    data class Credentials(val userId: String, val userPassword: String) {
+        val isComplete get() = listOf(userId, userPassword).all { it.isNotBlank() }
     }
 
     override fun scrape(title: String, platformSlug: String): ScrapeOutcome {
         val c = creds?.takeIf { it.isComplete } ?: return ScrapeOutcome.NotConfigured
         val url = buildString {
             append(baseUrl).append("/jeuRecherche.php?output=json&softname=atril")
-            append("&devid=").append(enc(c.devId)).append("&devpassword=").append(enc(c.devPassword))
             append("&ssid=").append(enc(c.userId)).append("&sspassword=").append(enc(c.userPassword))
             systemId(platformSlug)?.let { append("&systemeid=").append(it) }
             append("&recherche=").append(enc(title))
@@ -184,15 +184,13 @@ class CompositeScraper(private val scrapers: List<GameScraper>) {
 /** Credenciales que el usuario configura en Ajustes (todas vacías por defecto). */
 data class ScraperCredentials(
     val steamGridDbKey: String = "",
-    val ssDevId: String = "",
-    val ssDevPassword: String = "",
     val ssUser: String = "",
     val ssPassword: String = "",
 ) {
     val hasAny: Boolean get() = steamGridDbKey.isNotBlank() || screenScraper() != null
 
     fun screenScraper(): ScreenScraperScraper.Credentials? =
-        ScreenScraperScraper.Credentials(ssDevId, ssDevPassword, ssUser, ssPassword).takeIf { it.isComplete }
+        ScreenScraperScraper.Credentials(ssUser, ssPassword).takeIf { it.isComplete }
 
     /** Proveedores en orden de preferencia: SteamGridDB (carátula) y luego ScreenScraper. */
     fun buildScraper(fetcher: HttpFetcher = OkHttpFetcher(), language: String = "en") = CompositeScraper(
