@@ -250,16 +250,20 @@ fun PlayScreen(
         com.davidadrianrg.atril.ui.input.PadEvents.menu.collect { if (insertion == null) menuOpen = !menuOpen }
     }
     // Start abre el detalle del juego seleccionado; L1/R1 cambian el filtro de plataforma.
+    // `current` y `platformsInShelf` son valores de composición: los colectores de larga vida
+    // deben leer la versión actual, no la capturada en el primer frame (lista vacía al cargar).
+    val currentNow by androidx.compose.runtime.rememberUpdatedState(current)
+    val platformsNow by androidx.compose.runtime.rememberUpdatedState(platformsInShelf)
     LaunchedEffect(Unit) {
         com.davidadrianrg.atril.ui.input.PadEvents.details.collect {
-            if (insertion == null && !menuOpen) current?.let { selectedRomId = it.rom.id }
+            if (insertion == null && !menuOpen) currentNow?.let { selectedRomId = it.rom.id }
         }
     }
     LaunchedEffect(Unit) {
         com.davidadrianrg.atril.ui.input.PadEvents.page.collect { dir ->
             if (insertion == null && !menuOpen && selectedRomId == null) {
                 platformFilter = com.davidadrianrg.atril.core.input.PlatformCycle.step(
-                    platformFilter, platformsInShelf.map { it.first }, dir,
+                    platformFilter, platformsNow.map { it.first }, dir,
                 )
             }
         }
