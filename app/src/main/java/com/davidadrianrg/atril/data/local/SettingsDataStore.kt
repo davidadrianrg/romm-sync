@@ -67,6 +67,7 @@ class SettingsDataStore(private val context: Context) {
         val LAST_NOTIFIED_UPDATE_VERSION = stringPreferencesKey("last_notified_update_version")
         val CONFLICT_POLICY = stringPreferencesKey("conflict_policy")
         val ESDE_DATA_DIR = stringPreferencesKey("esde_data_dir")
+        val AUTO_PHYSICAL_MEDIA = booleanPreferencesKey("auto_physical_media")
         val MEDIA_DOWNLOAD_PATH = stringPreferencesKey("media_download_path")
         val LANGUAGE = stringPreferencesKey("language")
         val THEME = stringPreferencesKey("theme")
@@ -201,6 +202,18 @@ class SettingsDataStore(private val context: Context) {
     val esdeDataDir: Flow<String> = context.dataStore.data.map {
         it[ESDE_DATA_DIR] ?: DEFAULT_ESDE_DATA_DIR
     }
+    /** Pedir a RomM el medio físico de los juegos al descargarlos (solo con launcher en modo físico). */
+    val autoPhysicalMedia: Flow<Boolean> = context.dataStore.data.map { it[AUTO_PHYSICAL_MEDIA] ?: false }
+    suspend fun setAutoPhysicalMedia(enabled: Boolean) {
+        context.dataStore.edit { it[AUTO_PHYSICAL_MEDIA] = enabled }
+    }
+    fun getAutoPhysicalMediaBlocking(): Boolean = runCatching {
+        runBlocking { context.dataStore.data.first()[AUTO_PHYSICAL_MEDIA] ?: false }
+    }.getOrDefault(false)
+    fun getLauncherDefaultDisplayBlocking(): String = runCatching {
+        runBlocking { context.dataStore.data.first()[LAUNCHER_DEFAULT_DISPLAY] ?: "card" }
+    }.getOrDefault("card")
+
     /** Carpeta de media genérica; vacío = `<romsRoot>/downloaded_media`. */
     val mediaDownloadPath: Flow<String> = context.dataStore.data.map {
         it[MEDIA_DOWNLOAD_PATH] ?: ""

@@ -1576,6 +1576,26 @@ fun SettingsScreen(state: DesktopAppState) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        // ── Launcher: medio físico automático (opcional, con RomM conectado) ──
+        SettingsSection(icon = AppIcons.Gamepad, title = tr("settings.launcher.title")) {
+            var autoOn by remember { mutableStateOf(state.config.autoPhysicalMedia) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(tr("settings.launcher.auto_physical"), style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        tr("settings.launcher.auto_physical_desc"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Switch(
+                    checked = autoOn && hasCredentials,
+                    enabled = hasCredentials,
+                    onCheckedChange = { autoOn = it; state.config.autoPhysicalMedia = it },
+                )
+            }
+        }
         }
 
         // Fuera de cualquier categoría: el QR se lanza desde RomM y este efecto debe
