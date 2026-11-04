@@ -98,6 +98,9 @@ class GamepadInput(private val onAction: (PadAction) -> Unit) {
             PadAction.SELECT -> KeyEvent.VK_ENTER
             PadAction.BACK -> KeyEvent.VK_ESCAPE
             PadAction.MENU -> KeyEvent.VK_F10
+            PadAction.DETAILS -> KeyEvent.VK_F9
+            PadAction.PREV_PAGE -> KeyEvent.VK_PAGE_UP
+            PadAction.NEXT_PAGE -> KeyEvent.VK_PAGE_DOWN
         }
 
         /** Delivers [a] to the focused component exactly like a keyboard press+release would. */

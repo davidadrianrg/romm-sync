@@ -2020,7 +2020,7 @@ fun SettingsScreen(state: DesktopAppState) {
         if (settingsCat == SettingsCategory.ABOUT) {
         // ── Controles (mando / teclado) ──
         SettingsSection(icon = AppIcons.Gamepad, title = tr("controls.title")) {
-            listOf("controls.dpad", "controls.select", "controls.back", "controls.menu").forEach { k ->
+            listOf("controls.dpad", "controls.select", "controls.details", "controls.shoulders", "controls.back", "controls.menu").forEach { k ->
                 Text(tr(k), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 2.dp))
             }
             Text(

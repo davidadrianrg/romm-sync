@@ -31,5 +31,8 @@ H: Handlers=event13 js1
         assertEquals(KeyEvent.VK_ESCAPE, GamepadInput.keyCodeFor(PadAction.BACK))
         assertEquals(KeyEvent.VK_F10, GamepadInput.keyCodeFor(PadAction.MENU))
         assertEquals(KeyEvent.VK_LEFT, GamepadInput.keyCodeFor(PadAction.LEFT))
+        assertEquals(KeyEvent.VK_F9, GamepadInput.keyCodeFor(PadAction.DETAILS))
+        assertEquals(KeyEvent.VK_PAGE_UP, GamepadInput.keyCodeFor(PadAction.PREV_PAGE))
+        assertEquals(KeyEvent.VK_PAGE_DOWN, GamepadInput.keyCodeFor(PadAction.NEXT_PAGE))
     }
 }

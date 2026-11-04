@@ -34,6 +34,9 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -102,6 +105,16 @@ fun RomMSyncApp(startInUpdates: Boolean = false) {
         else -> WindowInsets.safeDrawing
     }
 
+    // Menú unificado: el mismo overlay del launcher en todas las pestañas (Start/Select del
+    // mando o el botón de menú); en Play lo gestiona la propia pantalla.
+    var appMenuOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(immersive) { if (immersive) appMenuOpen = false }
+    LaunchedEffect(Unit) {
+        com.davidadrianrg.atril.ui.input.PadEvents.menu.collect { if (!immersive && !needsOnboarding) appMenuOpen = !appMenuOpen }
+    }
+    androidx.activity.compose.BackHandler(enabled = appMenuOpen) { appMenuOpen = false }
+
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
     Row(
         modifier = Modifier
             .fillMaxSize()
@@ -146,6 +159,17 @@ fun RomMSyncApp(startInUpdates: Boolean = false) {
                 AppBottomBar(currentDestination, navItems) { route -> navigateTo(route, navController) }
             }
         }
+    }
+        com.davidadrianrg.atril.ui.screens.LauncherMenuOverlay(
+            visible = appMenuOpen && !immersive,
+            items = navItems,
+            landscape = windowInfo.isLandscape,
+            onNavigate = { screen ->
+                appMenuOpen = false
+                navigateTo(screen.route, navController)
+            },
+            onDismiss = { appMenuOpen = false },
+        )
     }
 }
 

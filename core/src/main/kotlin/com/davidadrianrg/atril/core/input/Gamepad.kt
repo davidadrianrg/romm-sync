@@ -3,11 +3,12 @@ package com.davidadrianrg.atril.core.input
 import kotlin.math.abs
 
 /** Platform-neutral gamepad intents (Android and Linux map their raw events to these). */
-enum class PadAction { UP, DOWN, LEFT, RIGHT, SELECT, BACK, MENU }
+enum class PadAction { UP, DOWN, LEFT, RIGHT, SELECT, BACK, MENU, DETAILS, PREV_PAGE, NEXT_PAGE }
 
 /**
  * Mapping (documented in Settings → Controls):
- *  D-pad / left stick = move focus · A (south) = select · B (east) = back · Start/Menu/Home = open menu.
+ *  D-pad / left stick = move focus · A (south) = select / play · B (east) = back ·
+ *  Start = open the game details (Play) · Select/Back/Home = open the menu · L1/R1 = previous/next platform filter.
  */
 object PadKeyMap {
     // android.view.KeyEvent codes (kept as ints so this module stays pure JVM).
@@ -20,6 +21,9 @@ object PadKeyMap {
     private const val BUTTON_B = 97
     private const val BUTTON_MODE = 110
     private const val BUTTON_START = 108
+    private const val BUTTON_SELECT = 109
+    private const val BUTTON_L1 = 102
+    private const val BUTTON_R1 = 103
 
     /** Android gamepad key code → intent. D-pad arrows are left to Compose's own focus system. */
     fun fromAndroidKeyCode(code: Int): PadAction? = when (code) {
@@ -29,7 +33,10 @@ object PadKeyMap {
         DPAD_RIGHT -> PadAction.RIGHT
         DPAD_CENTER, BUTTON_A -> PadAction.SELECT
         BUTTON_B -> PadAction.BACK
-        BUTTON_START, BUTTON_MODE -> PadAction.MENU
+        BUTTON_START -> PadAction.DETAILS
+        BUTTON_SELECT, BUTTON_MODE -> PadAction.MENU
+        BUTTON_L1 -> PadAction.PREV_PAGE
+        BUTTON_R1 -> PadAction.NEXT_PAGE
         else -> null
     }
 
@@ -38,6 +45,9 @@ object PadKeyMap {
     const val EV_ABS = 3
     private const val BTN_SOUTH = 304   // A (Xbox) / Cross
     private const val BTN_EAST = 305    // B (Xbox) / Circle
+    private const val BTN_TL = 310
+    private const val BTN_TR = 311
+    private const val BTN_SELECT = 314
     private const val BTN_START = 315
     private const val BTN_MODE = 316
     private const val BTN_DPAD_UP = 544
@@ -55,7 +65,10 @@ object PadKeyMap {
         return when (code) {
             BTN_SOUTH -> PadAction.SELECT
             BTN_EAST -> PadAction.BACK
-            BTN_START, BTN_MODE -> PadAction.MENU
+            BTN_START -> PadAction.DETAILS
+            BTN_SELECT, BTN_MODE -> PadAction.MENU
+            BTN_TL -> PadAction.PREV_PAGE
+            BTN_TR -> PadAction.NEXT_PAGE
             BTN_DPAD_UP -> PadAction.UP
             BTN_DPAD_DOWN -> PadAction.DOWN
             BTN_DPAD_LEFT -> PadAction.LEFT
@@ -114,5 +127,17 @@ class AxisNormalizer {
         // Only 0..255 seen so far: it's an unsigned 8-bit axis (e.g. DualShock 4) once the stick
         // has actually travelled (≥200); until then tiny values are treated as idle noise.
         return if (max >= 200) ((raw - 127.5f) / 127.5f).coerceIn(-1f, 1f) else raw / 32768f
+    }
+}
+
+
+/** Cambio de filtro de plataforma con L1/R1: null = "todas"; cicla sin saltos. */
+object PlatformCycle {
+    /** [slugs] en el orden de los chips; [dir] -1 (L1) o +1 (R1). */
+    fun step(current: String?, slugs: List<String>, dir: Int): String? {
+        if (slugs.isEmpty()) return null
+        val order: List<String?> = listOf<String?>(null) + slugs
+        val i = order.indexOf(current).takeIf { it >= 0 } ?: 0
+        return order[((i + dir) % order.size + order.size) % order.size]
     }
 }

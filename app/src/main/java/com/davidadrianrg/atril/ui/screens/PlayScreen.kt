@@ -249,6 +249,21 @@ fun PlayScreen(
     LaunchedEffect(Unit) {
         com.davidadrianrg.atril.ui.input.PadEvents.menu.collect { if (insertion == null) menuOpen = !menuOpen }
     }
+    // Start abre el detalle del juego seleccionado; L1/R1 cambian el filtro de plataforma.
+    LaunchedEffect(Unit) {
+        com.davidadrianrg.atril.ui.input.PadEvents.details.collect {
+            if (insertion == null && !menuOpen) current?.let { selectedRomId = it.rom.id }
+        }
+    }
+    LaunchedEffect(Unit) {
+        com.davidadrianrg.atril.ui.input.PadEvents.page.collect { dir ->
+            if (insertion == null && !menuOpen && selectedRomId == null) {
+                platformFilter = com.davidadrianrg.atril.core.input.PlatformCycle.step(
+                    platformFilter, platformsInShelf.map { it.first }, dir,
+                )
+            }
+        }
+    }
     // Foco inicial en el carrusel: ←/→ (D-pad, stick o teclado) cambian de juego.
     val carouselFocus = remember { androidx.compose.ui.focus.FocusRequester() }
     LaunchedEffect(visibleItems.isNotEmpty()) { runCatching { carouselFocus.requestFocus() } }
@@ -354,10 +369,10 @@ fun PlayScreen(
                                                 }
                                                 true
                                             }
-                                            // A del mando (→ DPAD_CENTER) / Enter: el pager tiene el foco
-                                            // y no es clickable; abre la ficha como el toque en la carátula.
+                                            // A del mando (→ DPAD_CENTER) / Enter: JUGAR el juego seleccionado.
+                                            // El detalle se abre con Start (o tocando la carátula).
                                             Key.DirectionCenter, Key.Enter, Key.NumPadEnter ->
-                                                current?.let { selectedRomId = it.rom.id; true } ?: false
+                                                current?.let { play(it); true } ?: false
                                             else -> false
                                         }
                                     },
