@@ -550,28 +550,8 @@ internal fun InsertionOverlay(
             )
         }
 
-        // Medio: baja en vertical y se hunde en la ranura (la consola lo tapa).
-        AsyncImage(
-            model = File(mediaPath),
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .size(mediaSize)
-                .graphicsLayer {
-                    val h = mediaSize.toPx()
-                    val startBottom = size.height.let { maxHeight.toPx() * 0.60f }
-                    val rest = maxHeight.toPx() - consoleH.toPx() + 4.dp.toPx() // borde de la ranura
-                    val bottom = startBottom + (rest - startBottom) * pose.drop + h * 0.78f * pose.seat
-                    translationY = bottom - h
-                    scaleX = pose.scale
-                    scaleY = pose.scale
-                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
-                    alpha = appear
-                },
-        )
-
         // Sombra del medio sobre la consola: crece al acercarse y desaparece al hundirse.
+        // Va antes del medio para quedar DEBAJO de él (no oscurecer su borde inferior).
         Box(
             Modifier
                 .align(Alignment.BottomCenter)
@@ -582,6 +562,27 @@ internal fun InsertionOverlay(
                     androidx.compose.ui.graphics.Brush.radialGradient(listOf(Color.Black, Color.Transparent)),
                     RoundedCornerShape(50),
                 ),
+        )
+
+        // Medio: baja en vertical y se hunde en la ranura (la consola lo tapa).
+        AsyncImage(
+            model = File(mediaPath),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .size(mediaSize)
+                .graphicsLayer {
+                    val h = mediaSize.toPx()
+                    val startBottom = maxHeight.toPx() * 0.60f
+                    val rest = maxHeight.toPx() - consoleH.toPx() + 4.dp.toPx() // borde de la ranura
+                    val bottom = startBottom + (rest - startBottom) * pose.drop + h * 0.78f * pose.seat
+                    translationY = bottom - h
+                    scaleX = pose.scale
+                    scaleY = pose.scale
+                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
+                    alpha = appear
+                },
         )
 
         SlotConsole(
