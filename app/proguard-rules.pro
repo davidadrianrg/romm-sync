@@ -9,7 +9,14 @@
 -dontwarn retrofit2.**
 
 # ── Moshi ───────────────────────────────────────────────────────────────
--keepclassmembers class com.davidadrianrg.atril.data.remote.dto.** { *; }
+# Clases que se (de)serializan con Moshi reflexivo (KotlinJsonAdapterFactory):
+# si R8 renombra sus campos, Moshi lanza un Error y tumba la app en release.
+-keepclassmembers class com.davidadrianrg.atril.core.remote.dto.** { *; }
+-keepclassmembers class com.davidadrianrg.atril.core.localgames.LocalGame { *; }
+-keepclassmembers class com.davidadrianrg.atril.data.sync.ConflictInfo { *; }
+-keepclassmembers class com.davidadrianrg.atril.data.sync.FailedOpInfo { *; }
+-keepclassmembers class com.davidadrianrg.atril.data.update.GitHubReleaseDto { *; }
+-keepclassmembers class com.davidadrianrg.atril.data.update.GitHubAssetDto { *; }
 -keep @com.squareup.moshi.JsonClass class * { *; }
 -keep class **JsonAdapter { *; }
 -keepclassmembers class * {

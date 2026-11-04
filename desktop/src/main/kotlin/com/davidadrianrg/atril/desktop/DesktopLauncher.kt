@@ -233,7 +233,8 @@ fun DesktopPlayScreen(
             if (local != null) {
                 LocalGameDetailPanel(local, state, onPlay = {
                     // Misma secuencia que en el carrusel: overlay de inserción y luego lanzar.
-                    entries.firstOrNull { it.local?.id == local.id }?.let { e -> state.closeGame(); play(e) }
+                    val e = entries.firstOrNull { it.local?.id == local.id }
+                    if (e != null) { state.closeGame(); play(e) } else state.launchLocalGame(local)
                 })
             } else {
                 GameDetailPanel(selected, state)

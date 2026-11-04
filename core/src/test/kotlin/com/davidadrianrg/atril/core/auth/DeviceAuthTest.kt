@@ -192,6 +192,7 @@ class ReleaseSafetyTest {
     @Test fun authAndMediaCodeDoNotUseReflectiveMoshi() {
         val roots = listOf("src/main/kotlin/com/davidadrianrg/atril/core/auth", "src/main/kotlin/com/davidadrianrg/atril/core/media")
         roots.forEach { r ->
+            assertTrue("$r not found (test cwd must be the core module)", java.io.File(r).isDirectory)
             java.io.File(r).walkTopDown().filter { it.extension == "kt" }.forEach { f ->
                 assertFalse("${f.name} must not use KotlinJsonAdapterFactory (R8-unsafe)", f.readText().contains("KotlinJsonAdapterFactory"))
             }
