@@ -378,6 +378,14 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
         )
     }
 
+    // No pintar la rejilla hasta tener el ratio real medido (si no, las portadas
+    // aparecen con 2:3 y saltan al reajustarse). Con tope de 4 s para no bloquear.
+    var ratioTimedOut by remember(selectedPlatformId) { mutableStateOf(false) }
+    LaunchedEffect(selectedPlatformId) { kotlinx.coroutines.delay(4_000); ratioTimedOut = true }
+    val ratioPending = !ratioTimedOut && selectedPlatformId != null &&
+        platforms.find { it.id == selectedPlatformId }?.measuredAspectRatio == null &&
+        romsWithStatus.any { (it.rom.coverUrlLarge ?: it.rom.coverUrlSmall) != null }
+
     // ── Infinite scroll state ──────────────────────────────────────────
     val gridState = rememberLazyGridState()
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
@@ -631,11 +639,21 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
             }
 
             // ── Grid of games ───────────────────────────────────────────
-            if (isLoading && romsWithStatus.isEmpty()) {
+            if ((isLoading && romsWithStatus.isEmpty()) || ratioPending) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
-                ) { CircularProgressIndicator() }
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator()
+                        Spacer(Modifier.size(12.dp))
+                        Text(
+                            tr("library.loading"),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 return@Column
             }
 

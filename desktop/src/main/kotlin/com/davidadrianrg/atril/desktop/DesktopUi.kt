@@ -735,9 +735,17 @@ fun LibraryScreen(state: DesktopAppState) {
         val g = selectedGame
         when {
             g != null -> GameDetailPanel(g, state)
-            loading && roms.isEmpty() -> {
+            (loading && roms.isEmpty()) || (games.isNotEmpty() && ratio == null) -> {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator()
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            tr("library.loading"),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
             games.isEmpty() -> {
@@ -771,7 +779,7 @@ fun LibraryScreen(state: DesktopAppState) {
                         modifier = Modifier.fillMaxSize(),
                     ) {
                         gridItems(games.take(visibleCount), key = { it.rep.id }) { card ->
-                            GameCardItem(card, state, ratio, tasks)
+                            GameCardItem(card, state, ratio ?: (2f / 3f), tasks)
                         }
                         if (visibleCount < games.size) {
                             item(span = { GridItemSpan(maxLineSpan) }) {
