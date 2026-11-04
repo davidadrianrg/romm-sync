@@ -123,6 +123,8 @@ import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.davidadrianrg.atril.RomMSyncApplication
 import com.davidadrianrg.atril.core.i18n.tr
+import androidx.compose.ui.geometry.isSpecified
+import com.davidadrianrg.atril.core.library.CoverRatio
 import com.davidadrianrg.atril.domain.model.DownloadStatus
 import com.davidadrianrg.atril.domain.model.formatBytesForUi
 import com.davidadrianrg.atril.domain.model.Platform
@@ -1267,12 +1269,20 @@ internal fun RomDetailSheet(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
         ) {
+            // Respeta el ratio real de la carátula (cuadrada, apaisada…): alto fijo y
+            // ancho derivado, sin recortar ni deformar.
+            var coverRatio by remember(rom.id) { mutableStateOf(CoverRatio.DEFAULT) }
             AsyncImage(
                 model = rom.coverUrlLarge ?: rom.coverUrlSmall,
                 contentDescription = rom.name,
-                contentScale = ContentScale.Crop,
+                contentScale = ContentScale.Fit,
+                onSuccess = { st ->
+                    val sz = st.painter.intrinsicSize
+                    if (sz.isSpecified) coverRatio = CoverRatio.of(sz.width.toInt(), sz.height.toInt())
+                },
                 modifier = Modifier
-                    .size(width = if (wide) 156.dp else 100.dp, height = if (wide) 216.dp else 140.dp)
+                    .height(if (wide) 216.dp else 140.dp)
+                    .aspectRatio(coverRatio)
                     .clip(RoundedCornerShape(8.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
             )
@@ -1464,27 +1474,29 @@ internal fun RomDetailSheet(
 
         Spacer(modifier = Modifier.size(32.dp))
 
-        // ── Guardados y estados en el servidor (con fecha + subida manual) ──
-        com.davidadrianrg.atril.ui.components.ServerAssetsSection(
-            romId = rom.id,
-            serverUrl = serverUrl,
-            apiKey = apiKey,
-        )
-
-        // ── Buscar coincidencia (si el escaneo no reconoció el juego) ──
-        Spacer(modifier = Modifier.size(20.dp))
-        OutlinedButton(
-            onClick = { showMatchDialog = true },
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text(tr("library.match.title")) }
-        if (showMatchDialog) {
-            com.davidadrianrg.atril.ui.components.MatchRomDialog(
+        // ── RomM: guardados del servidor y emparejado (plegable) ──
+        if (serverUrl.isNotBlank() && apiKey.isNotBlank()) DetailGroup(tr("game.group.romm")) {
+            com.davidadrianrg.atril.ui.components.ServerAssetsSection(
                 romId = rom.id,
-                initialName = rom.name,
                 serverUrl = serverUrl,
                 apiKey = apiKey,
-                onDismiss = { showMatchDialog = false },
             )
+
+            // ── Buscar coincidencia (si el escaneo no reconoció el juego) ──
+            Spacer(modifier = Modifier.size(20.dp))
+            OutlinedButton(
+                onClick = { showMatchDialog = true },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(tr("library.match.title")) }
+            if (showMatchDialog) {
+                com.davidadrianrg.atril.ui.components.MatchRomDialog(
+                    romId = rom.id,
+                    initialName = rom.name,
+                    serverUrl = serverUrl,
+                    apiKey = apiKey,
+                    onDismiss = { showMatchDialog = false },
+                )
+            }
         }
 
         // Action button
@@ -1631,17 +1643,8 @@ internal fun RomDetailSheet(
         // Solo tiene sentido para juegos descargados (son los que se sincronizan)
         // y si la función de sync no está desactivada en Configuración.
         if (isDownloaded && syncEnabled) {
-            Spacer(modifier = Modifier.size(36.dp))
-            androidx.compose.material3.HorizontalDivider()
-            Spacer(modifier = Modifier.size(24.dp))
-
-            Text(
-                tr("common.save_sync"),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
             Spacer(modifier = Modifier.size(16.dp))
+            DetailGroup(tr("common.save_sync")) {
 
             // Toggle de exclusión
             Row(
@@ -1803,6 +1806,7 @@ internal fun RomDetailSheet(
                         ) { Text(if (restoring) "…" else tr("game.backups.restore")) }
                     }
                 }
+            }
             }
         }
     }

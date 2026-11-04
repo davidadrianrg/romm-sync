@@ -35,6 +35,8 @@ fun CoverImage(
     serverUrl: String,
     aspectRatio: Float = 2f / 3f,
     contentScale: ContentScale = ContentScale.Crop,
+    /** Usa el ratio real del bitmap (sin recortar) en vez de [aspectRatio]. */
+    naturalRatio: Boolean = false,
 ) {
     val url = resolveMediaUrl(coverUrl, pathCover, serverUrl)
     if (url != null) {
@@ -43,8 +45,10 @@ fun CoverImage(
             Image(
                 bitmap = bitmap,
                 contentDescription = null,
-                contentScale = contentScale,
-                modifier = Modifier.fillMaxWidth().aspectRatio(aspectRatio),
+                contentScale = if (naturalRatio) ContentScale.Fit else contentScale,
+                modifier = Modifier.fillMaxWidth().aspectRatio(
+                    if (naturalRatio) com.davidadrianrg.atril.core.library.CoverRatio.of(bitmap.width, bitmap.height) else aspectRatio,
+                ),
             )
         } else {
             CoverPlaceholder(aspectRatio)
