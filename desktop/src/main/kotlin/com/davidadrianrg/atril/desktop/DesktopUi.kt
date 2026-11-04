@@ -1514,8 +1514,6 @@ fun SettingsScreen(state: DesktopAppState) {
                 )
             }
             field(tr("config.localmeta.sgdb"), draft.steamGridDbKey, true) { draft = draft.copy(steamGridDbKey = it) }
-            field(tr("config.localmeta.ss_devid"), draft.ssDevId, false) { draft = draft.copy(ssDevId = it) }
-            field(tr("config.localmeta.ss_devpw"), draft.ssDevPassword, true) { draft = draft.copy(ssDevPassword = it) }
             field(tr("config.localmeta.ss_user"), draft.ssUser, false) { draft = draft.copy(ssUser = it) }
             field(tr("config.localmeta.ss_pw"), draft.ssPassword, true) { draft = draft.copy(ssPassword = it) }
             Spacer(Modifier.height(10.dp))

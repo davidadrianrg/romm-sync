@@ -16,7 +16,7 @@ class LocalGamesRepositoryTest {
         val r = LocalGamesRepository(
             store = LocalGameStore(File(dir, "local_games.json")),
             coversDir = File(dir, "covers"),
-            credentials = { ScraperCredentials("", "", "", "", "") },
+            credentials = { ScraperCredentials("", "", "") },
         )
         return r to dir
     }
