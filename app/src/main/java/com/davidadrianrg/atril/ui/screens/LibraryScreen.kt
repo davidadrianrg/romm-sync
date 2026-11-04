@@ -193,6 +193,9 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
 
     // Bottom sheet state for long-press game details
     var selectedRom by remember { mutableStateOf<Rom?>(null) }
+    val insertion = remember { InsertionState() }
+    var insertJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    InsertionDialogLayer(insertion) { insertJob?.cancel() }
 
     val manualIds by viewModel.manualDownloadedIds.collectAsState()
     // ROM pendiente de confirmación de borrado
@@ -841,9 +844,9 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
                         platformEmulatorId = platform?.emulatorId,
                         launchable = localPath.isNotBlank(),
                         onPlay = {
-                            // Desde la Biblioteca se lanza directamente (la
-                            // animación de inserción vive en el launcher).
-                            scope.launch {
+                            // Misma secuencia que en Play: preparar → overlay de inserción → lanzar.
+                            selectedRom = null // la hoja es otra ventana: cerrarla para ver el overlay
+                            insertJob = scope.launch {
                                 val plan = container.emulatorLauncher.prepare(
                                     com.davidadrianrg.atril.launch.LaunchRequest(
                                         platformSlug = rom.platformSlug,
@@ -858,7 +861,13 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
                                 val error = when (plan) {
                                     is com.davidadrianrg.atril.launch.LaunchPlan.Failed -> plan.message
                                     is com.davidadrianrg.atril.launch.LaunchPlan.Ready ->
-                                        container.emulatorLauncher.start(context, plan)
+                                        insertion.run(
+                                            InsertionSpec(
+                                                rom.name,
+                                                rom.coverUrlLarge ?: rom.coverUrlSmall,
+                                                com.davidadrianrg.atril.core.launch.LaunchPlatforms.isOptical(rom.platformSlug),
+                                            ),
+                                        ) { container.emulatorLauncher.start(context, plan) }
                                 }
                                 error?.let { android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show() }
                             }

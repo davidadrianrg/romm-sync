@@ -106,7 +106,7 @@ internal fun AddLocalGameDialog(
  * lo que tiene sentido: jugar, renombrar, buscar/elegir carátula y quitarlo.
  */
 @Composable
-internal fun LocalGameDetailPanel(game: LocalGame, state: DesktopAppState) {
+internal fun LocalGameDetailPanel(game: LocalGame, state: DesktopAppState, onPlay: () -> Unit = { state.launchLocalGame(game) }) {
     val scope = rememberCoroutineScope()
     var title by remember(game.id) { mutableStateOf(game.title) }
     var confirmRemove by remember { mutableStateOf(false) }
@@ -149,7 +149,7 @@ internal fun LocalGameDetailPanel(game: LocalGame, state: DesktopAppState) {
             if (!exists) {
                 Text(tr("local.file_missing"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             }
-            Button(onClick = { state.launchLocalGame(game) }, enabled = exists) { Text(tr("local.play")) }
+            Button(onClick = onPlay, enabled = exists) { Text(tr("local.play")) }
 
             Text(
                 when (game.scrapeStatus) {

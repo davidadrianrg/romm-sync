@@ -108,7 +108,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** Juego cuyo medio físico se está "insertando" antes de lanzar. */
-private data class Insertion(val item: ShelfItem, val mediaPath: String)
+private data class Insertion(val item: ShelfItem, val model: Any?)
 
 /**
  * Launcher de juegos descargados, a pantalla completa y sin chrome permanente:
@@ -225,17 +225,13 @@ fun PlayScreen(
                         plan.fallbackFrom?.let { preferred ->
                             notify(tr("launcher.fallback", preferred.displayName, plan.family.displayName))
                         }
-                        val media = item.physicalMediaFile?.takeIf { item.showPhysical }
-                        if (media != null) {
-                            insertion = Insertion(item, media)
-                            insertProgress.snapTo(0f)
-                            insertProgress.animateTo(1f, tween(com.davidadrianrg.atril.core.launch.InsertionMotion.DURATION_MS, easing = LinearEasing))
-                        } else {
-                            // Carta: un gesto contenido (la carta se eleva) y a jugar.
-                            liftingRomId = item.rom.id
-                            cardLift.snapTo(0f)
-                            cardLift.animateTo(1f, tween(220))
-                        }
+                        // Medio físico o carátula: siempre se ve la inserción completa y solo
+                        // después se lanza el emulador (el overlay sigue hasta enviar el intent).
+                        val media: Any? = item.physicalMediaFile?.takeIf { item.showPhysical }?.let { java.io.File(it) }
+                            ?: item.rom.coverUrlLarge ?: item.rom.coverUrlSmall
+                        insertion = Insertion(item, media)
+                        insertProgress.snapTo(0f)
+                        insertProgress.animateTo(1f, tween(com.davidadrianrg.atril.core.launch.InsertionMotion.DURATION_MS, easing = LinearEasing))
                         val error = viewModel.startLaunch(context, plan)
                         if (error != null) notify(error)
                     }
@@ -474,8 +470,9 @@ fun PlayScreen(
 
         insertion?.let { ins ->
             InsertionOverlay(
-                item = ins.item,
-                mediaPath = ins.mediaPath,
+                title = ins.item.rom.name,
+                isOptical = ins.item.isOptical,
+                model = ins.model,
                 progress = insertProgress.value,
                 onCancel = { launchJob?.cancel() },
             )
