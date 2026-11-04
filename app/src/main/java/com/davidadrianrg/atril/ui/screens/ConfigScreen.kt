@@ -492,7 +492,7 @@ fun ConfigScreen(
             ) {
                 // Toggle maestro: oculta la función de exportación a ES-DE
                 var esdeEnabledLocal by remember { mutableStateOf<Boolean?>(null) }
-                val esdeEnabled by container.settingsRepository.esdeExportEnabled.collectAsState(initial = true)
+                val esdeEnabled by container.settingsRepository.esdeExportEnabled.collectAsState(initial = false)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -556,7 +556,7 @@ fun ConfigScreen(
             ) {
                 // Toggle maestro: oculta la exportación a RetroHRAI
                 var retroHraiEnabledLocal by remember { mutableStateOf<Boolean?>(null) }
-                val retroHraiEnabled by container.settingsRepository.retroHraiExportEnabled.collectAsState(initial = true)
+                val retroHraiEnabled by container.settingsRepository.retroHraiExportEnabled.collectAsState(initial = false)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,

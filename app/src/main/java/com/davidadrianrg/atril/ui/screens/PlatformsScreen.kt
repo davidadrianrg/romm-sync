@@ -99,8 +99,8 @@ fun PlatformsScreen(onBack: () -> Unit = {}) {
     // La configuración de sync por plataforma solo tiene sentido si la
     // función está activada en Configuración.
     val saveSyncEnabled by container.settingsRepository.saveSyncEnabled.collectAsState(initial = true)
-    val esdeExportEnabled by container.settingsRepository.esdeExportEnabled.collectAsState(initial = true)
-    val retroHraiExportEnabled by container.settingsRepository.retroHraiExportEnabled.collectAsState(initial = true)
+    val esdeExportEnabled by container.settingsRepository.esdeExportEnabled.collectAsState(initial = false)
+    val retroHraiExportEnabled by container.settingsRepository.retroHraiExportEnabled.collectAsState(initial = false)
 
     LaunchedEffect(settings.isConfigured) {
         if (settings.isConfigured && platforms.isEmpty()) {

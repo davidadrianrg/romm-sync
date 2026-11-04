@@ -206,10 +206,10 @@ class SettingsDataStore(private val context: Context) {
         it[RETROHRAI_MEDIA_PATH] ?: DEFAULT_RETROHRAI_MEDIA_PATH
     }
     val esdeExportEnabled: Flow<Boolean> = context.dataStore.data.map {
-        it[ESDE_EXPORT_ENABLED] ?: true
+        it[ESDE_EXPORT_ENABLED] ?: false
     }
     val retroHraiExportEnabled: Flow<Boolean> = context.dataStore.data.map {
-        it[RETROHRAI_EXPORT_ENABLED] ?: true
+        it[RETROHRAI_EXPORT_ENABLED] ?: false
     }
 
     /** Combined settings snapshot */
