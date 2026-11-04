@@ -56,6 +56,16 @@ class MainActivity : ComponentActivity() {
                 if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) PadEvents.menu.tryEmit(Unit)
                 return true
             }
+            PadAction.DETAILS -> {
+                if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) PadEvents.details.tryEmit(Unit)
+                return true
+            }
+            PadAction.PREV_PAGE, PadAction.NEXT_PAGE -> {
+                if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                    PadEvents.page.tryEmit(if (PadKeyMap.fromAndroidKeyCode(event.keyCode) == PadAction.PREV_PAGE) -1 else 1)
+                }
+                return true
+            }
             else -> {}
         }
         return super.dispatchKeyEvent(event)

@@ -274,6 +274,19 @@ fun DesktopPlayScreen(
                         }
                     androidx.compose.ui.input.key.Key.Enter, androidx.compose.ui.input.key.Key.NumPadEnter ->
                         if (busy || menuOpen) false else current?.let { play(it); true } ?: false
+                    // Start del mando (F9): detalle del juego seleccionado.
+                    androidx.compose.ui.input.key.Key.F9 ->
+                        if (busy || menuOpen) false else current?.let { state.openGame(it.card); true } ?: false
+                    // L1 / R1 (Re Pág / Av Pág): filtro de plataforma anterior / siguiente.
+                    androidx.compose.ui.input.key.Key.PageUp, androidx.compose.ui.input.key.Key.PageDown ->
+                        if (busy || menuOpen) false else {
+                            platformFilter = com.davidadrianrg.atril.core.input.PlatformCycle.step(
+                                platformFilter,
+                                platforms.map { it.first },
+                                if (ev.key == androidx.compose.ui.input.key.Key.PageUp) -1 else 1,
+                            )
+                            true
+                        }
                     else -> false
                 }
             },

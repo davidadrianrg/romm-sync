@@ -9,7 +9,11 @@ class GamepadTest {
         assertEquals(PadAction.SELECT, PadKeyMap.fromAndroidKeyCode(96))  // BUTTON_A
         assertEquals(PadAction.SELECT, PadKeyMap.fromAndroidKeyCode(23))  // DPAD_CENTER
         assertEquals(PadAction.BACK, PadKeyMap.fromAndroidKeyCode(97))    // BUTTON_B
-        assertEquals(PadAction.MENU, PadKeyMap.fromAndroidKeyCode(108))   // BUTTON_START
+        assertEquals(PadAction.DETAILS, PadKeyMap.fromAndroidKeyCode(108)) // BUTTON_START
+        assertEquals(PadAction.MENU, PadKeyMap.fromAndroidKeyCode(109))    // BUTTON_SELECT
+        assertEquals(PadAction.MENU, PadKeyMap.fromAndroidKeyCode(110))    // BUTTON_MODE
+        assertEquals(PadAction.PREV_PAGE, PadKeyMap.fromAndroidKeyCode(102)) // L1
+        assertEquals(PadAction.NEXT_PAGE, PadKeyMap.fromAndroidKeyCode(103)) // R1
         assertEquals(PadAction.LEFT, PadKeyMap.fromAndroidKeyCode(21))
         assertNull(PadKeyMap.fromAndroidKeyCode(29))                       // 'A' key: not a pad button
     }
@@ -19,7 +23,10 @@ class GamepadTest {
         assertNull(PadKeyMap.fromEvdevKey(304, 0)) // release
         assertNull(PadKeyMap.fromEvdevKey(304, 2)) // autorepeat
         assertEquals(PadAction.BACK, PadKeyMap.fromEvdevKey(305, 1))
-        assertEquals(PadAction.MENU, PadKeyMap.fromEvdevKey(315, 1))
+        assertEquals(PadAction.DETAILS, PadKeyMap.fromEvdevKey(315, 1))
+        assertEquals(PadAction.MENU, PadKeyMap.fromEvdevKey(314, 1))
+        assertEquals(PadAction.PREV_PAGE, PadKeyMap.fromEvdevKey(310, 1))
+        assertEquals(PadAction.NEXT_PAGE, PadKeyMap.fromEvdevKey(311, 1))
         assertEquals(PadAction.UP, PadKeyMap.fromEvdevKey(544, 1))
         assertNull(PadKeyMap.fromEvdevKey(999, 1))
     }
@@ -56,5 +63,16 @@ class GamepadTest {
         assertEquals(1f, u8.normalize(255), 0.01f)
         assertEquals(-1f, u8.normalize(0), 0.01f)
         assertEquals(0f, u8.normalize(128), 0.02f)
+    }
+
+    @Test fun platformFilterCyclesThroughAllAndEachSlug() {
+        val slugs = listOf("gba", "n64", "ngc")
+        assertEquals("gba", PlatformCycle.step(null, slugs, +1))
+        assertEquals("n64", PlatformCycle.step("gba", slugs, +1))
+        assertNull(PlatformCycle.step("ngc", slugs, +1))          // wraps to "all"
+        assertEquals("ngc", PlatformCycle.step(null, slugs, -1))  // L1 from "all" → last
+        assertEquals("gba", PlatformCycle.step("n64", slugs, -1))
+        assertNull(PlatformCycle.step("x", emptyList(), +1))
+        assertEquals("gba", PlatformCycle.step("vanished", slugs, +1)) // unknown current acts as "all"
     }
 }
