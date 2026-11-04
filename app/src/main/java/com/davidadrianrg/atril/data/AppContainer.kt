@@ -1,5 +1,6 @@
 package com.davidadrianrg.atril.data
 
+import kotlinx.coroutines.flow.first
 import android.content.Context
 import com.davidadrianrg.atril.data.local.RomSyncDatabase
 import com.davidadrianrg.atril.data.local.SettingsDataStore
@@ -43,6 +44,13 @@ class AppContainer(private val appContext: Context) {
     val physicalMediaRepository = com.davidadrianrg.atril.data.repository.PhysicalMediaRepository(
         dao = database.romPresentationDao(),
         cacheDir = java.io.File(appContext.filesDir, "physical-media"),
+    )
+
+    /** Juegos añadidos a mano (fuera de RomM) y su scrapeo de carátulas. */
+    val localGamesRepository = com.davidadrianrg.atril.data.localgames.LocalGamesRepository(
+        store = com.davidadrianrg.atril.core.localgames.LocalGameStore(java.io.File(appContext.filesDir, "local_games.json")),
+        coversDir = java.io.File(appContext.filesDir, "local-covers"),
+        credentials = { settingsRepository.scraperCredentials.first() },
     )
 
     /** Lanza juegos descargados en el emulador que toque. */

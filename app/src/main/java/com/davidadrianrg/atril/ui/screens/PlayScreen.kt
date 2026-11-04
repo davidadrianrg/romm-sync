@@ -38,6 +38,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Menu
@@ -126,6 +127,7 @@ fun PlayScreen(
                     settingsRepository = container.settingsRepository,
                     physicalMediaRepository = container.physicalMediaRepository,
                     emulatorLauncher = container.emulatorLauncher,
+                    localGames = container.localGamesRepository,
                 )
             }
         }
@@ -146,6 +148,30 @@ fun PlayScreen(
     var menuOpen by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    // ── Juegos locales (fuera de RomM) ──
+    var pendingAddPath by remember { mutableStateOf<String?>(null) }
+    var coverTargetId by remember { mutableStateOf<String?>(null) }
+    var scrapingId by remember { mutableStateOf<String?>(null) }
+    val knownPlatforms = remember { runCatching { container.platformDao.getAllPlatformsBlocking() }.getOrDefault(emptyList()) }
+    val platformChoices = remember(knownPlatforms) {
+        knownPlatforms.map { it.slug to it.name }.distinctBy { it.first }.sortedBy { it.second.lowercase() }
+    }
+    val pickGame = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            val path = com.davidadrianrg.atril.core.localgames.LocalGamePaths.fromPickedUri(uri.toString())
+            if (path != null) pendingAddPath = path else scope.launch { snackbar.showSnackbar(tr("local.pick_failed")) }
+        }
+    }
+    val pickCover = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent(),
+    ) { uri ->
+        val id = coverTargetId
+        if (uri != null && id != null) {
+            context.contentResolver.openInputStream(uri)?.let { viewModel.setLocalCover(id, it) }
+        }
+    }
 
     val platformsInShelf = remember(items) {
         items.map { it.rom.platformSlug to it.platformLabel }
@@ -238,6 +264,7 @@ fun PlayScreen(
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
             LauncherHeader(
                 count = visibleItems.size,
+                onAddLocal = { pickGame.launch(arrayOf("*/*")) },
                 onOpenDownloads = onOpenDownloads,
                 onOpenMenu = { menuOpen = true },
                 showMenu = menuItems.isNotEmpty(),
@@ -272,7 +299,7 @@ fun PlayScreen(
                     contentAlignment = Alignment.Center,
                 ) { CircularProgressIndicator(color = LauncherAmber) }
 
-                visibleItems.isEmpty() -> EmptyLauncher(onOpenLibrary)
+                visibleItems.isEmpty() -> EmptyLauncher(onOpenLibrary, onAddLocal = { pickGame.launch(arrayOf("*/*")) })
 
                 else -> {
                     Row(Modifier.weight(1f).fillMaxWidth()) {
@@ -429,7 +456,24 @@ fun PlayScreen(
 
     // ── Detalle del juego ──────────────────────────────────────────────
     val selected = visibleItems.firstOrNull { it.rom.id == selectedRomId }
-    selected?.let { item ->
+    selected?.takeIf { it.isLocalSource }?.let { item ->
+        LocalGameSheet(
+            item = item,
+            scraping = scrapingId == item.localGame?.id,
+            onPlay = { selectedRomId = null; play(item) },
+            onRename = { viewModel.renameLocal(item.localGame!!.id, it) },
+            onRetryScrape = {
+                val id = item.localGame!!.id
+                scrapingId = id
+                viewModel.scrapeLocal(id)
+                scope.launch { kotlinx.coroutines.delay(1500); if (scrapingId == id) scrapingId = null }
+            },
+            onPickCover = { coverTargetId = item.localGame!!.id; pickCover.launch("image/*") },
+            onRemove = { selectedRomId = null; viewModel.removeLocal(item.localGame!!.id) },
+            onClose = { selectedRomId = null },
+        )
+    }
+    selected?.takeIf { !it.isLocalSource }?.let { item ->
         ModalBottomSheet(
             onDismissRequest = { selectedRomId = null },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -470,6 +514,21 @@ fun PlayScreen(
                 ),
             )
         }
+    }
+
+    // ── Alta de un juego local tras elegir el fichero ──
+    pendingAddPath?.let { path ->
+        AddLocalGameDialog(
+            path = path,
+            platforms = platformChoices,
+            initialSlug = com.davidadrianrg.atril.core.localgames.LocalGamePaths
+                .guessPlatform(path, platformChoices.map { it.first }),
+            onConfirm = { title, slug ->
+                pendingAddPath = null
+                viewModel.addLocalGame(title, slug, path)
+            },
+            onDismiss = { pendingAddPath = null },
+        )
     }
 
     // ── Confirmación de borrado ────────────────────────────────────────
@@ -536,6 +595,7 @@ private fun Caption(
 @Composable
 private fun LauncherHeader(
     count: Int,
+    onAddLocal: () -> Unit,
     onOpenDownloads: () -> Unit,
     onOpenMenu: () -> Unit,
     showMenu: Boolean,
@@ -570,6 +630,8 @@ private fun LauncherHeader(
             )
             Spacer(Modifier.width(8.dp))
         }
+        RoundIconButton(Icons.Filled.Add, tr("local.add"), onAddLocal)
+        Spacer(Modifier.width(8.dp))
         RoundIconButton(Icons.Outlined.Download, tr("nav.downloads"), onOpenDownloads)
     }
 }
@@ -591,7 +653,7 @@ private fun RoundIconButton(
 }
 
 @Composable
-private fun EmptyLauncher(onOpenLibrary: () -> Unit) {
+private fun EmptyLauncher(onOpenLibrary: () -> Unit, onAddLocal: () -> Unit) {
     Box(
         modifier = Modifier.fillMaxSize().padding(40.dp),
         contentAlignment = Alignment.Center,
@@ -621,6 +683,8 @@ private fun EmptyLauncher(onOpenLibrary: () -> Unit) {
             androidx.compose.material3.FilledTonalButton(onClick = onOpenLibrary) {
                 Text(tr("play.open_library"))
             }
+            Spacer(Modifier.height(8.dp))
+            androidx.compose.material3.TextButton(onClick = onAddLocal) { Text(tr("local.add")) }
         }
     }
 }

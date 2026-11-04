@@ -21,6 +21,7 @@ import com.davidadrianrg.atril.domain.model.RomFile
 import com.davidadrianrg.atril.launch.EmulatorLauncher
 import com.davidadrianrg.atril.launch.LaunchPlan
 import com.davidadrianrg.atril.launch.LaunchRequest
+import com.davidadrianrg.atril.core.i18n.tr
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -30,6 +31,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -66,6 +68,9 @@ data class ShelfItem(
     val showPhysical: Boolean = false,
     /** Override del emulador de lanzamiento para la plataforma (id de familia). */
     val launchOverride: String? = null,
+    /** Juego añadido a mano (NO está en RomM): sin descargas, saves ni medio físico de RomM. */
+    val isLocalSource: Boolean = false,
+    val localGame: com.davidadrianrg.atril.core.localgames.LocalGame? = null,
 ) {
     val launchable: Boolean get() = localPath.isNotBlank()
     val hasRemotePhysicalMedia: Boolean get() = rom.physicalMediaUrl != null
@@ -86,6 +91,7 @@ class ShelfViewModel(
     private val settingsRepository: SettingsRepository,
     private val physicalMediaRepository: PhysicalMediaRepository,
     private val emulatorLauncher: EmulatorLauncher,
+    private val localGames: com.davidadrianrg.atril.data.localgames.LocalGamesRepository,
 ) : ViewModel() {
 
     private val dtoCache = mutableMapOf<Int, RomDto>()
@@ -98,8 +104,20 @@ class ShelfViewModel(
      * presentación por juego, el valor global y los overrides de emulador
      * (cambiar el modo no vuelve a pedir nada al servidor).
      */
+    /** Juegos de RomM descargados + juegos locales, en una sola lista. */
+    private val allItems: kotlinx.coroutines.flow.Flow<List<ShelfItem>> =
+        combine(_items, localGames.games) { remote, local ->
+            if (local.isEmpty()) {
+                remote
+            } else {
+                val labels = runCatching { platformDao.getAllPlatformsBlocking() }
+                    .getOrDefault(emptyList()).associate { it.slug to it.name }
+                remote + local.map { it.toShelfItem(labels[it.platformSlug] ?: it.platformSlug.uppercase()) }
+            }
+        }.flowOn(kotlinx.coroutines.Dispatchers.IO)
+
     val items: StateFlow<List<ShelfItem>> = combine(
-        _items,
+        allItems,
         physicalMediaRepository.observe(),
         settingsRepository.launcherDefaultDisplay,
         settingsRepository.launchEmulatorOverrides,
@@ -292,6 +310,71 @@ class ShelfViewModel(
     fun currentEmulatorName(item: ShelfItem): String? = emulatorLauncher
         .currentFamily(item.rom.platformSlug, item.launchOverride, item.platformEmulatorId)
         ?.displayName
+
+    /** Id estable y NEGATIVO para un juego local: nunca choca con un id de RomM. */
+    private fun com.davidadrianrg.atril.core.localgames.LocalGame.syntheticRomId(): Int =
+        -((id.hashCode().toLong() and 0x7FFFFFFF).toInt().coerceAtLeast(1))
+
+    private fun com.davidadrianrg.atril.core.localgames.LocalGame.toShelfItem(platformLabel: String): ShelfItem {
+        val file = File(path)
+        val exists = file.isFile
+        val rom = Rom(
+            id = syntheticRomId(),
+            name = title,
+            fileName = file.name,
+            fileSizeBytes = if (exists) file.length() else 0L,
+            platformId = 0,
+            platformSlug = platformSlug,
+            coverUrlSmall = coverPath?.let { "file://$it" },
+            coverUrlLarge = coverPath?.let { "file://$it" },
+            files = emptyList(),
+            isMulti = false,
+            revision = null,
+            regions = emptyList(),
+            summary = summary,
+        )
+        return ShelfItem(
+            rom = rom,
+            platformLabel = "$platformLabel · ${tr("local.badge")}",
+            groupRomIds = listOf(rom.id),
+            discCount = 1,
+            savesPathOverride = null,
+            excludedFromSync = true,
+            platformSavesPath = "",
+            isManualDownloaded = false,
+            fileSizeBytes = rom.fileSizeBytes,
+            localPath = if (exists) path else "",
+            knownFileNames = listOf(file.name),
+            isLocalSource = true,
+            localGame = this,
+        )
+    }
+
+    // ── Acciones sobre juegos locales ─────────────────────────────────
+    fun addLocalGame(title: String, platformSlug: String, path: String) {
+        viewModelScope.launch {
+            val game = localGames.add(title, platformSlug, path)
+            scrapeLocal(game.id)
+        }
+    }
+
+    fun scrapeLocal(id: String) {
+        viewModelScope.launch {
+            _messages.tryEmit(
+                when (val out = localGames.scrape(id)) {
+                    is com.davidadrianrg.atril.core.localgames.ScrapeOutcome.Found -> tr("local.scrape.done", out.game.source)
+                    com.davidadrianrg.atril.core.localgames.ScrapeOutcome.NotFound -> tr("local.scrape.not_found")
+                    is com.davidadrianrg.atril.core.localgames.ScrapeOutcome.BadCredentials -> tr("local.scrape.bad_credentials", out.provider)
+                    is com.davidadrianrg.atril.core.localgames.ScrapeOutcome.Retryable -> tr("local.scrape.failed", out.provider)
+                    com.davidadrianrg.atril.core.localgames.ScrapeOutcome.NotConfigured -> tr("local.scrape.not_configured")
+                },
+            )
+        }
+    }
+
+    fun renameLocal(id: String, title: String) { viewModelScope.launch { localGames.rename(id, title) } }
+    fun removeLocal(id: String) { viewModelScope.launch { localGames.remove(id) } }
+    fun setLocalCover(id: String, input: java.io.InputStream) { viewModelScope.launch { localGames.setManualCover(id, input) } }
 
     suspend fun prepareLaunch(item: ShelfItem): LaunchPlan = emulatorLauncher.prepare(
         LaunchRequest(
