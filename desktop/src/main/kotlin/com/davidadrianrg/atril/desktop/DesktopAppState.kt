@@ -1,6 +1,9 @@
 package com.davidadrianrg.atril.desktop
 
 import com.davidadrianrg.atril.core.i18n.tr
+import com.davidadrianrg.atril.core.auth.DeviceAuthRequest
+import com.davidadrianrg.atril.core.auth.QrLoginState
+import com.davidadrianrg.atril.core.auth.runQrLogin
 import com.davidadrianrg.atril.core.launch.DesktopEmulatorCatalog
 import com.davidadrianrg.atril.core.launch.DesktopLaunchPlanner
 import com.davidadrianrg.atril.core.remote.dto.SaveDto
@@ -219,17 +222,59 @@ class DesktopAppState(private val scope: CoroutineScope) {
         refreshPlatforms(silent)
     }
 
+    // ── Login con QR (device auth de RomM) ──────────────────────────────
+
+    private val _qrLogin = MutableStateFlow<QrLoginState>(QrLoginState.Idle)
+    val qrLogin: StateFlow<QrLoginState> = _qrLogin
+    private var qrJob: Job? = null
+
+    fun startQrLogin(serverUrl: String) {
+        qrJob?.cancel()
+        qrJob = scope.launch {
+            val host = runCatching { java.net.InetAddress.getLocalHost().hostName }.getOrNull() ?: "linux"
+            val req = DeviceAuthRequest(
+                clientDeviceIdentifier = config.clientDeviceId,
+                name = "Atril ($host)",
+                platform = "linux",
+                clientVersion = DesktopConfig.appVersion,
+            )
+            runQrLogin(serverUrl, req, onState = { _qrLogin.value = it }, onApproved = { origin, token ->
+                connect(origin, token.accessToken)
+            })
+        }
+    }
+
+    fun cancelQrLogin() {
+        qrJob?.cancel()
+        _qrLogin.value = QrLoginState.Idle
+    }
+
+    /** Olvida servidor y token; los juegos locales y las descargas se conservan. */
+    fun disconnect() {
+        config.serverUrl = ""
+        config.apiKey = ""
+        api = null
+        romsLoadGeneration++ // las páginas de una carga en curso ya no deben publicarse
+        _connected.value = false
+        _platforms.value = emptyList()
+        _roms.value = emptyList()
+        _loadingRoms.value = false
+    }
+
     private fun refreshPlatforms(silent: Boolean = false) {
         val svc = api ?: return
         _loadingPlatforms.value = true
         scope.launch {
             try {
                 val plats = svc.getPlatforms()
+                // Desconectado (o reconectado a otro servidor) mientras cargaba: descartar.
+                if (api !== svc) return@launch
                 _platforms.value = plats
                 _connected.value = true
                 // El usuario pudo abrir Biblioteca antes de que llegaran las plataformas.
                 if (_section.value == Section.LIBRARY) ensureLibraryLoaded()
             } catch (e: Exception) {
+                if (api !== svc) return@launch
                 _connected.value = false
                 if (!silent) showSnackbar(tr("connection.error", e.message))
             } finally {
@@ -1154,7 +1199,8 @@ class DesktopAppState(private val scope: CoroutineScope) {
         autoSyncJob = scope.launch {
             while (true) {
                 kotlinx.coroutines.delay(minutes * 60_000L)
-                if (!_syncing.value) syncSaves()
+                // Sin RomM no hay nada que sincronizar (igual que Android).
+                if (!_syncing.value && config.serverUrl.isNotBlank() && config.apiKey.isNotBlank()) syncSaves()
             }
         }
     }

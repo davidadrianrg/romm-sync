@@ -39,7 +39,7 @@ import com.davidadrianrg.atril.core.auth.DeviceAuthError
 import com.davidadrianrg.atril.core.auth.QrMatrix
 import com.davidadrianrg.atril.core.i18n.tr
 import com.davidadrianrg.atril.ui.components.rememberWindowInfo
-import com.davidadrianrg.atril.ui.viewmodel.QrLoginState
+import com.davidadrianrg.atril.core.auth.QrLoginState
 
 /** Always dark-on-white with a quiet zone, whatever the theme, so scanners can read it. */
 @Composable

@@ -123,3 +123,45 @@ class DeviceAuthTest {
         assertFalse(m[7, 0]) // separator
     }
 }
+
+class QrLoginFlowTest {
+    private val req = DeviceAuthRequest("dev-1", "Atril", "linux", "1.0")
+    private val initOk = """{"device_code":"DC","user_code":"U1","verification_path":"/pair/device",
+        "verification_path_complete":"/pair/device?user_code=U1","expires_in":600,"interval":1}"""
+
+    @Test fun invalidUrlFailsWithoutNetwork() = runBlocking {
+        val states = mutableListOf<QrLoginState>()
+        runQrLogin("", req, { states += it }, { _, _ -> fail("no token expected") })
+        assertEquals(listOf<QrLoginState>(QrLoginState.Failed(DeviceAuthError.INVALID_URL)), states)
+    }
+
+    @Test fun approvalPersistsTokenThenReportsSuccess() = runBlocking {
+        val server = MockWebServer().also { it.start() }
+        try {
+            server.enqueue(MockResponse().setResponseCode(201).setBody(initOk))
+            server.enqueue(MockResponse().setBody("""{"access_token":"rmm_x","device_id":"d","scopes":[]}"""))
+            val states = mutableListOf<QrLoginState>()
+            var saved: Pair<String, String>? = null
+            val url = server.url("/").toString()
+            runQrLogin(url, req, { states += it }, { o, t -> saved = o to t.accessToken },
+                client = DeviceAuthClient(url))
+            // poll uses real delay(1s); acceptable for one test
+            assertEquals(url.trimEnd('/') to "rmm_x", saved)
+            assertTrue(states.first() is QrLoginState.Starting)
+            assertTrue(states[1] is QrLoginState.Waiting)
+            assertEquals(QrLoginState.Success, states.last())
+        } finally { server.shutdown() }
+    }
+
+    @Test fun denialDoesNotPersist() = runBlocking {
+        val server = MockWebServer().also { it.start() }
+        try {
+            server.enqueue(MockResponse().setResponseCode(201).setBody(initOk))
+            server.enqueue(MockResponse().setResponseCode(400).setBody("""{"detail":"access_denied"}"""))
+            val states = mutableListOf<QrLoginState>()
+            val url = server.url("/").toString()
+            runQrLogin(url, req, { states += it }, { _, _ -> fail("must not save") }, client = DeviceAuthClient(url))
+            assertEquals(QrLoginState.Denied, states.last())
+        } finally { server.shutdown() }
+    }
+}
