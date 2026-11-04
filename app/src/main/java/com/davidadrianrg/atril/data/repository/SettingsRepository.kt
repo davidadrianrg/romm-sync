@@ -14,6 +14,9 @@ class SettingsRepository(private val dataStore: SettingsDataStore) {
     val skippedVersion: Flow<String> = dataStore.skippedVersion
     val conflictPolicy: Flow<String> = dataStore.conflictPolicy
 
+    suspend fun setLocalOnly(enabled: Boolean) = dataStore.setLocalOnly(enabled)
+    suspend fun clientDeviceId(): String = dataStore.clientDeviceId()
+    suspend fun disconnectRomM() = dataStore.disconnectRomM()
     suspend fun setServerUrl(url: String) = dataStore.setServerUrl(url)
     suspend fun setApiKey(key: String) = dataStore.setApiKey(key)
     suspend fun setRomsRootPath(path: String) = dataStore.setRomsRootPath(path)

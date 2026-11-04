@@ -40,6 +40,8 @@ class SettingsDataStore(private val context: Context) {
         val SERVER_URL = stringPreferencesKey("server_url")
         val ROMS_ROOT_PATH = stringPreferencesKey("roms_root_path")
         val SECONDARY_ROMS_PATH = stringPreferencesKey("secondary_roms_path")
+        val LOCAL_ONLY = booleanPreferencesKey("local_only")
+        val CLIENT_DEVICE_ID = stringPreferencesKey("client_device_id")
         val DUAL_ROMS_PATHS_ENABLED = booleanPreferencesKey("dual_roms_paths_enabled")
         val MAX_CONCURRENT_DOWNLOADS = intPreferencesKey("max_concurrent_downloads")
         val WIFI_ONLY_DOWNLOADS = booleanPreferencesKey("wifi_only_downloads")
@@ -222,6 +224,7 @@ class SettingsDataStore(private val context: Context) {
         ServerConfig(
             serverUrl = prefs[SERVER_URL] ?: "",
             apiKey = apiKey,
+            localOnly = prefs[LOCAL_ONLY] ?: false,
             romsRootPath = prefs[ROMS_ROOT_PATH] ?: DEFAULT_ROMS_PATH,
             maxConcurrentDownloads = prefs[MAX_CONCURRENT_DOWNLOADS] ?: DEFAULT_MAX_DOWNLOADS,
             wifiOnlyDownloads = prefs[WIFI_ONLY_DOWNLOADS] ?: false,
@@ -231,6 +234,29 @@ class SettingsDataStore(private val context: Context) {
     }
 
     // ── Writers ───────────────────────────────────────────────────────
+
+    /** "Use Atril only with local games": RomM stays unconfigured on purpose. */
+    suspend fun setLocalOnly(enabled: Boolean) {
+        context.dataStore.edit { it[LOCAL_ONLY] = enabled }
+    }
+
+    /** Stable id the server shows in "connected devices" for the QR login. */
+    suspend fun clientDeviceId(): String {
+        context.dataStore.data.first()[CLIENT_DEVICE_ID]?.let { return it }
+        val id = "atril-android-" + java.util.UUID.randomUUID()
+        context.dataStore.edit { it[CLIENT_DEVICE_ID] = id }
+        return id
+    }
+
+    /** Forget the RomM server + token. Local games are untouched. */
+    suspend fun disconnectRomM() {
+        securePrefs.edit().remove(SECURE_KEY_API_KEY).apply()
+        _apiKeyFlow.value = ""
+        context.dataStore.edit {
+            it.remove(SERVER_URL)
+            it[LOCAL_ONLY] = true
+        }
+    }
 
     suspend fun setServerUrl(url: String) {
         context.dataStore.edit { it[SERVER_URL] = url.trimEnd('/') }
@@ -561,6 +587,12 @@ data class ServerConfig(
     val dualRomsPathsEnabled: Boolean = false,
     /** Segunda ruta de ROMs (normalmente la tarjeta SD). Solo usa si dualRomsPathsEnabled. */
     val secondaryRomsPath: String = "",
+    /** El usuario eligió usar Atril sin RomM (solo juegos locales). */
+    val localOnly: Boolean = false,
 ) {
+    /** RomM conectado (servidor + token). */
     val isConfigured: Boolean get() = serverUrl.isNotEmpty() && apiKey.isNotEmpty()
+
+    /** Se puede entrar a la app: RomM conectado o modo solo-local elegido. */
+    val canStart: Boolean get() = isConfigured || localOnly
 }

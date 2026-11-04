@@ -20,6 +20,9 @@ dependencies {
     api(libs.moshi)
     api(libs.moshi.kotlin)
 
+    // QR code generation (pure JVM, no Android deps)
+    api("com.google.zxing:core:3.5.3")
+
     // Coroutines
     api(libs.kotlinx.coroutines.core)
 
