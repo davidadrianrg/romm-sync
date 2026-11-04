@@ -40,6 +40,13 @@ class SaveSyncWorker(
             return@withContext Result.success()
         }
 
+        // Modo solo-local / RomM desconectado: el trabajo periódico encolado
+        // antes no debe mostrar "conectando" ni reintentar contra la nada.
+        if (dataStore.getServerUrlBlocking().isEmpty() || dataStore.getApiKeyBlocking().isEmpty()) {
+            Log.i(TAG, "RomM not configured, skipping save sync")
+            return@withContext Result.success()
+        }
+
         // Foreground notification
         createNotificationChannel()
         try {

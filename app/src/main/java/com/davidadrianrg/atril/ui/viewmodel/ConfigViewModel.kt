@@ -3,6 +3,14 @@ package com.davidadrianrg.atril.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.davidadrianrg.atril.BuildConfig
+import com.davidadrianrg.atril.core.auth.DeviceAuthClient
+import com.davidadrianrg.atril.core.auth.DeviceAuthError
+import com.davidadrianrg.atril.core.auth.DeviceAuthException
+import com.davidadrianrg.atril.core.auth.DeviceAuthOutcome
+import com.davidadrianrg.atril.core.auth.DeviceAuthRequest
+import com.davidadrianrg.atril.core.auth.DeviceCode
+import com.davidadrianrg.atril.core.auth.QrCode
+import com.davidadrianrg.atril.core.auth.QrMatrix
 import com.davidadrianrg.atril.core.i18n.tr
 import com.davidadrianrg.atril.data.local.ServerConfig
 import com.davidadrianrg.atril.data.repository.RomRepository
@@ -176,6 +184,62 @@ class ConfigViewModel(
         _scanState.value = LibraryScanState.Idle
     }
 
+    // ── Login con QR (device auth de RomM) + modo solo-local ───────────
+
+    private val _qrLogin = MutableStateFlow<QrLoginState>(QrLoginState.Idle)
+    val qrLogin: StateFlow<QrLoginState> = _qrLogin.asStateFlow()
+    private var qrJob: kotlinx.coroutines.Job? = null
+
+    fun startQrLogin(serverUrl: String) {
+        qrJob?.cancel()
+        val client = DeviceAuthClient(serverUrl)
+        if (!client.isValid) {
+            _qrLogin.value = QrLoginState.Failed(DeviceAuthError.INVALID_URL)
+            return
+        }
+        qrJob = viewModelScope.launch {
+            _qrLogin.value = QrLoginState.Starting
+            val req = DeviceAuthRequest(
+                clientDeviceIdentifier = settingsRepository.clientDeviceId(),
+                name = "Atril (${android.os.Build.MODEL})",
+                platform = "android",
+                clientVersion = BuildConfig.VERSION_NAME,
+            )
+            val code = client.init(req).getOrElse {
+                _qrLogin.value = QrLoginState.Failed((it as? DeviceAuthException)?.kind ?: DeviceAuthError.SERVER)
+                return@launch
+            }
+            _qrLogin.value = QrLoginState.Waiting(code, QrCode.encode(code.verificationUrl))
+            when (val out = client.awaitApproval(code)) {
+                is DeviceAuthOutcome.Success -> {
+                    val origin = DeviceAuthClient.normalizeOrigin(serverUrl)
+                    settingsRepository.setServerUrl(origin)
+                    settingsRepository.setApiKey(out.token.accessToken)
+                    settingsRepository.setLocalOnly(false)
+                    romRepository?.configureApi(origin, out.token.accessToken)
+                    _qrLogin.value = QrLoginState.Success
+                }
+                DeviceAuthOutcome.Denied -> _qrLogin.value = QrLoginState.Denied
+                DeviceAuthOutcome.Expired -> _qrLogin.value = QrLoginState.Expired
+                is DeviceAuthOutcome.Failed -> _qrLogin.value = QrLoginState.Failed(out.kind)
+            }
+        }
+    }
+
+    fun cancelQrLogin() {
+        qrJob?.cancel()
+        _qrLogin.value = QrLoginState.Idle
+    }
+
+    fun useLocalOnly() {
+        viewModelScope.launch { settingsRepository.setLocalOnly(true) }
+    }
+
+    /** Olvida servidor y token; los juegos locales se conservan. */
+    fun disconnectRomM() {
+        viewModelScope.launch { settingsRepository.disconnectRomM() }
+    }
+
     fun setServerUrl(url: String) {
         viewModelScope.launch { settingsRepository.setServerUrl(url) }
     }
@@ -277,6 +341,16 @@ class ConfigViewModel(
 /**
  * Estado del escaneo de biblioteca local.
  */
+sealed interface QrLoginState {
+    data object Idle : QrLoginState
+    data object Starting : QrLoginState
+    data class Waiting(val code: DeviceCode, val qr: QrMatrix) : QrLoginState
+    data object Success : QrLoginState
+    data object Denied : QrLoginState
+    data object Expired : QrLoginState
+    data class Failed(val kind: DeviceAuthError) : QrLoginState
+}
+
 sealed class LibraryScanState {
     data object Idle : LibraryScanState()
     data class Scanning(val platformName: String?) : LibraryScanState()

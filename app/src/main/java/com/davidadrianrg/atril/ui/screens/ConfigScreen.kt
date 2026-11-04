@@ -33,6 +33,7 @@ import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.SystemUpdateAlt
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Surface
@@ -111,6 +112,9 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
     var serverUrl by remember { mutableStateOf("") }
     var apiKey by remember { mutableStateOf("") }
     var apiKeyVisible by remember { mutableStateOf(false) }
+    var showManualToken by remember { mutableStateOf(false) }
+    var showQrDialog by remember { mutableStateOf(false) }
+    val qrState by viewModel.qrLogin.collectAsState()
 
     // ── Folder picker dialog state ───────────────────────────────────────
     var showRomsPicker by remember { mutableStateOf(false) }
@@ -208,6 +212,50 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
                     ),
                 )
                 Spacer(modifier = Modifier.height(12.dp))
+                if (!settings.isConfigured) {
+                    Button(
+                        onClick = { showQrDialog = true; viewModel.startQrLogin(serverUrl) },
+                        enabled = serverUrl.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(14.dp),
+                    ) { Text(tr("romm.connect_qr")) }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { viewModel.useLocalOnly() },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(14.dp),
+                    ) { Text(tr("romm.local_only")) }
+                    Text(
+                        tr("romm.local_only_hint"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                    if (settings.localOnly) {
+                        Text(
+                            tr("romm.disconnected_local"),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.padding(top = 6.dp),
+                        )
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = { viewModel.disconnectRomM(); serverUrl = ""; apiKey = "" },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(14.dp),
+                    ) { Text(tr("romm.disconnect")) }
+                    Text(
+                        tr("romm.disconnect_hint"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
+                TextButton(onClick = { showManualToken = !showManualToken }) {
+                    Text(tr("romm.advanced_token"))
+                }
+                if (showManualToken) {
                 OutlinedTextField(
                     value = apiKey,
                     onValueChange = { apiKey = it },
@@ -231,6 +279,7 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
                         }
                     },
                 )
+                }
             }
 
             // ── Almacenamiento ──────────────────────────────────────────
@@ -1007,8 +1056,8 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // ── Guardar ─────────────────────────────────────────────────
-            Button(
+            // ── Guardar (token manual) ─────────────────────────────────
+            if (showManualToken) Button(
                 onClick = {
                     viewModel.setServerUrl(serverUrl)
                     viewModel.setApiKey(apiKey)
@@ -1042,6 +1091,21 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
                         color = MaterialTheme.colorScheme.secondary,
                     )
                 }
+            }
+        }
+    }
+
+    if (showQrDialog) {
+        QrLoginDialog(
+            state = qrState,
+            onRetry = { viewModel.startQrLogin(serverUrl) },
+            onClose = { viewModel.cancelQrLogin(); showQrDialog = false },
+        )
+        // Conectado: cerrar solo tras mostrar el éxito un instante.
+        LaunchedEffect(qrState) {
+            if (qrState is com.davidadrianrg.atril.ui.viewmodel.QrLoginState.Success) {
+                kotlinx.coroutines.delay(1200)
+                viewModel.cancelQrLogin(); showQrDialog = false
             }
         }
     }
