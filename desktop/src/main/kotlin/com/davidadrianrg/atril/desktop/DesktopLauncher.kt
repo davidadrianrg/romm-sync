@@ -479,6 +479,17 @@ private fun InsertionOverlay(
             )
         }
 
+        // Sombra del medio sobre la consola. Va antes del medio para quedar
+        // DEBAJO de él (no oscurecer su borde inferior).
+        Box(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .offset(y = -consoleH + 2.dp)
+                .size(width = slotWidth * pose.shadowScale, height = 14.dp)
+                .graphicsLayer { alpha = pose.shadowAlpha }
+                .background(Brush.radialGradient(listOf(Color.Black, Color.Transparent)), RoundedCornerShape(50)),
+        )
+
         // Medio: baja en vertical (sin giros) y se hunde en la ranura; la consola lo tapa.
         Box(
             Modifier
@@ -507,16 +518,6 @@ private fun InsertionOverlay(
                 )
             }
         }
-
-        // Sombra del medio sobre la consola.
-        Box(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .offset(y = -consoleH + 2.dp)
-                .size(width = slotWidth * pose.shadowScale, height = 14.dp)
-                .graphicsLayer { alpha = pose.shadowAlpha }
-                .background(Brush.radialGradient(listOf(Color.Black, Color.Transparent)), RoundedCornerShape(50)),
-        )
 
         SlotConsole(
             slotWidth = slotWidth,
