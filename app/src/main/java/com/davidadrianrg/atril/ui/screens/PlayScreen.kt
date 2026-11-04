@@ -479,6 +479,9 @@ fun PlayScreen(
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             containerColor = MaterialTheme.colorScheme.surface,
             sheetMaxWidth = 1600.dp,
+            // Let the scrolling content run to the screen edge; the sheet
+            // body pads its own bottom for the gesture bar (no dead band).
+            contentWindowInsets = { androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0) },
         ) {
             RomDetailSheet(
                 rom = item.rom,
