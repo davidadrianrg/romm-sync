@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
+import com.davidadrianrg.atril.data.local.SettingsDataStore
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
@@ -62,6 +64,12 @@ fun ServerAssetsSection(
     var uploading by remember { mutableStateOf(false) }
     var downloadingId by remember { mutableStateOf<Int?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
+    // Descarga con destino elegible y borrado con confirmación.
+    var downloadTarget by remember { mutableStateOf<SaveDto?>(null) }
+    var deleteTarget by remember { mutableStateOf<SaveDto?>(null) }
+    var useCustomDir by remember { mutableStateOf(false) }
+    var customDir by remember { mutableStateOf(SettingsDataStore(context).getSaveDownloadDirBlocking()) }
+    var showFolderPicker by remember { mutableStateOf(false) }
 
     fun reload() {
         if (serverUrl.isBlank() || apiKey.isBlank()) return
@@ -147,24 +155,19 @@ fun ServerAssetsSection(
                         )
                     } else {
                         IconButton(
-                            onClick = {
-                                downloadingId = save.id
-                                message = null
-                                scope.launch {
-                                    val result = ManualSaveDownloader(context)
-                                        .download(romId, save.id, save.fileName)
-                                    downloadingId = null
-                                    message = result.fold(
-                                        { tr("saves.server.download_ok") },
-                                        { tr("saves.server.download_error", it.message ?: "") },
-                                    )
-                                }
-                            },
+                            onClick = { downloadTarget = save; useCustomDir = customDir.isNotBlank() },
                             enabled = downloadingId == null,
                         ) {
                             Icon(
                                 Icons.Filled.Download,
                                 contentDescription = tr("saves.server.download"),
+                            )
+                        }
+                        IconButton(onClick = { deleteTarget = save }, enabled = downloadingId == null) {
+                            Icon(
+                                Icons.Filled.Delete,
+                                contentDescription = tr("saves.server.delete"),
+                                tint = MaterialTheme.colorScheme.error,
                             )
                         }
                     }
@@ -201,6 +204,95 @@ fun ServerAssetsSection(
         message?.let {
             Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
         }
+    }
+
+    downloadTarget?.let { save ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { downloadTarget = null },
+            title = { Text(tr("saves.server.download_to", save.fileName)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.RadioButton(selected = !useCustomDir, onClick = { useCustomDir = false })
+                        Text(tr("saves.server.dest_sync"), style = MaterialTheme.typography.bodyMedium)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.RadioButton(
+                            selected = useCustomDir,
+                            enabled = customDir.isNotBlank(),
+                            onClick = { useCustomDir = true },
+                        )
+                        Text(
+                            if (customDir.isBlank()) tr("saves.server.dest_folder") else customDir,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                    androidx.compose.material3.TextButton(onClick = { showFolderPicker = true }) {
+                        Text(tr("saves.server.choose_folder"))
+                    }
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        val dir = if (useCustomDir) customDir else null
+                        downloadTarget = null
+                        downloadingId = save.id
+                        message = null
+                        scope.launch {
+                            val result = ManualSaveDownloader(context).download(romId, save.id, save.fileName, dir)
+                            downloadingId = null
+                            message = result.fold(
+                                { tr("saves.server.download_ok") },
+                                { tr("saves.server.download_error", it.message ?: "") },
+                            )
+                        }
+                    },
+                ) { Text(tr("saves.server.download")) }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { downloadTarget = null }) { Text(tr("common.cancel")) }
+            },
+        )
+    }
+    if (showFolderPicker) {
+        FolderPickerDialog(
+            initialPath = customDir.ifBlank { "/storage/emulated/0" },
+            onDismiss = { showFolderPicker = false },
+            onSelect = { path ->
+                customDir = path
+                useCustomDir = true
+                showFolderPicker = false
+                scope.launch { SettingsDataStore(context).setSaveDownloadDir(path) } // se recuerda
+            },
+        )
+    }
+    deleteTarget?.let { save ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text(tr("saves.server.delete")) },
+            text = { Text(tr("saves.server.delete_confirm", save.fileName)) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        deleteTarget = null
+                        scope.launch {
+                            val result = runCatching {
+                                NetworkModule.createApiService(serverUrl, apiKey).deleteSaves(mapOf("saves" to listOf(save.id)))
+                            }
+                            message = result.fold(
+                                { tr("saves.server.delete_ok") },
+                                { tr("saves.server.delete_error", it.message ?: "") },
+                            )
+                            if (result.isSuccess) reload()
+                        }
+                    },
+                ) { Text(tr("saves.server.delete"), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { deleteTarget = null }) { Text(tr("common.cancel")) }
+            },
+        )
     }
 }
 

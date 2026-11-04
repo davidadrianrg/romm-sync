@@ -16,7 +16,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import com.davidadrianrg.atril.core.i18n.tr
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -59,6 +61,29 @@ fun DetailGroup(
             AnimatedVisibility(expanded) {
                 Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) { content() }
             }
+        }
+    }
+}
+
+
+/** Estado de la conexión con RomM (servidor + última sincronización); los guardados van en su propio grupo. */
+@Composable
+internal fun RomMStatusRows(serverUrl: String) {
+    val container = (androidx.compose.ui.platform.LocalContext.current.applicationContext as com.davidadrianrg.atril.RomMSyncApplication).container
+    val lastSync by container.settingsRepository.lastSyncTimestamp.collectAsState(initial = 0L)
+    val summary by container.settingsRepository.lastSyncSummary.collectAsState(initial = "")
+    val host = runCatching { java.net.URI(serverUrl).host }.getOrNull() ?: serverUrl
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(tr("detail.romm.server", host), style = MaterialTheme.typography.bodyMedium)
+        Text(
+            if (lastSync > 0L) {
+                tr("detail.romm.last_sync", java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT).format(java.util.Date(lastSync)))
+            } else tr("detail.romm.never_synced"),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (summary.isNotBlank()) {
+            Text(summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
