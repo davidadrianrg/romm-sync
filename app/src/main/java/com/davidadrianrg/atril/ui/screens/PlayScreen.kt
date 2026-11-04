@@ -358,6 +358,10 @@ fun PlayScreen(
                                                 }
                                                 true
                                             }
+                                            // A del mando (→ DPAD_CENTER) / Enter: el pager tiene el foco
+                                            // y no es clickable; abre la ficha como el toque en la carátula.
+                                            Key.DirectionCenter, Key.Enter, Key.NumPadEnter ->
+                                                current?.let { selectedRomId = it.rom.id; true } ?: false
                                             else -> false
                                         }
                                     },

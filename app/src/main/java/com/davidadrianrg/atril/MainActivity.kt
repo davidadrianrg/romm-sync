@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
+import kotlin.math.abs
 import com.davidadrianrg.atril.core.input.PadAction
 import com.davidadrianrg.atril.core.input.PadKeyMap
 import com.davidadrianrg.atril.core.input.StickRepeater
@@ -76,6 +77,13 @@ class MainActivity : ComponentActivity() {
                 val t = event.eventTime
                 super.dispatchKeyEvent(KeyEvent(t, t, KeyEvent.ACTION_DOWN, code, 0))
                 super.dispatchKeyEvent(KeyEvent(t, t, KeyEvent.ACTION_UP, code, 0))
+                return true
+            }
+            // Mientras el stick está inclinado hay que consumir también los eventos sin pulsación
+            // (entre repeticiones): si no, el SyntheticJoystickHandler de ViewRootImpl convierte
+            // AXIS_X/Y en DPAD por su cuenta y el foco avanza dos veces. Con el stick centrado se
+            // deja pasar para que los mandos que reportan la cruceta como HAT sigan funcionando.
+            if (abs(event.getAxisValue(MotionEvent.AXIS_X)) >= 0.5f || abs(event.getAxisValue(MotionEvent.AXIS_Y)) >= 0.5f) {
                 return true
             }
         }
