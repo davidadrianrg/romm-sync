@@ -20,6 +20,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
+import com.davidadrianrg.atril.ui.input.focusRing
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -464,6 +465,7 @@ internal fun LauncherMenuOverlay(
                         Modifier
                             .fillMaxWidth()
                             .heightIn(min = 56.dp)
+                            .focusRing()
                             .clip(RoundedCornerShape(16.dp))
                             .background(if (selected) LauncherAmber.copy(alpha = 0.14f) else Color.Transparent)
                             .clickable(role = Role.Button) { onNavigate(screen) }

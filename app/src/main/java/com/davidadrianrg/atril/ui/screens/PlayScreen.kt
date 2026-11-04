@@ -7,6 +7,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import com.davidadrianrg.atril.ui.input.focusRing
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -35,6 +36,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PageSize
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -241,6 +249,14 @@ fun PlayScreen(
         }
     }
 
+    // Start / Menu del mando abre o cierra el menú del launcher.
+    LaunchedEffect(Unit) {
+        com.davidadrianrg.atril.ui.input.PadEvents.menu.collect { if (insertion == null) menuOpen = !menuOpen }
+    }
+    // Foco inicial en el carrusel: ←/→ (D-pad, stick o teclado) cambian de juego.
+    val carouselFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(visibleItems.isNotEmpty()) { runCatching { carouselFocus.requestFocus() } }
+
     BackHandler(enabled = insertion != null) { launchJob?.cancel() }
     BackHandler(enabled = menuOpen && insertion == null) { menuOpen = false }
 
@@ -326,7 +342,25 @@ fun PlayScreen(
                                 // escritorio) en lugar de cortarse contra el título.
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .then(if (landscape) Modifier.fadeEdges() else Modifier),
+                                    .then(if (landscape) Modifier.fadeEdges() else Modifier)
+                                    .focusRequester(carouselFocus)
+                                    .focusable()
+                                    .onKeyEvent { ev ->
+                                        if (ev.type != KeyEventType.KeyDown || insertion != null || menuOpen) return@onKeyEvent false
+                                        when (ev.key) {
+                                            Key.DirectionLeft -> {
+                                                scope.launch { pagerState.animateScrollToPage((pagerState.currentPage - 1).coerceAtLeast(0)) }
+                                                true
+                                            }
+                                            Key.DirectionRight -> {
+                                                scope.launch {
+                                                    pagerState.animateScrollToPage((pagerState.currentPage + 1).coerceAtMost(visibleItems.lastIndex))
+                                                }
+                                                true
+                                            }
+                                            else -> false
+                                        }
+                                    },
                             ) { page ->
                                 val item = visibleItems[page]
                                 val selected = page == pagerState.currentPage
@@ -345,6 +379,7 @@ fun PlayScreen(
                                             translationY = -10.dp.toPx() * lift
                                             this.alpha = if (hidden) 0f else alpha
                                         }
+                                        .focusRing()
                                         .clickable(
                                             onClickLabel = if (selected) tr("launcher.details") else null,
                                         ) {
