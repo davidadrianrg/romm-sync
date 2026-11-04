@@ -1447,6 +1447,12 @@ fun SettingsScreen(state: DesktopAppState) {
     val romsRoot = remember { mutableStateOf(state.config.romsRoot) }
     val connected by state.connected.collectAsState()
     var showApiKey by remember { mutableStateOf(false) }
+    var showManualToken by remember { mutableStateOf(false) }
+    var showQr by remember { mutableStateOf(false) }
+    val qrState by state.qrLogin.collectAsState()
+    // DesktopConfig no es estado de Compose: se refresca a mano tras conectar/desconectar.
+    fun configHasCredentials() = state.config.apiKey.isNotBlank() && state.config.serverUrl.isNotBlank()
+    var hasCredentials by remember { mutableStateOf(configHasCredentials()) }
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp).widthIn(max = SettingsMaxWidth),
@@ -1542,6 +1548,29 @@ fun SettingsScreen(state: DesktopAppState) {
             )
         }
 
+        LaunchedEffect(qrState) {
+            if (qrState is com.davidadrianrg.atril.core.auth.QrLoginState.Success) {
+                // El token del QR ya está guardado: alinear los campos para que el formulario
+                // manual no reescriba la config con la URL/token anteriores.
+                serverUrl.value = state.config.serverUrl
+                apiKey.value = state.config.apiKey
+                hasCredentials = configHasCredentials()
+            }
+        }
+        if (showQr) {
+            QrLoginDialog(
+                qrState,
+                onRetry = { state.startQrLogin(serverUrl.value) },
+                onClose = { state.cancelQrLogin(); showQr = false },
+            )
+            LaunchedEffect(qrState) {
+                if (qrState is com.davidadrianrg.atril.core.auth.QrLoginState.Success) {
+                    kotlinx.coroutines.delay(1200)
+                    state.cancelQrLogin(); showQr = false
+                }
+            }
+        }
+
         // ── Servidor ──
         SettingsSection(icon = AppIcons.Storage, title = tr("settings.server.title")) {
             OutlinedTextField(
@@ -1552,6 +1581,36 @@ fun SettingsScreen(state: DesktopAppState) {
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
+            Spacer(Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Button(
+                    onClick = { showQr = true; state.startQrLogin(serverUrl.value) },
+                    enabled = serverUrl.value.isNotBlank(),
+                ) { Text(tr("romm.connect_qr")) }
+                Spacer(Modifier.width(12.dp))
+                if (hasCredentials) {
+                    OutlinedButton(onClick = { state.disconnect(); apiKey.value = ""; hasCredentials = false }) { Text(tr("romm.disconnect")) }
+                    Spacer(Modifier.width(12.dp))
+                }
+                if (connected) {
+                    Icon(
+                        AppIcons.CheckCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(tr("settings.server.connected"), color = MaterialTheme.colorScheme.secondary)
+                }
+            }
+            Text(
+                if (hasCredentials) tr("romm.disconnect_hint") else tr("romm.local_only_hint"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+            TextButton(onClick = { showManualToken = !showManualToken }) { Text(tr("romm.advanced_token")) }
+            if (showManualToken) {
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
                 apiKey.value,
@@ -1574,25 +1633,14 @@ fun SettingsScreen(state: DesktopAppState) {
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(12.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Button(
-                    onClick = {
-                        state.config.romsRoot = romsRoot.value
-                        state.connect(serverUrl.value, apiKey.value)
-                    },
-                    enabled = serverUrl.value.isNotBlank() && apiKey.value.isNotBlank(),
-                ) { Text(tr("settings.server.save_and_connect")) }
-                Spacer(Modifier.width(12.dp))
-                if (connected) {
-                    Icon(
-                        AppIcons.CheckCircle,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(tr("settings.server.connected"), color = MaterialTheme.colorScheme.secondary)
-                }
+            Button(
+                onClick = {
+                    state.config.romsRoot = romsRoot.value
+                    state.connect(serverUrl.value, apiKey.value)
+                    hasCredentials = configHasCredentials()
+                },
+                enabled = serverUrl.value.isNotBlank() && apiKey.value.isNotBlank(),
+            ) { Text(tr("settings.server.save_and_connect")) }
             }
         }
 

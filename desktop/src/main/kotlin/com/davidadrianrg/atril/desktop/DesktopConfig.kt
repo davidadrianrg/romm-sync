@@ -15,6 +15,11 @@ object DesktopConfig {
         get() = prefs.get("api_key", "")
         set(v) = prefs.put("api_key", v)
 
+    /** Stable id the RomM server lists under "connected devices" for the QR login. */
+    val clientDeviceId: String
+        get() = prefs.get("client_device_id", null) ?: ("atril-desktop-" + java.util.UUID.randomUUID())
+            .also { prefs.put("client_device_id", it) }
+
     var romsRoot: String
         get() = prefs.get("roms_root", defaultRomsRoot())
         set(v) = prefs.put("roms_root", v)

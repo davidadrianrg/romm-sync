@@ -1103,7 +1103,7 @@ fun ConfigScreen(onOpenPlatforms: () -> Unit = {}) {
         )
         // Conectado: cerrar solo tras mostrar el éxito un instante.
         LaunchedEffect(qrState) {
-            if (qrState is com.davidadrianrg.atril.ui.viewmodel.QrLoginState.Success) {
+            if (qrState is com.davidadrianrg.atril.core.auth.QrLoginState.Success) {
                 kotlinx.coroutines.delay(1200)
                 viewModel.cancelQrLogin(); showQrDialog = false
             }
