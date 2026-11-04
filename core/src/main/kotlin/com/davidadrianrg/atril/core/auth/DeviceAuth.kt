@@ -224,13 +224,17 @@ class DeviceAuthClient(
     private data class ErrorBody(val detail: String? = null)
 
     companion object {
-        /** `host:port`, with or without scheme/trailing slash/path → `https://host` origin. */
+        /**
+         * `host:port[/subpath]`, with or without scheme/trailing slash → base URL without
+         * query/fragment. The path is kept: the API client resolves `api/...` relative to it,
+         * so a RomM behind a reverse-proxy subpath works the same as with a manual token.
+         */
         fun normalizeOrigin(input: String): String {
             var s = input.trim().trimEnd('/')
             if (s.isEmpty()) return ""
             if (!s.contains("://")) s = "https://$s"
             val u = s.toHttpUrlOrNull() ?: return s
-            return u.newBuilder().encodedPath("/").query(null).fragment(null).build()
+            return u.newBuilder().query(null).fragment(null).build()
                 .toString().trimEnd('/')
         }
     }

@@ -103,8 +103,17 @@ class DeviceAuthTest {
 
     @Test fun normalizeOrigin() {
         assertEquals("https://romm.x.org", DeviceAuthClient.normalizeOrigin("romm.x.org/"))
-        assertEquals("http://10.0.0.2:8080", DeviceAuthClient.normalizeOrigin(" http://10.0.0.2:8080/app?x=1 "))
+        assertEquals("http://10.0.0.2:8080", DeviceAuthClient.normalizeOrigin(" http://10.0.0.2:8080/?x=1 "))
+        assertEquals("http://10.0.0.2:8080/romm", DeviceAuthClient.normalizeOrigin("http://10.0.0.2:8080/romm/?x=1#f"))
         assertEquals("", DeviceAuthClient.normalizeOrigin("  "))
+    }
+
+    @Test fun subpathServerUsesSubpathForApiAndQr() = runBlocking {
+        val sub = DeviceAuthClient(server.url("/romm/").toString())
+        server.enqueue(MockResponse().setResponseCode(201).setBody(initOk))
+        val code = sub.init(req).getOrThrow()
+        assertEquals("/romm/api/auth/device/init", server.takeRequest().path)
+        assertEquals(server.url("/romm").toString() + "/pair/device?user_code=ABCD1234", code.verificationUrl)
     }
 
     @Test fun qrMatrixIsSquareAndHasFinderPattern() {
