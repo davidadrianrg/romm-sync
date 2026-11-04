@@ -157,19 +157,8 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
                             )
                             Spacer(Modifier.width(6.dp))
                             Text(tr("common.downloaded"), color = MaterialTheme.colorScheme.secondary)
-                            Spacer(Modifier.width(16.dp))
-                            OutlinedButton(
-                                onClick = { showDeleteDialog = true },
-                                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.error,
-                                ),
-                            ) {
-                                Icon(AppIcons.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text(tr("game.delete_download"))
-                            }
                             if (state.isManualDownloaded(card)) {
-                                Spacer(Modifier.width(10.dp))
+                                Spacer(Modifier.width(16.dp))
                                 OutlinedButton(onClick = { state.unmarkDownloadedManually(card) }) {
                                     Text(tr("library.unmark_downloaded"))
                                 }
@@ -270,6 +259,24 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
                 state = state,
                 onDismiss = { showMatchDialog = false },
             )
+        }
+
+        // ── Eliminar descarga: siempre al final; el diálogo pide confirmación ──
+        if (card.downloaded) {
+            Spacer(Modifier.height(32.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(20.dp))
+            OutlinedButton(
+                onClick = { showDeleteDialog = true },
+                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error,
+                ),
+            ) {
+                Icon(AppIcons.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(tr("game.delete_download"))
+            }
+            Spacer(Modifier.height(24.dp))
         }
     }
 
