@@ -9,6 +9,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -348,7 +349,12 @@ fun DesktopPlayScreen(
                                             scaleY = scale
                                             this.alpha = alpha
                                         }
-                                        .clickable {
+                                        // Sin indicación: la página ocupa todo el carrusel y el
+                                        // estado hover de Material la teñía entera.
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null,
+                                        ) {
                                             if (isCurrent) state.openGame(entry.card)
                                             else scope.launch { pagerState.scrollToPage(page) }
                                         },
@@ -440,7 +446,11 @@ private fun InsertionOverlay(
         Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.86f * appear))
-            .clickable(onClick = onCancel),
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onCancel,
+            ),
     ) {
         val mediaSize = minOf(maxWidth * 0.38f, maxHeight * 0.42f).coerceAtLeast(160.dp)
         val slotY = maxHeight * 0.25f
