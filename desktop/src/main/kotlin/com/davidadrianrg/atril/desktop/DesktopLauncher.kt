@@ -438,27 +438,28 @@ private fun InsertionOverlay(
 ) {
     val entry = insertion.entry
     val optical = LaunchPlatforms.isOptical(entry.card.rep.platformSlug ?: "")
-    val pose = com.davidadrianrg.atril.core.launch.InsertionMotion.pose(progress, optical)
+    val pose = com.davidadrianrg.atril.core.launch.InsertionMotion.pose(progress)
     val appear = pose.appear
-    val glow = (pose.glow + 0.5f * pose.impact).coerceAtMost(1.4f)
+    val glow = (pose.glow + 0.5f * pose.impact).coerceAtMost(1f)
 
     BoxWithConstraints(
         Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.86f * appear))
+            .background(Color(0xFF050507).copy(alpha = 0.94f * appear))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onCancel,
             ),
     ) {
-        val mediaSize = minOf(maxWidth * 0.38f, maxHeight * 0.42f).coerceAtLeast(160.dp)
-        val slotY = maxHeight * 0.25f
+        val mediaSize = minOf(maxWidth * 0.34f, maxHeight * 0.40f).coerceAtLeast(160.dp)
+        val consoleH = maxHeight * 0.17f
+        val slotWidth = mediaSize * if (optical) 1.02f else 1.0f
 
         Column(
             Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = 28.dp)
+                .padding(top = 24.dp)
                 .graphicsLayer { alpha = appear },
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -478,56 +479,21 @@ private fun InsertionOverlay(
             )
         }
 
+        // Medio: baja en vertical (sin giros) y se hunde en la ranura; la consola lo tapa.
         Box(
             Modifier
-                .align(Alignment.Center)
-                .offset(y = slotY)
-                .size(width = mediaSize * 1.08f, height = 20.dp)
-                .graphicsLayer { alpha = appear }
-                .shadow(
-                    (6 + 22 * glow).dp,
-                    RoundedCornerShape(10.dp),
-                    spotColor = PlayAmber,
-                    ambientColor = PlayAmber,
-                )
-                .clip(RoundedCornerShape(10.dp))
-                .background(PlayBgBottom)
-                .border(
-                    1.5.dp,
-                    PlayAmber.copy(alpha = (0.35f + 0.65f * glow).coerceIn(0f, 1f)),
-                    RoundedCornerShape(10.dp),
-                ),
-        )
-
-        // Sombra proyectada sobre la ranura: crece y se oscurece al acercarse.
-        Box(
-            Modifier
-                .align(Alignment.Center)
-                .offset(y = slotY - 6.dp)
-                .size(width = mediaSize * 1.08f * pose.shadowScale, height = 18.dp)
-                .graphicsLayer { alpha = pose.shadowAlpha }
-                .background(
-                    Brush.radialGradient(listOf(Color.Black, Color.Transparent)),
-                    RoundedCornerShape(50),
-                ),
-        )
-
-        Box(
-            Modifier
-                .align(Alignment.Center)
+                .align(Alignment.TopCenter)
                 .size(mediaSize)
                 .graphicsLayer {
-                    val travelPx = slotY.toPx() - mediaSize.toPx() * 0.18f
-                    translationY = -mediaSize.toPx() * (0.16f * (1f - pose.travel) + pose.arc) +
-                        travelPx * pose.travel
+                    val h = mediaSize.toPx()
+                    val startBottom = maxHeight.toPx() * 0.60f
+                    val rest = maxHeight.toPx() - consoleH.toPx() + 4.dp.toPx()
+                    val bottom = startBottom + (rest - startBottom) * pose.drop + h * 0.78f * pose.seat
+                    translationY = bottom - h
                     scaleX = pose.scale
-                    scaleY = pose.scale * pose.squashY
-                    rotationX = pose.rotationX
-                    rotationY = pose.rotationY
-                    rotationZ = pose.rotationZ
-                    cameraDistance = 12f * 1000f
-                    alpha = pose.alpha
-                    transformOrigin = TransformOrigin(0.5f, if (optical) 0.5f else 1f)
+                    scaleY = pose.scale
+                    transformOrigin = TransformOrigin(0.5f, 1f)
+                    alpha = appear
                 },
             contentAlignment = Alignment.Center,
         ) {
@@ -541,6 +507,104 @@ private fun InsertionOverlay(
                 )
             }
         }
+
+        // Sombra del medio sobre la consola.
+        Box(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .offset(y = -consoleH + 2.dp)
+                .size(width = slotWidth * pose.shadowScale, height = 14.dp)
+                .graphicsLayer { alpha = pose.shadowAlpha }
+                .background(Brush.radialGradient(listOf(Color.Black, Color.Transparent)), RoundedCornerShape(50)),
+        )
+
+        SlotConsole(
+            slotWidth = slotWidth,
+            glow = glow,
+            impact = pose.impact,
+            accent = PlayAmber,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .height(consoleH)
+                .graphicsLayer { translationY = (1f - pose.console) * consoleH.toPx() },
+        )
+    }
+}
+
+
+/**
+ * Consola oscura del borde inferior con la ranura: bisel metálico, raíles
+ * laterales, sombra interior y un LED que se ilumina al encajar. Se dibuja
+ * por ENCIMA del medio, así el cartucho se hunde «dentro» de la ranura.
+ */
+@Composable
+private fun SlotConsole(
+    slotWidth: androidx.compose.ui.unit.Dp,
+    glow: Float,
+    impact: Float,
+    accent: Color,
+    modifier: Modifier = Modifier,
+) {
+    val g = glow.coerceIn(0f, 1f)
+    Box(
+        modifier
+            .fillMaxWidth()
+            .graphicsLayer { translationY = impact * 2.5f * density }
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0xFF2A2A2C), Color(0xFF161617), Color(0xFF0C0C0D)),
+                ),
+            ),
+    ) {
+        // Filo metálico del borde superior de la consola.
+        Box(
+            Modifier.fillMaxWidth().height(2.dp).background(
+                Brush.horizontalGradient(
+                    listOf(Color(0xFF3A3A3D), Color(0xFF8E8E93), Color(0xFF3A3A3D)),
+                ),
+            ),
+        )
+        // Boca de la ranura (hueco oscuro con sombra interior).
+        Box(
+            Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 2.dp)
+                .size(width = slotWidth, height = 18.dp)
+                .shadow((2 + 14 * g).dp, RoundedCornerShape(bottomStart = 9.dp, bottomEnd = 9.dp), spotColor = accent, ambientColor = accent)
+                .clip(RoundedCornerShape(bottomStart = 9.dp, bottomEnd = 9.dp))
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color.Black, Color(0xFF050505), Color(0xFF1B1B1D)),
+                    ),
+                )
+                .border(
+                    1.dp,
+                    accent.copy(alpha = 0.18f + 0.7f * g),
+                    RoundedCornerShape(bottomStart = 9.dp, bottomEnd = 9.dp),
+                ),
+        )
+        // Raíles laterales de la ranura.
+        listOf(-1, 1).forEach { side ->
+            Box(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .offset(x = (slotWidth / 2 + 6.dp) * side, y = 4.dp)
+                    .size(width = 4.dp, height = 12.dp)
+                    .background(Color(0xFF5A5A5F), RoundedCornerShape(2.dp)),
+            )
+        }
+        // LED central.
+        Box(
+            Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = 24.dp)
+                .size(7.dp)
+                .shadow((1 + 10 * g).dp, androidx.compose.foundation.shape.CircleShape, spotColor = accent, ambientColor = accent)
+                .background(
+                    androidx.compose.ui.graphics.lerp(Color(0xFF3A2A12), accent, g),
+                    androidx.compose.foundation.shape.CircleShape,
+                ),
+        )
     }
 }
 
