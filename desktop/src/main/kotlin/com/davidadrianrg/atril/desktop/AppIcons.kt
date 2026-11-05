@@ -1,6 +1,7 @@
 package com.davidadrianrg.atril.desktop
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.addPathNodes
@@ -200,24 +201,26 @@ object AppIcons {
     }
 }
 
-/** Construye un ImageVector de 24dp a partir de 1-2 path data de Material. */
-private fun icon(name: String, paths: () -> Pair<String, String?>): ImageVector {
+/**
+ * Construye un ImageVector de 24dp a partir de 1-2 path data de Material.
+ *
+ * El segundo path suele ser un "agujero" (el "+" del mando, el centro del engranaje,
+ * los puntos del dado). Si se pintase como una forma aparte quedaría relleno y el icono
+ * se vería como un rectángulo sólido, así que se unen en un único path con relleno
+ * par-impar (even-odd), que recorta el segundo dentro del primero.
+ */
+internal fun icon(name: String, paths: () -> Pair<String, String?>): ImageVector {
     val (p1, p2) = paths()
-    val builder = ImageVector.Builder(
+    return ImageVector.Builder(
         name = name,
         defaultWidth = 24.dp,
         defaultHeight = 24.dp,
         viewportWidth = 24f,
         viewportHeight = 24f,
     ).addPath(
-        pathData = addPathNodes(p1),
+        pathData = addPathNodes(if (p2 != null) "$p1 $p2" else p1),
+        pathFillType = if (p2 != null) PathFillType.EvenOdd else PathFillType.NonZero,
         fill = SolidColor(Color.Black),
         fillAlpha = 1f,
-    )
-    val withSecond = if (p2 != null) {
-        builder.addPath(pathData = addPathNodes(p2), fill = SolidColor(Color.Black), fillAlpha = 1f)
-    } else {
-        builder
-    }
-    return withSecond.build()
+    ).build()
 }
