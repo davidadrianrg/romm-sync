@@ -41,13 +41,13 @@ fun FilledTonalIconButton(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .size((size * 0.46f).coerceAtLeast(16.dp))
-                    .background(MaterialTheme.colorScheme.error, CircleShape),
+                    .background(androidx.compose.ui.graphics.Color(0xFFE8B56A), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = badge,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onError,
+                    color = androidx.compose.ui.graphics.Color(0xFF2A1D08),
                     maxLines = 1,
                 )
             }
