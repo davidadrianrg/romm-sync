@@ -100,9 +100,11 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
             }
             Spacer(Modifier.width(36.dp))
             Column(Modifier.weight(1f)) {
-                rep.platformSlug?.let {
+                val platforms by state.platforms.collectAsState()
+                rep.platformSlug?.let { slug ->
+                    val p = platforms.firstOrNull { it.slug == slug }
                     Text(
-                        it.uppercase(),
+                        p?.let { it.displayName ?: it.name } ?: slug.uppercase(),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
                     )

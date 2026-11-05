@@ -147,7 +147,7 @@ Estado del resto según las capturas nuevas:
 - **P2-4 ("None" en Plataformas): pendiente** (`17`).
 - **P2-5 (selector de plataformas sin búsqueda): pendiente.** Sigue siendo un desplegable simple para 72 plataformas (`04`).
 - **P2-10 (sangría del enlace): pendiente, también en Android.** "Advanced: paste an API token" empieza en x≈326, mientras que el resto del contenido de la tarjeta empieza en x≈294 (`08`).
-- **Nuevo (P2), hoja de detalle (`16`, revisada por primera vez):** debajo del título aparece el slug de la plataforma, "ACPC", en lugar de su nombre ("Amstrad CPC", como en el desplegable). → Mostrar el nombre de la plataforma.
+- **Nuevo (P2), hoja de detalle (`16`, revisada por primera vez):** debajo del título aparece el slug de la plataforma, "ACPC", en lugar de su nombre ("Amstrad CPC", como en el desplegable). → Mostrar el nombre de la plataforma. **Hecho** (`6b7fc09` + `feat/opus-review-4`, ver abajo).
 - **Nuevo (P1, verificar), hoja de detalle en horizontal (`16`):** sin desplazarse no se ve ninguna acción principal (Descargar o Jugar). La hoja muestra la carátula, la descripción y "Media", y la acción, si existe, queda debajo. → Poner la acción principal junto al título, a la derecha de la carátula.
 - Sigue sin haber capturas de los estados de carga y error, ni de los diálogos de QR, borrado y carpeta.
 
@@ -159,3 +159,12 @@ Diff revisado: `4741f00..e378802` (`ConfigScreen.kt` en Android y `DesktopUi.kt`
 - **Sin verificar:** las capturas del manifiesto (16:22–16:25) son anteriores a `a97ff95` (16:38). `08-settings-romm` todavía muestra el botón sin el color de error, y sigue sin haber capturas de escritorio. → Repetir `08` con el APK actual y una captura de Ajustes › RomM en escritorio.
 - **Pendiente (P1-5):** en Android, "Disconnect RomM" sigue ocupando todo el ancho, mientras que en escritorio va en línea junto a "Connect with QR". "Sync now" sigue siendo ámbar a todo el ancho (`07`).
 - No hay cambios en la sync, en las descargas ni en el diseño en horizontal en este rango. El resto de puntos sigue como en la sección anterior.
+
+---
+
+## Seguimiento (revisión de `6b7fc09`, nombre de plataforma en la hoja de detalle)
+Diff revisado: `f1ad6f4..21f0dd9` (solo `LibraryScreen.kt`).
+- **P2 "slug en la hoja de detalle": el arreglo estaba incompleto. Corregido en `feat/opus-review-4`.** `6b7fc09` solo pasaba `platformName` desde la Biblioteca de Android. La misma `RomDetailSheet` abierta desde **Play** seguía mostrando "ACPC", porque el parámetro tiene `null` por defecto y el compilador no avisaba. El detalle de **escritorio** (`GameDetail.kt`) también seguía con `platformSlug.uppercase()`, así que se rompía la paridad. Ahora Play pasa `item.platformLabel` (nombre, o el slug si no hay plataforma) y escritorio usa `displayName ?: name` de `state.platforms`, igual que `launchFile`. Si la plataforma no está cargada, se sigue mostrando el slug.
+- Sin tests nuevos: es una etiqueta de UI sin lógica que se pueda probar de forma aislada. Pasan `:core:test`, `:desktop:test`, `testDebugUnitTest` y `:app:assembleDebug`.
+- **Sin verificar visualmente:** las capturas del manifiesto (16:22–16:25) son anteriores a `6b7fc09` y siguen sin existir capturas de escritorio. → Repetir `16-library-detail`, el detalle abierto desde Play y el detalle en escritorio.
+- No hay cambios en la sync, en las descargas ni en el diseño en horizontal en este rango. **Pendiente (P1, verificar):** en horizontal, la acción principal de la hoja de detalle sigue fuera de la vista inicial (`16`). El resto de puntos sigue como en las secciones anteriores.
