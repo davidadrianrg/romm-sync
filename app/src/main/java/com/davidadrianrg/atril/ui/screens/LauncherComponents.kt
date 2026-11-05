@@ -469,7 +469,7 @@ internal fun LauncherMenuOverlay(
                             .heightIn(min = 56.dp)
                             .focusRing()
                             .clip(RoundedCornerShape(16.dp))
-                            .background(if (selected) LauncherAmber.copy(alpha = 0.14f) else Color.Transparent)
+                            .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
                             .clickable(role = Role.Button) { onNavigate(screen) }
                             .padding(horizontal = 14.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -477,13 +477,13 @@ internal fun LauncherMenuOverlay(
                         Icon(
                             if (selected) screen.selectedIcon else screen.icon,
                             contentDescription = null,
-                            tint = if (selected) LauncherAmber else LauncherCream.copy(alpha = 0.8f),
+                            tint = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else LauncherCream.copy(alpha = 0.8f),
                         )
                         Spacer(Modifier.width(16.dp))
                         Text(
                             screen.title,
                             style = MaterialTheme.typography.titleMedium,
-                            color = if (selected) LauncherAmber else LauncherCream,
+                            color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else LauncherCream,
                         )
                     }
                 }
