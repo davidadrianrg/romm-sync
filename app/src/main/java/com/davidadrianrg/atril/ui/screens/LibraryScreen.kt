@@ -45,13 +45,13 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.outlined.Album
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.Casino
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.DownloadDone
 import androidx.compose.material.icons.outlined.Upload
@@ -577,7 +577,7 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
                 // Juego aleatorio de la vista actual
                 if (romsWithStatus.isNotEmpty()) {
                     IconButton(onClick = { selectedRom = romsWithStatus.random().rom }) {
-                        Icon(Icons.Filled.Casino, contentDescription = tr("library.random_game"))
+                        Icon(Icons.Outlined.Casino, contentDescription = tr("library.random_game"))
                     }
                 }
 
