@@ -362,7 +362,9 @@ fun DesktopPlayScreen(
                             val pageWidth = if (landscape) {
                                 minOf(720.dp, maxWidth * 0.64f, maxHeight * 0.90f * 0.70f)
                             } else {
-                                minOf(420.dp, maxWidth * 0.68f, maxHeight * 0.52f * 0.70f)
+                                // maxHeight ya es solo la franja superior (58 %): no volver
+                                // a encoger, la carta usa el 90 % de esa franja.
+                                minOf(420.dp, maxWidth * 0.68f, maxHeight * 0.90f * 0.70f)
                             }.coerceAtLeast(220.dp)
                             HorizontalPager(
                                 state = pagerState,
