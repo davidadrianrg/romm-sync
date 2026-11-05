@@ -203,7 +203,7 @@ fun formatTimestamp(epochMillis: Long): String {
 }
 
 /** Ancho de contenido máximo de las pantallas de formulario (Ajustes). */
-val SettingsMaxWidth: Dp = 560.dp
+val SettingsMaxWidth: Dp = 1100.dp
 
 /**
  * Anillo de foco visible para navegar con teclado o mando. Debe ir ANTES de `clickable`
