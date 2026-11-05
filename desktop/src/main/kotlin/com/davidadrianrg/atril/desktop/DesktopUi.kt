@@ -1641,7 +1641,11 @@ fun SettingsScreen(state: DesktopAppState) {
                 ) { Text(tr("romm.connect_qr")) }
                 Spacer(Modifier.width(12.dp))
                 if (hasCredentials) {
-                    OutlinedButton(onClick = { state.disconnect(); apiKey.value = ""; hasCredentials = false }) { Text(tr("romm.disconnect")) }
+                    OutlinedButton(
+                        onClick = { state.disconnect(); apiKey.value = ""; hasCredentials = false },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                    ) { Text(tr("romm.disconnect")) }
                     Spacer(Modifier.width(12.dp))
                 }
                 if (connected) {
