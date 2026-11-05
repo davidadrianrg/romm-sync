@@ -693,7 +693,11 @@ private fun LauncherHeader(
         }
         RoundIconButton(Icons.Filled.Add, tr("local.add"), onAddLocal)
         Spacer(Modifier.width(8.dp))
-        RoundIconButton(Icons.Outlined.Download, tr("nav.downloads"), onOpenDownloads)
+        com.davidadrianrg.atril.ui.components.DownloadQueueButton(
+            onClick = onOpenDownloads,
+            tint = LauncherCream,
+            modifier = Modifier.clip(CircleShape).background(LauncherCream.copy(alpha = 0.08f)),
+        )
     }
 }
 

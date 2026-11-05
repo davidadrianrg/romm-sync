@@ -582,9 +582,7 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
                 }
 
                 // Cola de descargas (ya no es una pestaña propia)
-                IconButton(onClick = onOpenDownloads) {
-                    Icon(Icons.Outlined.Download, contentDescription = tr("nav.downloads"))
-                }
+                com.davidadrianrg.atril.ui.components.DownloadQueueButton(onClick = onOpenDownloads)
 
                 // Subir juego al servidor
                 IconButton(onClick = { showUploadGame = true }) {

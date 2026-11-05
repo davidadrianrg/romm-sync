@@ -623,7 +623,7 @@ fun LibraryScreen(state: DesktopAppState) {
             IconButton(onClick = { state.navigate(Section.DOWNLOADS) }) {
                 val active = tasks.count { it.active }
                 if (active > 0) {
-                    BadgedBox(badge = { Badge(containerColor = MaterialTheme.colorScheme.error) { Text("$active") } }) {
+                    BadgedBox(badge = { Badge(containerColor = Color(0xFFE8B56A), contentColor = Color(0xFF2A1D08)) { Text("$active") } }) {
                         Icon(AppIcons.Download, contentDescription = tr("nav.downloads"))
                     }
                 } else {
