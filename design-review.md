@@ -1,6 +1,6 @@
 # Revisión de diseño de Atril: coherencia visual (Android 2400×1080 + escritorio 2560×1440)
 
-Fuente: `/tmp/atril-screens/manifest.md`, con 18 capturas de Android y 12 de escritorio. Se abrieron todas.
+Fuente original: `/tmp/atril-screens/manifest.md` (ya borrado; ver el último seguimiento para las capturas actuales), con 18 capturas de Android y 12 de escritorio. Se abrieron todas.
 Notas sobre las capturas:
 - `android/23` y `android/24` son el mismo archivo (mismo md5). Muestran la Biblioteca desplazada, no el detalle de un juego, así que **la pantalla de detalle no se ha revisado**. `desktop/01` y `desktop/03` también son idénticas.
 - Las capturas son de las 08:42–08:48. Después se integraron `c7fd511` y `9a512ee`. Las comprobé con las capturas más recientes de la misma carpeta (`v2-library-3do`, `w-lib-empty`): **ya están corregidos** la franja vacía sobre la barra de gestos, que Play y Biblioteca compartieran icono en el rail de Android y el estado vacío de la Biblioteca en Android (que solo era texto). No se repiten aquí.
@@ -125,3 +125,28 @@ Comprobado en vivo en sway (`/tmp/opus-review/full.png` a 2560×1440 y `narrow2.
 - **P0-3 sigue igual a 1,5×.** El cartucho de N64 se corta en seco en x≈1530, justo donde empieza el panel de información.
 - **Nuevo (P1), Play en ventana estrecha:** en `scale-1.png`, mientras carga la imagen del cartucho, el título del panel inferior se superpone a la etiqueta del marcador de posición ("Avatar: The Last Airbender…" aparece dos veces, encima). Con la imagen ya cargada (`narrow2.png`) no ocurre. → Reservar el hueco del panel inferior también en el estado de marcador de posición.
 - Límite conocido de `desktopUiScale`: con escala del sistema exactamente 1,25 todavía se añade el factor (1,25 × 1,5). Es poco probable en Linux, pero conviene tenerlo en cuenta si se empaqueta para Windows.
+
+---
+
+## Seguimiento (revisión de `a069573` + capturas de Android del 2026-11-05 16:22)
+Fuente: `~/.hermes/claude-loops/atril/screens/manifest.md` (16 capturas de Android en horizontal a 2400×1080). `/tmp/atril-screens` ya no existe y **no hay capturas de escritorio** de esta iteración (`grim` se colgaba), así que P0-1, P0-2 (ancho máximo), P0-3, P1-12 y P2-2/6/9 quedan **sin verificar**.
+
+**Aviso:** las capturas (16:22–16:25) son **anteriores** a `1c21142` (16:29) y `a069573` (16:34). En `05` y `16` todavía se ve el botón verde con ✓ e insignia salmón "207" y las insignias de descarga opacas de unos 88 px en las tarjetas. Por eso:
+- **P1-7 / P1-8 (insignias y botón batch): hecho en código, pendiente de verificación visual.** Revisando `a069573`: la pastilla ámbar crece con el texto y su ancho está limitado por el botón (46/52 dp), donde caben hasta 5 dígitos. Usa los mismos tokens que `DownloadQueueButton` y que el `Badge` de escritorio. No hay regresiones. Hay que repetir `05-library-acpc` con el APK actual.
+
+Estado del resto según las capturas nuevas:
+- **P1-4 (token de selección): hecho en parte.** En Android, el rail, los chips de la Biblioteca ("All"), las pestañas de Ajustes y los chips de idioma ya usan el mismo verde (`03`, `08`, `09`). **Pendiente:** el cajón de Play sigue resaltando "Play" en marrón/ámbar (`02`).
+- **P1-1 (dos modelos de navegación): pendiente.** Play sigue con hamburguesa y cajón sin rail (`01`, `02`), y las demás pestañas con rail.
+- **P1-2 (etiquetas): pendiente.** La misma sección se llama "Saves" en el rail, "Sync" como título de página (`07`) y "Sync & saves" en la pestaña de Ajustes (`11`).
+- **P1-3 (cabecera): pendiente.** En Ajustes, el título está en y≈95, las pestañas en y≈295 y el contenido empieza en y≈400. La cabecera ocupa un 37 % de la altura en horizontal y deja un hueco vacío de unos 130 px entre el título y las pestañas (`08`–`14`). **Nuevo (P2):** en la cola de descargas y en Plataformas, la flecha atrás (centro en y≈127) no está alineada con la línea del título (centro en y≈95) (`06`, `17`).
+- **P1-5 (jerarquía de botones): hecho en parte.** "Disconnect RomM" ya va en contorno, pero sigue ocupando todo el ancho y sin el color de error (`08`). "Sync now" sigue siendo ámbar a todo el ancho (`07`).
+- **P1-6 (barra de la Biblioteca): pendiente.** El desplegable (y 88–207) y el buscador (y 75–220) siguen teniendo alturas distintas (`03`, `05`). El dado aleatorio sigue siendo un cuadrado blanco relleno entre iconos de línea (`05`). El botón batch aparece al elegir plataforma y recorta el buscador (que pasa de terminar en x 2366 a terminar en x 2225).
+- **P1-11 (estados vacíos): pendiente.** Play no usa tarjeta (`01`), la Biblioteca usa una tarjeta con márgenes en x 242–2366 (`03`) y la cola usa una tarjeta que va de borde a borde, en x 210–2400, pegada al rail y al borde derecho (`06`). En Sync, el CTA queda fuera de la tarjeta (`07`).
+- **P2-1 (tipografía de los interruptores): pendiente.** Los títulos de "Show physical media by default", "Sync saves", "Wi-Fi only" y similares van en peso ligero y con más espaciado que los encabezados de tarjeta (`09`, `11`).
+- **P2-3 (cajón translúcido): pendiente.** "ATRIL / Play" se sigue viendo detrás de la cabecera del cajón, y la marca sigue triplicada (ATRIL + Atril + subtítulo) (`02`).
+- **P2-4 ("None" en Plataformas): pendiente** (`17`).
+- **P2-5 (selector de plataformas sin búsqueda): pendiente.** Sigue siendo un desplegable simple para 72 plataformas (`04`).
+- **P2-10 (sangría del enlace): pendiente, también en Android.** "Advanced: paste an API token" empieza en x≈326, mientras que el resto del contenido de la tarjeta empieza en x≈294 (`08`).
+- **Nuevo (P2), hoja de detalle (`16`, revisada por primera vez):** debajo del título aparece el slug de la plataforma, "ACPC", en lugar de su nombre ("Amstrad CPC", como en el desplegable). → Mostrar el nombre de la plataforma.
+- **Nuevo (P1, verificar), hoja de detalle en horizontal (`16`):** sin desplazarse no se ve ninguna acción principal (Descargar o Jugar). La hoja muestra la carátula, la descripción y "Media", y la acción, si existe, queda debajo. → Poner la acción principal junto al título, a la derecha de la carátula.
+- Sigue sin haber capturas de los estados de carga y error, ni de los diálogos de QR, borrado y carpeta.
