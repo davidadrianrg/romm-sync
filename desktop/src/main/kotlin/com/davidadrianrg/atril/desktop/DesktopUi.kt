@@ -1193,7 +1193,7 @@ fun SavesScreen(state: DesktopAppState) {
         Button(
             onClick = state::syncSaves,
             enabled = !syncing,
-            modifier = Modifier.fillMaxWidth().height(52.dp),
+            modifier = Modifier.widthIn(min = 240.dp).height(52.dp),
             shape = RoundedCornerShape(14.dp),
         ) {
             if (syncing) {
@@ -1206,7 +1206,7 @@ fun SavesScreen(state: DesktopAppState) {
             Spacer(Modifier.height(8.dp))
             OutlinedButton(
                 onClick = state::cancelSync,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
+                modifier = Modifier.widthIn(min = 240.dp).height(48.dp),
                 shape = RoundedCornerShape(14.dp),
             ) {
                 Icon(AppIcons.Cancel, contentDescription = null, modifier = Modifier.size(18.dp))

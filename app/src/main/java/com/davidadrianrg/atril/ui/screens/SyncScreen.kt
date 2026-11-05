@@ -10,6 +10,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -193,7 +194,7 @@ fun SyncScreen() {
                 Button(
                     onClick = { viewModel.triggerSync() },
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .widthIn(min = 240.dp)
                         .height(52.dp),
                     shape = RoundedCornerShape(14.dp),
                     enabled = settings.isConfigured && !isRunning,
