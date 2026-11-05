@@ -25,8 +25,8 @@ import com.davidadrianrg.atril.core.i18n.tr
 import com.davidadrianrg.atril.ui.viewmodel.DownloadQueueViewModel
 
 /** Ámbar de insignia compartido con el launcher (mismo tono que el contador de Play). */
-private val QueueBadgeAmber = Color(0xFFE8B56A)
-private val QueueBadgeInk = Color(0xFF2A1D08)
+internal val QueueBadgeAmber = Color(0xFFE8B56A)
+internal val QueueBadgeInk = Color(0xFF2A1D08)
 
 /**
  * Botón único de la cola de descargas: icono de descarga + insignia ámbar con las descargas
