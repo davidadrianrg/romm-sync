@@ -636,7 +636,7 @@ private fun Caption(
     }
     val meta = buildList {
         add(item.platformLabel)
-        if (!item.isLocalSource || item.fileSizeBytes > 0) add(formatBytesForUi(item.fileSizeBytes))
+        if (item.fileSizeBytes >= 1024) add(formatBytesForUi(item.fileSizeBytes))
         if (item.discCount > 1) add(tr("launcher.badge.discs", item.discCount))
         emulatorName?.let { add(it) }
         // Los juegos locales no se sincronizan con RomM: no tiene sentido decirlo.
