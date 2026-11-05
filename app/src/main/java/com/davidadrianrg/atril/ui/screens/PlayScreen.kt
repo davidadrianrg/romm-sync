@@ -542,6 +542,7 @@ fun PlayScreen(
         ) {
             RomDetailSheet(
                 rom = item.rom,
+                platformName = item.platformLabel,
                 isDownloaded = true,
                 isDownloading = false,
                 discCount = item.discCount,
