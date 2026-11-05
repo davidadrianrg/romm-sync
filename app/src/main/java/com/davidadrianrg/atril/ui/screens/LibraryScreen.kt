@@ -799,6 +799,7 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
         ) {
             RomDetailSheet(
                 rom = rom,
+                platformName = platform?.name,
                 isDownloaded = isDownloaded,
                 isDownloading = isDownloading,
                 discCount = romStatus?.discCount ?: 1,
@@ -1255,6 +1256,7 @@ private fun parseAspectRatio(ratioStr: String?): Float {
 @Composable
 internal fun RomDetailSheet(
     rom: Rom,
+    platformName: String? = null,
     isDownloaded: Boolean,
     isDownloading: Boolean,
     discCount: Int = 1,
@@ -1332,7 +1334,7 @@ internal fun RomDetailSheet(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = rom.platformSlug.uppercase(),
+                    text = platformName ?: rom.platformSlug.uppercase(),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
