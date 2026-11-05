@@ -247,6 +247,11 @@ fun ConfigScreen(
                         onClick = { viewModel.disconnectRomM(); serverUrl = ""; apiKey = "" },
                         modifier = Modifier.fillMaxWidth().height(48.dp),
                         shape = RoundedCornerShape(14.dp),
+                        // Acción destructiva: contorno y texto con el color de error.
+                        colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error,
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error),
                     ) { Text(tr("romm.disconnect")) }
                     Text(
                         tr("romm.disconnect_hint"),
