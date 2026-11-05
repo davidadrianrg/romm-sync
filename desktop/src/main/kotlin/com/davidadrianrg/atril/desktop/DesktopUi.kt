@@ -122,31 +122,27 @@ private fun DesktopAppContent(state: DesktopAppState) {
     }
 
     Box(Modifier.fillMaxSize()) {
-        if (section == Section.PLAY) {
-            DesktopPlayScreen(
-                state = state,
-                onOpenLibrary = { state.navigate(Section.LIBRARY) },
-                onOpenDownloads = { state.navigate(Section.DOWNLOADS) },
-                onNavigate = { state.navigate(it) },
-            )
-        } else {
-            Row(Modifier.fillMaxSize()) {
-                AppNavigationRail(state, section)
-                Surface(Modifier.weight(1f).fillMaxSize()) {
-                    when (section) {
-                        Section.PLAY -> Unit
-                        Section.PLATFORMS -> PlatformsScreen(
-                            state,
-                            onBack = { state.navigate(Section.SETTINGS) },
-                        )
-                        Section.LIBRARY -> LibraryScreen(state)
-                        Section.DOWNLOADS -> DownloadsScreen(
-                            state,
-                            onBack = { state.navigate(Section.PLAY) },
-                        )
-                        Section.SAVES -> SavesScreen(state)
-                        Section.SETTINGS -> SettingsScreen(state)
-                    }
+        Row(Modifier.fillMaxSize()) {
+            AppNavigationRail(state, section)
+            Surface(Modifier.weight(1f).fillMaxSize()) {
+                when (section) {
+                    Section.PLAY -> DesktopPlayScreen(
+                        state = state,
+                        onOpenLibrary = { state.navigate(Section.LIBRARY) },
+                        onOpenDownloads = { state.navigate(Section.DOWNLOADS) },
+                        onNavigate = { state.navigate(it) },
+                    )
+                    Section.PLATFORMS -> PlatformsScreen(
+                        state,
+                        onBack = { state.navigate(Section.SETTINGS) },
+                    )
+                    Section.LIBRARY -> LibraryScreen(state)
+                    Section.DOWNLOADS -> DownloadsScreen(
+                        state,
+                        onBack = { state.navigate(Section.PLAY) },
+                    )
+                    Section.SAVES -> SavesScreen(state)
+                    Section.SETTINGS -> SettingsScreen(state)
                 }
             }
         }

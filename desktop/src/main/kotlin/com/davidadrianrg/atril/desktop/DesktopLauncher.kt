@@ -709,6 +709,10 @@ private fun PlayHeader(
                     text = { Text(tr("nav.downloads")) },
                     onClick = { onMenuDismiss(); onOpenDownloads() },
                 )
+                DropdownMenuItem(
+                    text = { Text(tr("nav.play")) },
+                    onClick = { onMenuDismiss(); onNavigate(Section.PLAY) },
+                ),
             }
         }
         Spacer(Modifier.width(14.dp))
