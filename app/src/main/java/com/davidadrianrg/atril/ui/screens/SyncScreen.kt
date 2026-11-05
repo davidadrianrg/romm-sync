@@ -978,6 +978,7 @@ private data class Quad<A, B, C, D>(
 
 private fun formatTimestamp(millis: Long): String {
     if (millis <= 0) return ""
-    val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+    // Mismo formato que escritorio ("28 sep 2026 18:45"), en el idioma elegido para la UI.
+    val sdf = SimpleDateFormat("d MMM yyyy HH:mm", com.davidadrianrg.atril.core.i18n.I18n.textLocale)
     return sdf.format(Date(millis))
 }
