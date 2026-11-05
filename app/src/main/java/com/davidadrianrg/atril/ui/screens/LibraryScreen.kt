@@ -521,7 +521,7 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
                         badge = "${missingRoms.size}",
                     ) {
                         Icon(
-                            Icons.Filled.DownloadDone,
+                            Icons.Outlined.Download,
                             contentDescription = tr("library.download_missing", missingRoms.size),
                             modifier = Modifier.size(22.dp),
                         )
@@ -1201,7 +1201,7 @@ private fun RomCard(
                     .padding(6.dp)
                     .size(34.dp)
                     .background(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.92f),
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.65f),
                         CircleShape,
                     )
                     .combinedClickable(onClick = { onDownload(romWithStatus) }),
