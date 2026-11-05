@@ -115,3 +115,13 @@ Leyenda: **P0** = parece roto o es ilegible · **P1** = rompe la coherencia o la
 
 ## Orden sugerido
 P0-1 (iconos) → P0-2 (escala y ancho máximo) → P1-1/P1-3 (navegación y cabecera comunes) → P1-4/P1-5 (tokens de selección y jerarquía de botones) → P0-3 (panel de Play) → el resto. P1-4, P1-5, P1-7 y P1-11 se resuelven sobre todo creando componentes compartidos en `core` (`PageHeader`, `EmptyState`, `DownloadQueueButton`, estilos de botón), lo que también evita que las plataformas vuelvan a divergir.
+
+---
+
+## Seguimiento (revisión de `b07dd12`, escala de UI en escritorio)
+Comprobado en vivo en sway (`/tmp/opus-review/full.png` a 2560×1440 y `narrow2.png` a 853×1380):
+- **P0-2, parte de escala: resuelto.** A pantalla completa en 1440p la UI se ve a 1,5× (chips de ~54 px, título del juego legible). En la ventana estrecha en mosaico sigue a 1×. Sigue pendiente el **ancho máximo** de Ajustes y Saves.
+- Se corrigió un efecto secundario (`63ba708`). Al redimensionar la ventana por encima o por debajo del umbral se recreaba toda la UI: se perdían la búsqueda, el scroll y los diálogos abiertos, y la animación se volvía a reproducir.
+- **P0-3 sigue igual a 1,5×.** El cartucho de N64 se corta en seco en x≈1530, justo donde empieza el panel de información.
+- **Nuevo (P1), Play en ventana estrecha:** en `scale-1.png`, mientras carga la imagen del cartucho, el título del panel inferior se superpone a la etiqueta del marcador de posición ("Avatar: The Last Airbender…" aparece dos veces, encima). Con la imagen ya cargada (`narrow2.png`) no ocurre. → Reservar el hueco del panel inferior también en el estado de marcador de posición.
+- Límite conocido de `desktopUiScale`: con escala del sistema exactamente 1,25 todavía se añade el factor (1,25 × 1,5). Es poco probable en Linux, pero conviene tenerlo en cuenta si se empaqueta para Windows.
