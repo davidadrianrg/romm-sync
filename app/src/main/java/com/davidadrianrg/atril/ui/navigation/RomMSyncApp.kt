@@ -20,6 +20,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -150,9 +151,14 @@ fun RomMSyncApp(startInUpdates: Boolean = false) {
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    // padding (no windowInsetsPadding): no consume insets, igual
-                    // que hacía el Scaffold, para no alterar las pantallas.
-                    .padding(contentInsets.asPaddingValues()),
+                    // Los insets se aplican aquí UNA vez y se marcan como consumidos: si no,
+                    // los Scaffold internos (safeDrawing) los suman otra vez y dejan una banda
+                    // vacía de ~100 px sobre la barra de gestos en Ajustes/Biblioteca/Sync.
+                    // Se consume TODO safeDrawing (no solo contentInsets): el lado que cubre la
+                    // barra inferior (Bottom, vertical) o el rail (Start, horizontal) ya lo
+                    // gestionan ellos, y sin consumirlo los Scaffold internos lo vuelven a sumar.
+                    .padding(contentInsets.asPaddingValues())
+                    .consumeWindowInsets(if (immersive) WindowInsets(0) else WindowInsets.safeDrawing),
             )
             AnimatedVisibility(
                 visible = showBottomBar,
