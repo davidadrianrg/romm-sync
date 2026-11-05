@@ -353,7 +353,9 @@ fun DesktopPlayScreen(
                         BoxWithConstraints(
                             Modifier
                                 .weight(if (landscape) 1.35f else 1f)
-                                .fillMaxHeight(),
+                                // En vertical el texto va debajo: el carrusel solo usa la
+                                // parte alta para no solaparse con el panel de información.
+                                .fillMaxHeight(if (landscape) 1f else 0.58f),
                         ) {
                             // La carta crece con la ventana: antes 320dp fijos
                             // dejaban un desierto negro en pantallas grandes.
@@ -438,7 +440,7 @@ fun DesktopPlayScreen(
                                     modifier = Modifier
                                         .weight(0.9f)
                                         .fillMaxHeight()
-                                        .padding(end = 28.dp),
+                                        .padding(start = 24.dp, end = 28.dp),
                                 )
                             }
                         }
