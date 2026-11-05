@@ -177,3 +177,11 @@ Diff revisado: `c47e19f..d7c1aa8` (`SyncScreen.kt` en Android y `SavesScreen` en
 - **Sin verificar:** las capturas del manifiesto (16:22–16:25) son anteriores a `b0b8595` (16:44). `07-saves` todavía muestra "Sync now" en ámbar a todo el ancho (x 252–2358). Sigue sin haber capturas de escritorio. → Repetir `07` y una captura de Saves en escritorio.
 - **Nuevo (P2), alineación en Sync de Android:** el botón queda ahora alineado a la izquierda (inicio del `LazyColumn`), justo bajo una `StatusCard` con el contenido centrado (`07`). → Al verificar, decidir si centrarlo (`Modifier.align` dentro de un `Box`/`Row` a todo el ancho) o dejarlo al inicio, como en escritorio. **Pendiente.** No se cambia ahora porque no hay ninguna captura que lo confirme.
 - **Pendiente (P1-5):** "Disconnect RomM" en Android sigue ocupando todo el ancho (`08`). El resto de puntos sigue como en las secciones anteriores.
+
+---
+
+## Seguimiento (revisión de `f5530b7`, token de selección en el cajón de Play)
+Diff revisado: `7fbc276..4f608b1` (solo `LauncherComponents.kt`, `LauncherMenuOverlay`).
+- **P1-4 (token de selección): hecho en código, pendiente de verificación visual.** El elemento seleccionado del cajón de Play pasa del ámbar al 14 % con texto e icono ámbar a `secondaryContainer` con `onSecondaryContainer`, igual que el indicador y el icono seleccionado del rail (`RomMSyncApp.kt`). Usar `onSecondaryContainer` también para el texto es lo correcto aquí, porque el texto va dentro de la pastilla, cosa que no pasa en el rail. La pareja está en la comprobación de contraste de `AppTheme` (`core`) y sale del tema, así que funciona con todas las paletas. Escritorio no tiene cajón (usa rail), de modo que no hay problema de paridad. No hay regresiones ni hacen falta tests (es solo color). Con esto P1-4 queda completo en Android.
+- **Sin verificar:** `02-play-menu` (16:24) es anterior a `f5530b7` (16:47) y todavía muestra "Play" en marrón/ámbar. → Repetir `02` con el APK actual.
+- No hay cambios en la sync, en las descargas ni en el diseño en horizontal en este rango. **Pendiente:** P2-3 (cajón translúcido y marca triplicada, visible en `02`), P1-1 (hamburguesa frente a rail) y el resto de puntos, como en las secciones anteriores. Sigue sin haber capturas de escritorio.
