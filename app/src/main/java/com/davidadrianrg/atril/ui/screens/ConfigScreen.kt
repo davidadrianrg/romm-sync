@@ -156,8 +156,10 @@ fun ConfigScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
+                // El padding va DESPUÉS del scroll: el contenido se desplaza hasta el borde en
+                // vez de recortarse 16 dp + inset antes (banda vacía sobre la barra de gestos).
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             SettingsCategoryBar(settingsCat) { settingsCat = it }

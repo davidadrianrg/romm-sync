@@ -27,11 +27,11 @@ import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -390,7 +390,7 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
         romsWithStatus.any { (it.rom.coverUrlLarge ?: it.rom.coverUrlSmall) != null }
 
     // ── Infinite scroll state ──────────────────────────────────────────
-    val gridState = rememberLazyGridState()
+    val gridState = rememberLazyStaggeredGridState()
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
     val hasMore by viewModel.hasMore.collectAsState()
 
@@ -720,12 +720,14 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
                 },
                 modifier = Modifier.fillMaxSize(),
             ) {
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = minCardSize),
+                // Mampostería real: cada carátula conserva su ratio y las columnas se rellenan sin
+                // huecos (la rejilla uniforme dejaba filas altas con tarjetas cortas arriba).
+                LazyVerticalStaggeredGrid(
+                    columns = StaggeredGridCells.Adaptive(minSize = minCardSize),
                     state = gridState,
                     modifier = Modifier.fillMaxSize(),
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalItemSpacing = 14.dp,
                     contentPadding = PaddingValues(vertical = 12.dp),
                 ) {
                     items(filteredRoms, key = { it.rom.id }) { romStatus ->
@@ -738,7 +740,7 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
                     }
                     // Loading more footer
                     if (isLoadingMore) {
-                        item(span = { GridItemSpan(maxLineSpan) }) {
+                        item(span = StaggeredGridItemSpan.FullLine) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
