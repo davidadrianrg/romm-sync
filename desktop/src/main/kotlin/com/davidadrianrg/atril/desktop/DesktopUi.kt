@@ -992,11 +992,14 @@ private fun GameCardItem(card: GameCard, state: DesktopAppState, ratio: Float, t
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Text(
-                    formatBytes(card.rep.fileSizeBytes),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.75f),
-                )
+                // Tamaños desconocidos o diminutos ("0 KB") se ocultan.
+                if (card.rep.fileSizeBytes >= 1024) {
+                    Text(
+                        formatBytes(card.rep.fileSizeBytes),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.75f),
+                    )
+                }
             }
         }
     }

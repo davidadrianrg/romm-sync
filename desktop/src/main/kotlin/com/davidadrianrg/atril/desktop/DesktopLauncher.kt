@@ -957,7 +957,7 @@ private fun PlayCaption(
         Text(
             buildList {
                 add(entry.displayPlatform)
-                add(formatBytes(entry.card.rep.fileSizeBytes))
+                if (entry.card.rep.fileSizeBytes >= 1024) add(formatBytes(entry.card.rep.fileSizeBytes))
                 if (entry.card.discCount > 1) add(tr("launcher.badge.discs", entry.card.discCount))
                 if (manual) add(tr("launcher.badge.manual"))
             }.joinToString("  ·  "),
