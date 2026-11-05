@@ -212,3 +212,13 @@ Diff revisado: `deef521..f3e9a3b` (solo `messages*.properties`).
 - **Corregido en `feat/opus-review-8`:** el texto de ayuda del interruptor "Sync saves" (`android.config.sync_saves_hint`) seguía diciendo "hide the **Sync** tab" / "la pestaña **Sync**" (visible en `11`). Ahora dice "Saves" en los dos idiomas.
 - **Pendiente (P1-2):** la pestaña de Ajustes se sigue llamando "Sync & saves" (`settings.cat.sync`, `11`). Es aceptable porque agrupa ajustes de sync y de saves, pero conviene decidirlo de forma explícita. El "Ctrl+1…5" ya está corregido a "Ctrl+1…4" en `settings.about.shortcuts`.
 - No hay cambios en la sync, en las descargas ni en el diseño en horizontal en este rango. Siguen sin existir capturas de escritorio (`screens/desktop/` está vacío). El resto de puntos sigue como en las secciones anteriores.
+
+---
+
+## Seguimiento (revisión de `fd9c06e`, formato de fecha en Saves de Android)
+Diff revisado: `60142ce..8f0ca20` (solo `formatTimestamp` en `SyncScreen.kt`).
+- **Fechas de Saves: hecho.** Android pasa de `dd/MM/yyyy HH:mm` con `Locale.getDefault()` a `d MMM yyyy HH:mm` con `I18n.textLocale`, igual que `formatTimestamp` de escritorio (`DesktopComponents.kt`). Así, si la UI está en inglés pero el sistema en español, ya no salen meses en otro idioma. `textLocale` ya tiene test en `I18nTest`. No hay regresiones.
+- **Corregido en `feat/opus-review-9` (bug de sync):** `formatServerTimestamp` (hora del servidor en el diálogo de conflictos de Android) leía el ISO de RomM, que viene en UTC, como hora local. En España la hora salía desplazada 1–2 h, justo el dato que se usa para decidir entre "Mantener local" y "Mantener servidor". Ahora se parsea con zona UTC y se muestra con el mismo formato y locale que el resto.
+- **Corregido en `feat/opus-review-9` (paridad):** la lista de versiones de save en el detalle del juego de Android (`LibraryScreen.kt`) seguía usando `d MMM HH:mm` con `Locale.getDefault()`. Escritorio (`GameDetail.kt`) usa `formatTimestamp`. Ahora usa el mismo formato y el mismo locale.
+- **Pendiente (P2, paridad):** en escritorio, la hora del servidor en conflictos (`DesktopUi.kt`, `serverUpdatedAt`) se muestra como ISO en bruto (`2026-08-17T14:23:00Z`). Habría que formatearla igual que en Android, idealmente con un helper compartido en `core`.
+- **Sin verificar visualmente:** las capturas del manifiesto (16:22–16:25) son anteriores a `fd9c06e` (19:17). `07-saves` no tiene saves con fecha visible y `16-library-detail` no muestra versiones de save. Sigue sin haber capturas de escritorio (`screens/desktop/` vacío; según el manifiesto, `grim` se cuelga). No hay hallazgos visuales nuevos. El resto de puntos sigue como en las secciones anteriores.

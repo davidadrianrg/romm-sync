@@ -930,9 +930,12 @@ private fun ConflictItemRow(
 
 /** Formatea un timestamp ISO del servidor ("2026-08-17T14:23:00Z") legible. */
 private fun formatServerTimestamp(iso: String): String = try {
-    val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+    // RomM devuelve UTC; sin fijar la zona se leía como hora local y se desplazaba.
+    val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
+        timeZone = java.util.TimeZone.getTimeZone("UTC")
+    }
     val date = sdf.parse(iso.take(19))
-    val output = SimpleDateFormat("d MMM HH:mm", Locale.getDefault())
+    val output = SimpleDateFormat("d MMM yyyy HH:mm", com.davidadrianrg.atril.core.i18n.I18n.textLocale)
     date?.let { output.format(it) } ?: iso.take(16)
 } catch (_: Exception) {
     iso.take(16)
