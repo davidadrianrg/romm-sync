@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -204,6 +205,17 @@ fun formatTimestamp(epochMillis: Long): String {
 
 /** Ancho de contenido máximo de las pantallas de formulario (Ajustes). */
 val SettingsMaxWidth: Dp = 1100.dp
+
+/**
+ * Contenedor de las páginas con ancho máximo (Ajustes, Saves): centra el contenido.
+ * Es imprescindible: el `Surface` (material3) que envuelve cada sección propaga
+ * `minWidth = ancho completo` a su hijo (`propagateMinConstraints = true`), y con eso
+ * un `widthIn(max = …)` en la página no tiene ningún efecto. Este `Box` deja minWidth = 0.
+ */
+@Composable
+fun MaxWidthPage(content: @Composable () -> Unit) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) { content() }
+}
 
 /**
  * Anillo de foco visible para navegar con teclado o mando. Debe ir ANTES de `clickable`
