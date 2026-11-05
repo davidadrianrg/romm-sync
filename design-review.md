@@ -168,3 +168,12 @@ Diff revisado: `f1ad6f4..21f0dd9` (solo `LibraryScreen.kt`).
 - Sin tests nuevos: es una etiqueta de UI sin lógica que se pueda probar de forma aislada. Pasan `:core:test`, `:desktop:test`, `testDebugUnitTest` y `:app:assembleDebug`.
 - **Sin verificar visualmente:** las capturas del manifiesto (16:22–16:25) son anteriores a `6b7fc09` y siguen sin existir capturas de escritorio. → Repetir `16-library-detail`, el detalle abierto desde Play y el detalle en escritorio.
 - No hay cambios en la sync, en las descargas ni en el diseño en horizontal en este rango. **Pendiente (P1, verificar):** en horizontal, la acción principal de la hoja de detalle sigue fuera de la vista inicial (`16`). El resto de puntos sigue como en las secciones anteriores.
+
+---
+
+## Seguimiento (revisión de `b0b8595`, ancho de "Sync now" / "Cancelar")
+Diff revisado: `c47e19f..d7c1aa8` (`SyncScreen.kt` en Android y `SavesScreen` en `DesktopUi.kt`).
+- **P1-5 (botones a todo el ancho en Sync/Saves): hecho en código, pendiente de verificación visual.** "Sync now" pasa de `fillMaxWidth()` a `widthIn(min = 240.dp)` en ambas plataformas, y el "Cancelar" de escritorio igual. El "Cancelar" de Android (dentro de `StatusCard`) ya se ajustaba al contenido, así que hay paridad. La altura (52/48 dp), el estado `enabled` y el texto de "no configurado" siguen igual. No hay regresiones de lógica ni en la sync, y no hacen falta tests (es solo layout).
+- **Sin verificar:** las capturas del manifiesto (16:22–16:25) son anteriores a `b0b8595` (16:44). `07-saves` todavía muestra "Sync now" en ámbar a todo el ancho (x 252–2358). Sigue sin haber capturas de escritorio. → Repetir `07` y una captura de Saves en escritorio.
+- **Nuevo (P2), alineación en Sync de Android:** el botón queda ahora alineado a la izquierda (inicio del `LazyColumn`), justo bajo una `StatusCard` con el contenido centrado (`07`). → Al verificar, decidir si centrarlo (`Modifier.align` dentro de un `Box`/`Row` a todo el ancho) o dejarlo al inicio, como en escritorio. **Pendiente.** No se cambia ahora porque no hay ninguna captura que lo confirme.
+- **Pendiente (P1-5):** "Disconnect RomM" en Android sigue ocupando todo el ancho (`08`). El resto de puntos sigue como en las secciones anteriores.
