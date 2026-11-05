@@ -137,7 +137,7 @@ Fuente: `~/.hermes/claude-loops/atril/screens/manifest.md` (16 capturas de Andro
 Estado del resto según las capturas nuevas:
 - **P1-4 (token de selección): hecho en parte.** En Android, el rail, los chips de la Biblioteca ("All"), las pestañas de Ajustes y los chips de idioma ya usan el mismo verde (`03`, `08`, `09`). **Pendiente:** el cajón de Play sigue resaltando "Play" en marrón/ámbar (`02`).
 - **P1-1 (dos modelos de navegación): pendiente.** Play sigue con hamburguesa y cajón sin rail (`01`, `02`), y las demás pestañas con rail.
-- **P1-2 (etiquetas): pendiente.** La misma sección se llama "Saves" en el rail, "Sync" como título de página (`07`) y "Sync & saves" en la pestaña de Ajustes (`11`).
+- **P1-2 (etiquetas): hecho en gran parte (ver seguimiento de `c38ab0f`).** La misma sección se llama "Saves" en el rail, "Sync" como título de página (`07`) y "Sync & saves" en la pestaña de Ajustes (`11`).
 - **P1-3 (cabecera): pendiente.** En Ajustes, el título está en y≈95, las pestañas en y≈295 y el contenido empieza en y≈400. La cabecera ocupa un 37 % de la altura en horizontal y deja un hueco vacío de unos 130 px entre el título y las pestañas (`08`–`14`). **Nuevo (P2):** en la cola de descargas y en Plataformas, la flecha atrás (centro en y≈127) no está alineada con la línea del título (centro en y≈95) (`06`, `17`).
 - **P1-5 (jerarquía de botones): hecho en parte.** "Disconnect RomM" ya va en contorno, pero sigue ocupando todo el ancho y sin el color de error (`08`). "Sync now" sigue siendo ámbar a todo el ancho (`07`).
 - **P1-6 (barra de la Biblioteca): pendiente.** El desplegable (y 88–207) y el buscador (y 75–220) siguen teniendo alturas distintas (`03`, `05`). El dado aleatorio sigue siendo un cuadrado blanco relleno entre iconos de línea (`05`). El botón batch aparece al elegir plataforma y recorta el buscador (que pasa de terminar en x 2366 a terminar en x 2225).
@@ -203,3 +203,12 @@ Diff revisado: `4333e2f..c103d4b` (`DesktopComponents.kt` y `DesktopUi.kt`, solo
 - Sin test nuevo: `desktop` no tiene `compose-ui-test`, y añadirlo excede el alcance. Pasan `:core:test`, `:desktop:test` y `testDebugUnitTest`.
 - **Sin verificar visualmente:** desde esta sesión no hay acceso al socket de sway (`swaymsg`/`grim` fallan con "Unable to retrieve socket path"). El manifiesto tampoco tiene capturas de escritorio. → Capturar Ajustes y Saves a pantalla completa (1440p) y en la ventana en mosaico estrecha.
 - Las capturas de Android del manifiesto (16:22–16:25) no cubren este cambio, que es solo de escritorio. No hay hallazgos visuales nuevos. No hay cambios en la sync, en las descargas ni en Android horizontal en este rango. El resto de puntos sigue como en las secciones anteriores.
+
+---
+
+## Seguimiento (revisión de `c38ab0f`, título de Saves)
+Diff revisado: `deef521..f3e9a3b` (solo `messages*.properties`).
+- **P1-2 (etiquetas): hecho en código, pendiente de verificación visual.** `android.sync.title` pasa a "Saves" en inglés y en español. Coincide con `nav.sync`/`nav.saves` del rail y con el título de escritorio (`DesktopUi.kt`, que usa `nav.saves`), así que hay paridad. La clave solo se usa en `SyncScreen.kt`. No hay tests que dependan del texto, y la clave no cambia. La captura `07` (16:22) es anterior al commit (19:14) y todavía muestra "Sync". → Repetir `07`.
+- **Corregido en `feat/opus-review-8`:** el texto de ayuda del interruptor "Sync saves" (`android.config.sync_saves_hint`) seguía diciendo "hide the **Sync** tab" / "la pestaña **Sync**" (visible en `11`). Ahora dice "Saves" en los dos idiomas.
+- **Pendiente (P1-2):** la pestaña de Ajustes se sigue llamando "Sync & saves" (`settings.cat.sync`, `11`). Es aceptable porque agrupa ajustes de sync y de saves, pero conviene decidirlo de forma explícita. El "Ctrl+1…5" ya está corregido a "Ctrl+1…4" en `settings.about.shortcuts`.
+- No hay cambios en la sync, en las descargas ni en el diseño en horizontal en este rango. Siguen sin existir capturas de escritorio (`screens/desktop/` está vacío). El resto de puntos sigue como en las secciones anteriores.
