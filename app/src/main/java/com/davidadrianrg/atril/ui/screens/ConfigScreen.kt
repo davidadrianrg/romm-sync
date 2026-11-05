@@ -143,13 +143,7 @@ fun ConfigScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(tr("nav.settings")) },
-                modifier = Modifier.height(if (compact) 48.dp else 64.dp),
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                ),
-            )
+            com.davidadrianrg.atril.ui.components.PageHeader(title = tr("nav.settings"), compact = compact)
         }
     ) { padding ->
         Column(

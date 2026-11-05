@@ -81,34 +81,13 @@ fun DownloadQueueScreen(onBack: () -> Unit = {}) {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = tr("common.back"),
-                        )
-                    }
-                },
-                title = {
-                    Column {
-                        Text(tr("android.downloads.queue_title"))
-                        if (downloads.isNotEmpty()) {
-                            Text(
-                                text = if (activeCount > 0) tr("downloads.in_progress", activeCount)
-                                       else tr("downloads.in_list", downloads.size),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                },
-                // Altura mínima (no fija): el título de dos líneas + botones de
-                // acción necesitan crecer sin recortarse en pantallas compactas.
-                modifier = Modifier.heightIn(min = if (compact) 48.dp else 64.dp),
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                ),
+            com.davidadrianrg.atril.ui.components.PageHeader(
+                title = tr("android.downloads.queue_title"),
+                compact = compact,
+                subtitle = if (downloads.isEmpty()) null
+                    else if (activeCount > 0) tr("downloads.in_progress", activeCount)
+                    else tr("downloads.in_list", downloads.size),
+                onBack = onBack,
                 actions = {
                     if (hasCompletedOrFailed) {
                         TextButton(onClick = { viewModel.clearCompleted() }) {

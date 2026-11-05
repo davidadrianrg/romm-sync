@@ -153,13 +153,7 @@ fun SyncScreen() {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(tr("android.sync.title")) },
-                modifier = Modifier.height(if (compact) 48.dp else 64.dp),
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                ),
-            )
+            com.davidadrianrg.atril.ui.components.PageHeader(title = tr("android.sync.title"), compact = compact)
         }
     ) { padding ->
         LazyColumn(
