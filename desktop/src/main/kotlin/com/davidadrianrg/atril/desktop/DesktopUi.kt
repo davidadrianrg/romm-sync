@@ -89,12 +89,24 @@ import com.davidadrianrg.atril.core.sync.platform.SaveHandlerRegistry
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun DesktopApp(state: DesktopAppState) {
     val langTag by state.language.collectAsState()
     // key(langTag) recrea el árbol al cambiar idioma: todos los tr() se reevalúan.
     key(langTag) {
-        DesktopAppContent(state)
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val size = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize
+        val factor = desktopUiScale(size.height, density.density, size.width)
+        if (factor == 1f) {
+            DesktopAppContent(state)
+        } else {
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(
+                    density.density * factor, density.fontScale,
+                ),
+            ) { DesktopAppContent(state) }
+        }
     }
 }
 
