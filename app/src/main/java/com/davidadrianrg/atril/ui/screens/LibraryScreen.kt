@@ -486,7 +486,7 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
                         shape = fieldShape,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(if (compact) 46.dp else 56.dp)
+                            .height(56.dp)
                             .menuAnchor(),
                     )
                     ExposedDropdownMenu(
