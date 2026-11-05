@@ -712,7 +712,7 @@ private fun PlayHeader(
                 DropdownMenuItem(
                     text = { Text(tr("nav.play")) },
                     onClick = { onMenuDismiss(); onNavigate(Section.PLAY) },
-                ),
+                )
             }
         }
         Spacer(Modifier.width(14.dp))

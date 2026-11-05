@@ -563,8 +563,8 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
                         colors = FilterChipDefaults.filterChipColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainer,
                             labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            selectedContainerColor = MaterialTheme.colorScheme.primary,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         ),
                     )
                 }

@@ -221,9 +221,9 @@ private fun AppNavRail(
                 label = { Text(screen.title) },
                 alwaysShowLabel = true,
                 colors = NavigationRailItemDefaults.colors(
-                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
                     selectedTextColor = MaterialTheme.colorScheme.onSurface,
-                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                    indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
                     unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 ),
@@ -256,9 +256,9 @@ private fun AppBottomBar(
                 label = { Text(screen.title) },
                 alwaysShowLabel = false,
                 colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
                     selectedTextColor = MaterialTheme.colorScheme.onSurface,
-                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                    indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
                     unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 ),
