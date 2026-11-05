@@ -222,3 +222,12 @@ Diff revisado: `60142ce..8f0ca20` (solo `formatTimestamp` en `SyncScreen.kt`).
 - **Corregido en `feat/opus-review-9` (paridad):** la lista de versiones de save en el detalle del juego de Android (`LibraryScreen.kt`) seguía usando `d MMM HH:mm` con `Locale.getDefault()`. Escritorio (`GameDetail.kt`) usa `formatTimestamp`. Ahora usa el mismo formato y el mismo locale.
 - **Pendiente (P2, paridad):** en escritorio, la hora del servidor en conflictos (`DesktopUi.kt`, `serverUpdatedAt`) se muestra como ISO en bruto (`2026-08-17T14:23:00Z`). Habría que formatearla igual que en Android, idealmente con un helper compartido en `core`.
 - **Sin verificar visualmente:** las capturas del manifiesto (16:22–16:25) son anteriores a `fd9c06e` (19:17). `07-saves` no tiene saves con fecha visible y `16-library-detail` no muestra versiones de save. Sigue sin haber capturas de escritorio (`screens/desktop/` vacío; según el manifiesto, `grim` se cuelga). No hay hallazgos visuales nuevos. El resto de puntos sigue como en las secciones anteriores.
+
+---
+
+## Seguimiento (revisión de `cc3dbab`, icono del dado aleatorio)
+Diff revisado: `28ae0bf..1c9c6d0` (solo `LibraryScreen.kt`: `Icons.Filled.Casino` → `Icons.Outlined.Casino`).
+- **P1-6 (dado relleno entre iconos de línea): hecho en código en Android, pendiente de verificación visual.** El botón aleatorio de la barra de la Biblioteca pasa a la variante de contorno, como sus vecinos `Outlined.Download` (cola) y `Outlined.Upload`. Compila (`:app:compileDebugKotlin`) y `material-icons-extended` ya incluye la variante. No cambia la lógica (`romsWithStatus.random()`), ni la sync, ni las descargas, ni el diseño en horizontal. No hacen falta tests (es solo el icono). El commit lo etiqueta como "P1-5", pero corresponde a **P1-6**.
+- **Sin verificar:** `05-library-acpc` (16:22) es anterior a `cc3dbab` (19:19). → Repetir `05` con el APK actual.
+- **Pendiente (P2, paridad):** en escritorio, `AppIcons.Casino` (`AppIcons.kt`) sigue siendo la variante rellena (cuadrado con los puntos recortados en par-impar). Ahora Android y escritorio usan estilos distintos para el mismo botón. Además, en las dos plataformas la fila mezcla todavía iconos rellenos (`Public`, `Sort`) con iconos de contorno. Conviene decidir un único estilo de icono para la barra y aplicarlo en los dos lados.
+- No hay hallazgos visuales nuevos: las capturas del manifiesto son anteriores al cambio y `screens/desktop/` sigue vacío (según el manifiesto, `grim` se cuelga). El resto de puntos sigue como en las secciones anteriores.
