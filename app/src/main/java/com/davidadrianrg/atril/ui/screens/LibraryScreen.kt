@@ -51,6 +51,7 @@ import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.outlined.Album
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.DownloadDone
 import androidx.compose.material.icons.outlined.Upload
@@ -665,10 +666,10 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        tr("android.library.select_platform_hint"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    com.davidadrianrg.atril.ui.components.EmptyState(
+                        icon = Icons.Outlined.GridView,
+                        title = tr("android.library.select_platform_hint"),
+                        description = tr("android.library.select_platform_desc"),
                     )
                 }
                 return@Column

@@ -33,8 +33,9 @@ enum class Screen(
     ),
     Library(
         route = "library",
-        icon = Icons.Outlined.SportsEsports,
-        selectedIcon = Icons.Filled.SportsEsports,
+        // Distinto del mando de Play: la biblioteca es una cuadrícula de juegos.
+        icon = Icons.Outlined.GridView,
+        selectedIcon = Icons.Filled.GridView,
     ),
     Play(
         route = "play",
