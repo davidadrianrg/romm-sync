@@ -1804,8 +1804,8 @@ internal fun RomDetailSheet(
                             Text(
                                 "${
                                     java.text.SimpleDateFormat(
-                                        "d MMM HH:mm",
-                                        java.util.Locale.getDefault(),
+                                        "d MMM yyyy HH:mm",
+                                        com.davidadrianrg.atril.core.i18n.I18n.textLocale,
                                     ).format(java.util.Date(v.timestamp))
                                 } · ${formatFileSize(v.sizeBytes)}",
                                 style = MaterialTheme.typography.labelSmall,
