@@ -109,20 +109,10 @@ fun PlatformsScreen(onBack: () -> Unit = {}) {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = tr("common.back"),
-                        )
-                    }
-                },
-                title = { Text(tr("nav.platforms")) },
-                modifier = Modifier.height(if (compact) 48.dp else 64.dp),
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                ),
+            com.davidadrianrg.atril.ui.components.PageHeader(
+                title = tr("nav.platforms"),
+                compact = compact,
+                onBack = onBack,
                 actions = {
                     if (platforms.isNotEmpty()) {
                         TextButton(
