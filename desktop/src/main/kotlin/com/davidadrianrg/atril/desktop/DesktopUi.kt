@@ -1184,7 +1184,7 @@ fun SavesScreen(state: DesktopAppState) {
     val lastSync by state.lastSync.collectAsState()
     val failed by state.lastFailed.collectAsState()
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+    Column(Modifier.fillMaxHeight().widthIn(max = SettingsMaxWidth).verticalScroll(rememberScrollState()).padding(16.dp)) {
         Text(tr("nav.saves"), style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(12.dp))
         SyncStatusCard(syncing, syncStatus, lastSync)
@@ -1476,7 +1476,7 @@ fun SettingsScreen(state: DesktopAppState) {
     var hasCredentials by remember { mutableStateOf(configHasCredentials()) }
 
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp).widthIn(max = SettingsMaxWidth),
+        Modifier.fillMaxHeight().widthIn(max = SettingsMaxWidth).verticalScroll(rememberScrollState()).padding(16.dp),
     ) {
         Text(tr("nav.settings"), style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(12.dp))
