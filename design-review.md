@@ -150,3 +150,12 @@ Estado del resto según las capturas nuevas:
 - **Nuevo (P2), hoja de detalle (`16`, revisada por primera vez):** debajo del título aparece el slug de la plataforma, "ACPC", en lugar de su nombre ("Amstrad CPC", como en el desplegable). → Mostrar el nombre de la plataforma.
 - **Nuevo (P1, verificar), hoja de detalle en horizontal (`16`):** sin desplazarse no se ve ninguna acción principal (Descargar o Jugar). La hoja muestra la carátula, la descripción y "Media", y la acción, si existe, queda debajo. → Poner la acción principal junto al título, a la derecha de la carátula.
 - Sigue sin haber capturas de los estados de carga y error, ni de los diálogos de QR, borrado y carpeta.
+
+---
+
+## Seguimiento (revisión de `a97ff95`, botón "Disconnect RomM" con color de error)
+Diff revisado: `4741f00..e378802` (`ConfigScreen.kt` en Android y `DesktopUi.kt` en escritorio).
+- **P1-5 ("Disconnect RomM" con el color de error): hecho en código, pendiente de verificación visual.** En las dos plataformas, el `OutlinedButton` usa ahora `colorScheme.error` para el texto y para el borde de 1 dp. El color sale de la paleta compartida (`p.error`) tanto en `Theme.kt` como en `DesktopTheme.kt`, así que se mantiene la paridad. El botón nunca se deshabilita, de modo que el borde fijo no deja un estado deshabilitado incoherente. No hay regresiones ni hacen falta tests (es solo estilo). El commit lo etiqueta como "P1-4", pero corresponde a **P1-5** (jerarquía de botones).
+- **Sin verificar:** las capturas del manifiesto (16:22–16:25) son anteriores a `a97ff95` (16:38). `08-settings-romm` todavía muestra el botón sin el color de error, y sigue sin haber capturas de escritorio. → Repetir `08` con el APK actual y una captura de Ajustes › RomM en escritorio.
+- **Pendiente (P1-5):** en Android, "Disconnect RomM" sigue ocupando todo el ancho, mientras que en escritorio va en línea junto a "Connect with QR". "Sync now" sigue siendo ámbar a todo el ancho (`07`).
+- No hay cambios en la sync, en las descargas ni en el diseño en horizontal en este rango. El resto de puntos sigue como en la sección anterior.
