@@ -1121,11 +1121,12 @@ private fun RomCard(
         if (painter.state is coil.compose.AsyncImagePainter.State.Loading ||
             painter.state is coil.compose.AsyncImagePainter.State.Error
         ) {
-            Icon(
-                Icons.Outlined.SportsEsports,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                modifier = Modifier.size(32.dp),
+            // Placeholder con las iniciales de la plataforma (mismo criterio en todas las tarjetas).
+            Text(
+                text = romWithStatus.rom.platformSlug.uppercase().take(4),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
             )
         }
         Image(
