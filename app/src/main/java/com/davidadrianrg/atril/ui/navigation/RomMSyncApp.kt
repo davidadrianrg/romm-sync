@@ -229,6 +229,14 @@ private fun AppNavRail(
                 ),
             )
         }
+        // Versión al pie del rail, como en escritorio.
+        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+        Text(
+            "v${com.davidadrianrg.atril.BuildConfig.VERSION_NAME}",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 12.dp),
+        )
     }
 }
 
