@@ -572,6 +572,7 @@ private fun PlatformConfigDialog(p: PlatformDto, state: DesktopAppState, onDismi
 // ═══════════════════════════════════════════════════════════════════════
 
 @Composable
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 fun LibraryScreen(state: DesktopAppState) {
     val roms by state.roms.collectAsState()
     val loading by state.loadingRoms.collectAsState()
@@ -635,10 +636,26 @@ fun LibraryScreen(state: DesktopAppState) {
             }
             Spacer(Modifier.weight(1f))
             if (missingCount > 0) {
-                FilledTonalButton(onClick = { showBatchDialog = true }) {
-                    Icon(AppIcons.Download, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(tr("library.download_missing", missingCount))
+                // Ventana estrecha: etiqueta corta en una sola línea + tooltip con el texto completo.
+                val narrow = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize.width /
+                    androidx.compose.ui.platform.LocalDensity.current.density < 1000f
+                val fullLabel = tr("library.download_missing", missingCount)
+                androidx.compose.foundation.TooltipArea(
+                    tooltip = {
+                        Surface(shape = MaterialTheme.shapes.small, tonalElevation = 4.dp) {
+                            Text(fullLabel, modifier = Modifier.padding(8.dp), style = MaterialTheme.typography.labelMedium)
+                        }
+                    },
+                ) {
+                    FilledTonalButton(onClick = { showBatchDialog = true }) {
+                        Icon(AppIcons.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            if (narrow) tr("library.missing_short", missingCount) else fullLabel,
+                            maxLines = 1,
+                            softWrap = false,
+                        )
+                    }
                 }
             }
         }
