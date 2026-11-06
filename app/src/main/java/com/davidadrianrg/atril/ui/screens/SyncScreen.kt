@@ -285,7 +285,7 @@ fun SyncScreen() {
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         val options = listOf(0, 1, 5, 15)
-                        val labels = listOf(tr("saves.auto_sync.off_chip"), "1m", "5m", "15m")
+                        val labels = listOf(tr("saves.auto_sync.off_chip")) + options.drop(1).map { tr("saves.auto_sync.chip_minutes", it) }
                         options.forEachIndexed { index, minutes ->
                             FilterChip(
                                 selected = syncInterval == minutes,
