@@ -79,6 +79,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.davidadrianrg.atril.core.i18n.tr
 import com.davidadrianrg.atril.core.settings.SettingsCategory
 import com.davidadrianrg.atril.core.launch.DesktopLaunchPlanner
@@ -169,21 +170,14 @@ private fun AppNavigationRail(state: DesktopAppState, section: Section) {
     NavigationRail(
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         header = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Spacer(Modifier.height(8.dp))
-                Box(
-                    Modifier.size(40.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        AppIcons.Gamepad,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(24.dp),
-                    )
-                }
-                Spacer(Modifier.height(6.dp))
-                Text("Atril", style = MaterialTheme.typography.labelMedium)
+            // Misma marca que el rail de Android: wordmark "ATRIL" en el color primario.
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(top = 10.dp, bottom = 14.dp)) {
+                Text(
+                    "ATRIL",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    letterSpacing = 1.6.sp,
+                )
             }
         },
     ) {
