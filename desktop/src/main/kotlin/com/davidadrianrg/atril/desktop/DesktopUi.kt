@@ -859,6 +859,18 @@ fun LibraryScreen(state: DesktopAppState) {
 
 @Composable
 private fun LibraryEmptyState(state: DesktopAppState, search: String, filter: LibraryFilter, connected: Boolean) {
+    val loadError by state.romsError.collectAsState()
+    if (connected && loadError != null) {
+        // Error de carga (RomM caído, red…): mismo EmptyState con "Reintentar".
+        EmptyState(
+            icon = AppIcons.Public,
+            title = tr("library.error.title"),
+            description = loadError,
+            actionLabel = tr("downloads.retry"),
+            onAction = state::refreshCurrentView,
+        )
+        return
+    }
     val (title, desc) = when {
         !connected -> tr("common.no_server_configured") to tr("library.empty.no_server.description")
         search.isNotBlank() -> tr("library.empty.no_results.title") to tr("library.empty.no_results.description", search)
