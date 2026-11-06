@@ -384,7 +384,7 @@ class LibraryViewModel(
             _allPlatformLoading.value = true
             when (val result = romRepository.fetchAllRomsForPlatform(platformId, currentSearch)) {
                 is ApiResult.Success -> _platformAllRoms.value = result.data
-                is ApiResult.Error -> _events.emit(LibraryEvent.Error(result.message))
+                is ApiResult.Error -> _events.emit(LibraryEvent.Error(result.kind.toUserMessage()))
             }
             _allPlatformLoading.value = false
         }
