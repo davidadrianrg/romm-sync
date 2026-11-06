@@ -282,3 +282,100 @@ Diff revisado: `bd94f0e..10f0f7c` (`EmptyState.kt`, `LibraryScreen.kt` e i18n). 
 - **Pendiente (P2, sin test de UI):** la condición de `LibraryScreen` no se prueba de forma aislada; los tests cubren el `ViewModel`, y la pantalla se comprobó a mano.
 
 **Capturas:** revisadas las 16 del manifiesto. Son del 2026-11-05 (16:22–16:25), anteriores a este cambio y a varios arreglos ya integrados, y `screens/desktop/` sigue vacío. No aportan hallazgos nuevos y siguen vigentes P1-1, P1-3, P2-3, P2-4, P2-5 y P2-10. Este cambio se comprobó con capturas en vivo que no se han añadido al manifiesto. **Escritorio sin ejecutar en esta revisión:** los cambios solo afectan a `app`, y `:desktop:test` pasa. → Repetir el manifiesto con el APK actual y añadir el estado de error.
+
+---
+
+## Seguimiento (revisión de `6536ba1`, chips de intervalo de sincronización automática)
+Diff revisado: `805d92d..55b5143` (`SyncScreen.kt`, `DesktopUi.kt` e i18n). Sin cambios de código en esta revisión: no hay bugs ni regresiones. `:core:test`, `:desktop:test`, `testDebugUnitTest` y `:app:assembleDebug` terminan bien, aunque Gradle los da por `UP-TO-DATE`: no se han vuelto a ejecutar, pero las fuentes no han cambiado desde su última ejecución correcta.
+
+- **Etiquetas de los chips: hecho y verificado en vivo en las dos plataformas.** Android a 2400×1080, en inglés: "Off", "1 m", "5 m", "15 m". Linux a 853×1380, en español: "No", "1 m", "5 m", "15 m". No se ha pulsado ningún chip, así que los ajustes no han cambiado.
+- **Tests: no hace falta añadir ninguno.** `I18nTest` ya comprueba que la clave exista en los dos idiomas, que use los mismos marcadores y que toda clave usada en las fuentes esté definida. `I18n.format` usa `toString()`, así que el número no depende del locale.
+- **Sync y Android horizontal: sin impacto.** Solo cambia el texto; `options`, `selected` y `setSyncInterval` siguen igual. En horizontal la fila cabe de sobra (x 294–957 de 2400).
+- **Etiqueta del commit:** dice "P1-11" (estados vacíos), pero esta paridad de chips corresponde a **P1-12**. P1-11 sigue pendiente.
+
+**Pendiente (nuevo, anterior a este diff; no se corrige por alcance):**
+- **P2, plural, por lectura de código:** con el chip "1 m", el texto de encima sería "Every 1 minutes" / "Cada 1 minutos" (`saves.auto_sync.every_minutes`, en las dos plataformas). → Añadir una clave para el singular.
+- **P2, unidad:** "m" se puede leer como metros; el símbolo de minuto es "min". Ahora basta con cambiar `saves.auto_sync.chip_minutes`.
+- **P2, Android vertical, sin comprobar:** la fila de chips mide unos 255 dp y no se ajusta ni se desplaza. Por cálculo cabe en 360 dp al 100 % de texto, pero queda muy justa al 130 %. → Comprobarlo en vertical.
+
+**Capturas del manifiesto:** revisadas las 16. Son del 2026-11-05 (16:22–16:25), anteriores a este cambio y a varios arreglos ya integrados, y `screens/desktop/` sigue vacío. No aportan hallazgos nuevos. Según esas capturas siguen vigentes P1-1, P1-3, P1-11, P2-3, P2-4, P2-5 y P2-10. `02`, `05`, `07`, `08`, `11` y `16` muestran estados ya corregidos. → Repetir el manifiesto con el APK actual.
+
+**Capturas de escritorio en vivo (primeras desde el 2026-11-05, a 853×1380, en español; no añadidas al manifiesto).** Se revisaron Jugar, Biblioteca, Saves y Ajustes › RomM. La franja clara vertical del centro de las capturas es la barra flotante del emulador, no la app.
+- **Verificado:**
+  - **P0-1 (iconos), en lo visto:** el rail, los encabezados de Ajustes › RomM y el dado se dibujan bien. Faltan las demás pestañas de Ajustes.
+  - **P1-5:** "Desconectar RomM" va en contorno con el color de error, y "Sincronizar ahora" ya no ocupa todo el ancho.
+  - **P1-8:** en las tarjetas de la Biblioteca, la insignia es pequeña y los títulos se leen bien.
+  - **P1-2:** el título "Saves" también coincide en Android (captura en vivo).
+  - **Play:** llena la ventana y la información queda abajo, sin solapes. **P0-3 sigue sin verificar** en ventana ancha.
+- **Sigue pendiente:**
+  - **P1-5:** "Conectar con QR" sigue en ámbar aunque ya hay conexión. En Android, "Select folder" sigue a todo el ancho (en vivo).
+  - **P1-7:** en escritorio, la insignia de descargas sigue suelta a la izquierda del "+".
+  - **P1-12:** "Cambios pendientes" y "Sincronización automática" siguen sin tarjeta; solo se ha resuelto el "No".
+  - **P2-2:** Servidor RomM y Plataformas comparten icono.
+  - **P2-6:** el chip verde "Medio físico" sigue pareciendo un botón.
+  - **P2-10:** "Avanzado: pegar un token de API" sigue con otra sangría (x≈126 frente a 114).
+- **Sin verificar:** el ancho máximo de P0-2, porque la ventana es más estrecha que el límite. Hay que capturarlo a pantalla completa.
+- **Nuevo (P2), Biblioteca en ventana estrecha:** "Descargar faltantes (318)" se parte en 3 líneas y mide unos 75 px de alto, frente a unos 40 px del resto de la fila. → Acortar la etiqueta o pasar las acciones a una segunda fila.
+- **Nuevo (P2), Ajustes en ventana estrecha:** la última pestaña se corta en el borde derecho y solo se ve la "A", sin indicar que hay más. No se ha comprobado si se puede desplazar.
+- **Nuevo (P2), radios distintos en Saves de escritorio:** "Sincronizar ahora" tiene esquinas de unos 12 px y "Comprobar cambios" es una pastilla, uno encima del otro.
+- **Nuevo (P2, paridad), iconos del rail:** en escritorio, "Biblioteca" usa casi el mismo icono que el logo y "Jugar" un triángulo. En Android son una rejilla y un mando.
+- **Sin confirmar:** `Ctrl+3` enviado con `wtype` no cambió de sección, ni con la ventana enfocada. El código de `Main.kt` parece correcto y puede ser un problema de `wtype` con Xwayland. → Probarlo con un teclado real antes de darlo por bug.
+
+**Notas para repetir las capturas de escritorio:**
+- **El bloqueo de `grim` y `swaymsg` era del entorno.** Funcionan si se exportan `SWAYSOCK`, `XDG_RUNTIME_DIR` y `WAYLAND_DISPLAY`. La nota del manifiesto ya no aplica.
+- **`DISPLAY=:0 ./gradlew :desktop:run` no basta desde una sesión de agente.** Sin `SWAYSOCK`, `TilingWmWorkaround` no relanza la JVM y la UI se queda en unos 1280×832: sale recortada a la derecha, con una zona negra debajo. Con `SWAYSOCK` llena la ventana. No es un bug de la app, pero puede dar falsos positivos en las pruebas.
+- **Para pulsar en la ventana:** `swaymsg "seat seat0 cursor set X Y"` y luego `cursor press button1` / `cursor release button1`.
+
+---
+
+## Seguimiento (revisión de `a3f61ad`, versión en el rail de Android)
+Diff revisado: `55b5143..450ffe3` (solo `AppNavRail` en `RomMSyncApp.kt`). Sin cambios de código en esta revisión: el diff no tiene bugs ni regresiones. `:core:test`, `:desktop:test`, `testDebugUnitTest` y `:app:assembleDebug` terminan bien, aunque Gradle los da por `UP-TO-DATE`: no se han vuelto a ejecutar, pero las fuentes no han cambiado desde su última ejecución correcta. El APK del emulador se instaló a las 19:12:56, un segundo después de generarse el actual (19:12:55).
+
+- **P1-2 (versión en el rail): hecho y verificado en vivo en Android.** A 2400×1080, "v0.9.2" queda al pie del rail (y 940–974), sin solapes. Con el texto al 130 % también cabe (Ajustes acaba en y=887; la versión va en y 930–974). El patrón es el mismo que el de escritorio (`DesktopUi.kt:198-204`: `Spacer(weight)`, `labelSmall`, `onSurfaceVariant`, 12 dp abajo).
+- **Tests: no hace falta añadir ninguno.** Es solo layout, sin lógica. `BuildConfig` ya estaba activo y CI lee `versionName` sin sufijos, así que la etiqueta no puede crecer de forma inesperada en las builds de develop.
+- **Sync y escritorio: sin impacto.** El cambio no toca ninguno de los dos. **Escritorio sin ejecutar en esta revisión;** la paridad se ha comprobado leyendo el código.
+- **Pendiente (P1-2):** sigue la diferencia de marca, con el logotipo "ATRIL" en Android y el avatar "Atril" en escritorio. **Hecho en `227e931`** (ver el seguimiento siguiente).
+- **Nuevo (P2, reproducido, de este diff), la versión no aparece con poca altura:** con densidad 480 (360 dp de alto, simulando un móvil de 360 dp de ancho) no hay sitio bajo Ajustes y "v0.9.2" no se dibuja. No se recorta ni descoloca nada, así que no es una regresión, pero en esos móviles el rail no coincide con el de escritorio. La versión sigue disponible en Ajustes (`android.config.installed_version`, `ConfigScreen.kt:950`), así que no se pierde el dato. → Aceptable; decidir si merece reducir el espacio del rail. **Pendiente.**
+
+**Nuevo, anterior a este diff; no se corrige por alcance (el encargo se limita a los cambios desde `55b5143`):**
+- **P1, reproducido, Android horizontal: el botón de menú de Play no responde en parte de su superficie.** `EdgeSwipeZone` (`PlayScreen.kt:462-471`) se dibuja encima de la cabecera y se traga los toques. Empieza tras el inset de gestos (x≈78 px), mide 20 dp de ancho y ocupa el 70 % central de la altura (desde y≈162 px en un alto de 1080).
+  - **Densidad 420:** el botón ocupa y 121–184. Con x=95, abre el menú en y=130, 150 y 158, y no lo abre en y=166, 175 y 182. Con x=70, fuera de la zona, abre también en y=175.
+  - **Densidad 480:** el centro del botón (108, 174) no abre el menú; (108, 145) y (80, 174) sí. En densidad 560 tampoco lo abrió el toque en el centro.
+  - **Impacto:** cuanto mayor es la densidad, más fácil es fallar el botón, y un toque en el centro ya no funciona. Solo se ha probado con `adb shell input tap`, sin mando. El origen es `1acd0ad` o anterior; `git log` no sigue más atrás porque ahí se movió el paquete.
+  - → Limitar la zona para que no cubra la cabecera, por ejemplo colocándola bajo `LauncherHeader`, y comprobarlo en estas tres densidades. **Pendiente.**
+- **P1, reproducido, Android horizontal: el estado vacío de Play pierde sus acciones con poca altura.** `EmptyLauncher` (`PlayScreen.kt:722`) está centrado, sin desplazamiento, dentro de una columna limitada. Con densidad 480 (360 dp) desaparece "Add local game", y con densidad 560 (308 dp) también "Open Library": ninguno de los dos está en la captura ni en el árbol de `uiautomator`. Amplía el P2 anotado en la revisión de `ba6a7d8`, que solo lo veía con el texto al 130 %; se puede subir a P1 porque ocurre al 100 %. → Permitir el desplazamiento o compactar el contenido en horizontal. **Pendiente.**
+- **P2, reproducido, causa sin confirmar: al recrearse la actividad se vuelve a Play.** Estando en la Biblioteca, cambiar la escala de texto del sistema devuelve a Play (`fontScale` y `density` no están en `configChanges`; girar la pantalla no recrea la actividad). Puede estar relacionado con el `startDestination` condicional de `AppNavHost` (`RomMSyncApp.kt:289`), pero no se ha comprobado. **Pendiente.**
+
+**Capturas del manifiesto:** revisadas las 16. Son del 2026-11-05 (16:22–16:25), anteriores a este cambio y a varios arreglos ya integrados, y `screens/desktop/` sigue vacío, así que no muestran la versión del rail. No aportan más hallazgos que los ya anotados. Según esas capturas siguen vigentes P1-1, P1-3, P1-11, P2-1, P2-3, P2-4, P2-5 y P2-10. `02`, `05`, `07`, `08`, `11` y `16` muestran estados ya corregidos. → Repetir el manifiesto con el APK actual. Las capturas en vivo de esta revisión eran temporales y no se han añadido al manifiesto.
+
+**Estado del emulador:** se probaron `font_scale` 1,3 y `wm density` 480/560, y se restauraron (420 y 1,0). La app se forzó a cerrar una vez y se volvió a abrir, sin cambiar ningún ajuste de la app.
+
+---
+
+## Seguimiento (revisión de `227e931`, wordmark "ATRIL" en el rail de escritorio)
+Diff revisado: `450ffe3..c849a43` (solo `AppNavigationRail` en `DesktopUi.kt`). Sin cambios de código en esta revisión: el diff no tiene bugs ni regresiones. `:desktop:test` se ha vuelto a ejecutar (31 tests, 0 fallos). `:core:test`, `testDebugUnitTest` y `:app:assembleDebug` terminan bien, aunque Gradle los da por `UP-TO-DATE`: no se han vuelto a ejecutar.
+
+- **P1-2 (marca en el rail): hecho y verificado en vivo en Linux.** El texto, el estilo, el color, el espaciado de letras y los márgenes son los mismos que en `AppNavRail` de Android (`RomMSyncApp.kt:197-206`). El wordmark queda a la misma altura: centro a unos 21 dp del borde superior del rail en las dos plataformas (`03` en Android; ventana de 853×1380 en escritorio). A pantalla completa (escala 1,5×) se lee bien y no se solapa con nada. Android no se ha ejecutado porque no cambia.
+- **Limpieza del diff: correcta.** `AppIcons.Gamepad`, `CircleShape` y `Modifier.size` siguen en uso en otras partes del archivo, y el import de `sp` es necesario.
+- **Tests: no hace falta añadir ninguno.** Es solo layout, sin lógica. "ATRIL" sin traducir es correcto porque es la marca, y Android lo hace igual.
+- **Sync y Android horizontal: sin impacto.** El diff no toca ninguno de los dos.
+- **P2 "Biblioteca casi igual que el logo" (seguimiento de `6536ba1`): resuelto,** porque ya no hay icono de logo. **Sigue pendiente** la otra parte: el mismo mando significa Biblioteca en escritorio y Play en Android; Play es un triángulo en escritorio y Biblioteca una rejilla en Android.
+
+**Nuevo (P2), pendiente; no se corrige porque es estético:**
+- **De este diff, "ATRIL" repetido en Play de escritorio:** el rail y la cabecera de Play muestran la misma palabra, en ámbar y a la misma altura, a unos 140 px de distancia (ventana de 853×1380). Ya se repetía la marca con el avatar, pero ahora se nota más. En Android no pasa, porque Play no tiene rail. Además, Play de escritorio tiene a la vez rail y hamburguesa. → Quitar el antetítulo de la cabecera cuando haya rail; encaja con P1-1.
+- **Anterior a este diff, restos de paridad en el rail:** el fondo es `surfaceContainerLow` en escritorio y `surfaceContainer` en Android. El primer destino queda unos 17 dp más abajo en escritorio (centro del icono a 91 dp frente a unos 74 dp). 12 dp vienen del `Spacer` de `DesktopUi.kt:184`; el resto no se ha investigado.
+- **Anterior a este diff, campos de texto:** tienen esquinas casi rectas en escritorio (buscador, URL del servidor) y muy redondeadas en Android (`03`, `08`).
+- **Anterior a este diff, Biblioteca de escritorio mientras carga "Todas las plataformas":** el contador de "Descargar faltantes" crece (318 y 584 a los pocos segundos, 6647 tras unos 25 s) y la rejilla se reordena mientras tanto. Es posible que pulsar el botón a mitad de carga solo cubra lo cargado hasta entonces: no se ha pulsado ni se ha leído esa ruta de código. → Comprobarlo. El marcador con iniciales de plataforma de los primeros segundos parece solo la carga de la imagen: "3D Grand Prix" y "A.M.C." (58 KB) salían con él y en otra apertura ya tenían carátula.
+- **Anterior a este diff, orden del selector de plataformas en escritorio:** no es alfabético según el nombre visible: tras "Android" van "Mame", "FBNeo", "Naomi" y "Naomi 2", y luego "Atari 2600". En Android (`04`) a "Android" le sigue directamente "Atari 2600". No se ha comprobado con el APK actual. Agrava P2-5.
+- **Por captura, `01` (2026-11-05), sin comprobar con el APK actual:** el subtítulo del estado vacío de Play es mucho más tenue que el de la Biblioteca (`03`) y la cola (`06`).
+
+**Capturas de escritorio en vivo (2560×1440 a pantalla completa y 853×1380, en español; temporales, no añadidas al manifiesto).** Se revisaron Jugar, Biblioteca, Saves y Ajustes › RomM.
+- **P0-2 (ancho máximo): hecho y verificado.** Saves y Ajustes quedan centrados, en x≈538–2140 de 2560; en la ventana estrecha ocupan todo el ancho.
+- **P0-3 (panel de Play): solape resuelto en lo visto.** El cartucho vecino se difumina antes del panel (x≈1620) en lugar de cortarse en seco. El título sigue a unos 380 px del cartucho enfocado, con el vecino en medio. Solo se ha visto con este par de cartuchos (GBA y N64).
+- **P1-5 confirmado:** "Desconectar RomM" va en contorno con el color de error y "Sincronizar ahora" ya no ocupa todo el ancho.
+- **Siguen pendientes, confirmados en vivo:** P1-5 ("Conectar con QR" en ámbar con la conexión activa), P1-7 (insignia suelta a la izquierda del "+"), P1-12 (Saves sin tarjetas), P2-2, P2-6, P2-10, los radios distintos de Saves y "Descargar faltantes" en 3 líneas en ventana estrecha. La etiqueta "m" de los chips y P0-1 (solo en lo visto) tampoco cambian.
+- **Sin verificar:** las demás pestañas de Ajustes y `Ctrl+3` con teclado real.
+
+**Capturas del manifiesto:** revisadas las 16. Son del 2026-11-05 (16:22–16:25), anteriores a este cambio y a varios arreglos ya integrados, y `screens/desktop/` sigue vacío, así que no muestran este diff. Salvo la nota sobre `01`, no aportan hallazgos nuevos. Según esas capturas siguen vigentes P1-1, P1-3, P1-11, P2-1, P2-3, P2-4, P2-5 y P2-10. `02`, `05`, `07`, `08`, `11` y `16` muestran estados ya corregidos. → Repetir el manifiesto con el APK actual y añadir capturas de escritorio; la nota de que `grim` se cuelga ya no aplica.
+
+**Estado del entorno:** la app de escritorio se abrió y se cerró dos veces; solo se navegó entre secciones, sin cambiar ajustes ni iniciar descargas ni sincronizaciones. La ventana volvió a su tamaño en mosaico. El emulador no se ha tocado.

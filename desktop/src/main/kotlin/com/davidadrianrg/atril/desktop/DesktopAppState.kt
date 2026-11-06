@@ -187,6 +187,12 @@ class DesktopAppState(private val scope: CoroutineScope) {
      */
     private fun ensureLibraryLoaded() {
         if (api == null || _roms.value.isNotEmpty() || _loadingRoms.value) return
+        // Sin plataformas no hay ROMs que pedir (servidor caído al arrancar): volver a
+        // pedirlas; si llegan, refreshPlatforms vuelve aquí y, si no, deja el error.
+        if (_platforms.value.isEmpty()) {
+            if (!_loadingPlatforms.value) refreshPlatforms(silent = true)
+            return
+        }
         loadRomsForSlug(_selectedPlatformSlug.value)
     }
 
@@ -263,6 +269,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
         _connected.value = false
         _platforms.value = emptyList()
         _roms.value = emptyList()
+        _romsError.value = null
         _loadingRoms.value = false
     }
 
@@ -281,6 +288,8 @@ class DesktopAppState(private val scope: CoroutineScope) {
             } catch (e: Exception) {
                 if (api !== svc) return@launch
                 _connected.value = false
+                // Sin plataformas, loadRomsForSlug no hace peticiones y no puede informar del fallo.
+                if (_platforms.value.isEmpty()) _romsError.value = libraryLoadErrorMessage(e)
                 if (!silent) showSnackbar(tr("connection.error", e.message))
             } finally {
                 _loadingPlatforms.value = false
@@ -349,8 +358,10 @@ class DesktopAppState(private val scope: CoroutineScope) {
                 }
             } catch (e: Exception) {
                 if (generation == romsLoadGeneration) {
-                    _romsError.value = e.message ?: tr("library.error.title")
-                    showSnackbar(tr("app.snackbar.load_roms_error", e.message))
+                    val message = libraryLoadErrorMessage(e)
+                    _romsError.value = message
+                    // Con la lista vacía ya lo explica el estado de error, como en Android.
+                    if (_roms.value.isNotEmpty()) showSnackbar(tr("app.snackbar.load_roms_error", message))
                 }
             } finally {
                 if (generation == romsLoadGeneration) _loadingRoms.value = false
