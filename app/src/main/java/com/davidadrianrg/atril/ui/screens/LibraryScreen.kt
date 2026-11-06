@@ -651,20 +651,8 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
 
             // ── Grid of games ───────────────────────────────────────────
             if ((isLoading && romsWithStatus.isEmpty()) || ratioPending) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator()
-                        Spacer(Modifier.size(12.dp))
-                        Text(
-                            tr("library.loading"),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
+                // Estado de carga diseñado: esqueleto de tarjetas en vez de un spinner solitario.
+                com.davidadrianrg.atril.ui.components.SkeletonGrid(minCardSize = minCardSize)
                 return@Column
             }
 
