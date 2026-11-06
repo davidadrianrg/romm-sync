@@ -340,12 +340,18 @@ fun PlatformsScreen(onBack: () -> Unit = {}) {
             }
 
             error?.let {
-                Text(
-                    it,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(vertical = 8.dp),
-                )
+                // Error de carga: mensaje + "Reintentar" (misma acción que el botón de refrescar).
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(vertical = 8.dp).weight(1f),
+                    )
+                    TextButton(onClick = { viewModel.refreshPlatforms(settings.serverUrl, settings.apiKey) }) {
+                        Text(tr("downloads.retry"))
+                    }
+                }
             }
 
             LazyColumn(
