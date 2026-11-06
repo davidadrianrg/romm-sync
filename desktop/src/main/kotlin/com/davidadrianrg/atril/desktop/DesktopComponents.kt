@@ -55,6 +55,9 @@ fun EmptyState(
     title: String,
     description: String? = null,
     modifier: Modifier = Modifier,
+    /** Acción opcional (p. ej. "Reintentar" en un estado de error). */
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
 ) {
     Card(
         modifier = modifier.fillMaxWidth().padding(vertical = 8.dp),
@@ -100,6 +103,10 @@ fun EmptyState(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            if (actionLabel != null && onAction != null) {
+                Spacer(Modifier.height(16.dp))
+                androidx.compose.material3.FilledTonalButton(onClick = onAction) { Text(actionLabel) }
             }
         }
     }

@@ -126,6 +126,9 @@ class DesktopAppState(private val scope: CoroutineScope) {
     private val _roms = MutableStateFlow<List<RomDto>>(emptyList())
     val roms: StateFlow<List<RomDto>> = _roms
 
+    /** Mensaje del último fallo al cargar la biblioteca (null si la última carga fue bien). */
+    private val _romsError = MutableStateFlow<String?>(null)
+    val romsError: StateFlow<String?> = _romsError
     private val _loadingRoms = MutableStateFlow(false)
     val loadingRoms: StateFlow<Boolean> = _loadingRoms
 
@@ -318,6 +321,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
         // Marcar "cargando" antes de lanzar la corrutina para que ensureLibraryLoaded
         // no arranque una segunda carga en paralelo.
         _loadingRoms.value = true
+        _romsError.value = null
         scope.launch {
             try {
                 val all = mutableListOf<RomDto>()
@@ -345,6 +349,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
                 }
             } catch (e: Exception) {
                 if (generation == romsLoadGeneration) {
+                    _romsError.value = e.message ?: tr("library.error.title")
                     showSnackbar(tr("app.snackbar.load_roms_error", e.message))
                 }
             } finally {
