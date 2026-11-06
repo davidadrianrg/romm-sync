@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Sort
@@ -474,6 +475,10 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                // Sin rail ni barra inferior: hamburguesa para abrir el menú de la app.
+                IconButton(onClick = com.davidadrianrg.atril.ui.components.LocalOpenAppMenu.current) {
+                    Icon(Icons.Filled.Menu, contentDescription = tr("launcher.menu.open"))
+                }
                 ExposedDropdownMenuBox(
                     expanded = platformMenuExpanded,
                     onExpandedChange = { platformMenuExpanded = it },

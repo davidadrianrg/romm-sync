@@ -96,15 +96,10 @@ fun RomMSyncApp(startInUpdates: Boolean = false) {
     // un overlay propio. El resto de secciones conserva la navegación fija:
     // rail en horizontal (libera altura) y barra inferior en vertical.
     // Un único árbol para que NavHost no cambie de posición al alternar.
+    // Android: todas las secciones son inmersivas (sin rail ni barra inferior): hamburguesa +
+    // menú superpuesto. Solo Play ocupa la pantalla completa (sin insets propios).
     val immersive = !needsOnboarding && currentDestination?.route == Screen.Play.route
-    val showRail = windowInfo.isLandscape && !needsOnboarding && !immersive
-    val showBottomBar = !windowInfo.isLandscape && !needsOnboarding && !immersive
-    val contentInsets = when {
-        immersive -> WindowInsets(0)
-        showRail -> WindowInsets.safeDrawing.only(WindowInsetsSides.End + WindowInsetsSides.Vertical)
-        showBottomBar -> WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
-        else -> WindowInsets.safeDrawing
-    }
+    val contentInsets = if (immersive) WindowInsets(0) else WindowInsets.safeDrawing
 
     // Menú unificado: el mismo overlay del launcher en todas las pestañas (Start/Select del
     // mando o el botón de menú); en Play lo gestiona la propia pantalla.
@@ -118,25 +113,15 @@ fun RomMSyncApp(startInUpdates: Boolean = false) {
     }
     androidx.activity.compose.BackHandler(enabled = appMenuOpen) { appMenuOpen = false }
 
+    androidx.compose.runtime.CompositionLocalProvider(
+        com.davidadrianrg.atril.ui.components.LocalOpenAppMenu provides { appMenuOpen = true },
+    ) {
     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
     Row(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
-        AnimatedVisibility(
-            visible = showRail,
-            enter = expandHorizontally(tween(220)) + fadeIn(tween(220)),
-            exit = shrinkHorizontally(tween(200)) + fadeOut(tween(160)),
-        ) {
-            AppNavRail(
-                currentDestination,
-                navItems,
-                modifier = Modifier.windowInsetsPadding(
-                    WindowInsets.safeDrawing.only(WindowInsetsSides.Start + WindowInsetsSides.Vertical),
-                ),
-            ) { route -> navigateTo(route, navController) }
-        }
         Column(
             Modifier
                 .weight(1f)
@@ -160,13 +145,6 @@ fun RomMSyncApp(startInUpdates: Boolean = false) {
                     .padding(contentInsets.asPaddingValues())
                     .consumeWindowInsets(if (immersive) WindowInsets(0) else WindowInsets.safeDrawing),
             )
-            AnimatedVisibility(
-                visible = showBottomBar,
-                enter = expandVertically(tween(220)) + fadeIn(tween(220)),
-                exit = shrinkVertically(tween(200)) + fadeOut(tween(160)),
-            ) {
-                AppBottomBar(currentDestination, navItems) { route -> navigateTo(route, navController) }
-            }
         }
     }
         com.davidadrianrg.atril.ui.screens.LauncherMenuOverlay(
@@ -180,98 +158,6 @@ fun RomMSyncApp(startInUpdates: Boolean = false) {
             onDismiss = { appMenuOpen = false },
         )
     }
-}
-
-@Composable
-private fun AppNavRail(
-    currentDestination: NavDestination?,
-    navItems: List<Screen>,
-    modifier: Modifier = Modifier,
-    onNavigate: (String) -> Unit,
-) {
-    NavigationRail(
-        modifier = modifier,
-        windowInsets = WindowInsets(0),
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        header = {
-            androidx.compose.foundation.layout.Column(
-                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
-                modifier = Modifier.padding(top = 10.dp, bottom = 14.dp),
-            ) {
-                Text(
-                    "ATRIL",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    letterSpacing = 1.6.sp,
-                )
-            }
-        },
-    ) {
-        navItems.forEach { screen ->
-            val selected = isSelected(screen.route, currentDestination)
-            NavigationRailItem(
-                selected = selected,
-                onClick = { onNavigate(screen.route) },
-                icon = {
-                    Icon(
-                        imageVector = if (selected) screen.selectedIcon else screen.icon,
-                        contentDescription = screen.title,
-                    )
-                },
-                label = { Text(screen.title) },
-                alwaysShowLabel = true,
-                colors = NavigationRailItemDefaults.colors(
-                    selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    selectedTextColor = MaterialTheme.colorScheme.onSurface,
-                    indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
-                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                ),
-            )
-        }
-        // Versión al pie del rail, como en escritorio.
-        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
-        Text(
-            "v${com.davidadrianrg.atril.BuildConfig.VERSION_NAME}",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 12.dp),
-        )
-    }
-}
-
-@Composable
-private fun AppBottomBar(
-    currentDestination: NavDestination?,
-    navItems: List<Screen>,
-    onNavigate: (String) -> Unit,
-) {
-    NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        tonalElevation = 0.dp,
-    ) {
-        navItems.forEach { screen ->
-            val selected = isSelected(screen.route, currentDestination)
-            NavigationBarItem(
-                selected = selected,
-                onClick = { onNavigate(screen.route) },
-                icon = {
-                    Icon(
-                        imageVector = if (selected) screen.selectedIcon else screen.icon,
-                        contentDescription = screen.title,
-                    )
-                },
-                label = { Text(screen.title) },
-                alwaysShowLabel = false,
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    selectedTextColor = MaterialTheme.colorScheme.onSurface,
-                    indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
-                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                ),
-            )
-        }
     }
 }
 

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,6 +41,12 @@ fun PageHeader(
             if (onBack != null) {
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("common.back"))
+                }
+            } else {
+                // Sin rail ni barra inferior: la hamburguesa abre el menú superpuesto.
+                val openMenu = LocalOpenAppMenu.current
+                IconButton(onClick = openMenu) {
+                    Icon(Icons.Filled.Menu, contentDescription = tr("launcher.menu.open"))
                 }
             }
         },
