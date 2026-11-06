@@ -575,6 +575,7 @@ private fun PlatformConfigDialog(p: PlatformDto, state: DesktopAppState, onDismi
 fun LibraryScreen(state: DesktopAppState) {
     val roms by state.roms.collectAsState()
     val loading by state.loadingRoms.collectAsState()
+    val loadingPlatforms by state.loadingPlatforms.collectAsState()
     val search by state.search.collectAsState()
     val filter by state.filter.collectAsState()
     val version by state.downloadedVersion.collectAsState()
@@ -736,7 +737,7 @@ fun LibraryScreen(state: DesktopAppState) {
         val g = selectedGame
         when {
             g != null -> GameDetailPanel(g, state)
-            (loading && roms.isEmpty()) || (games.isNotEmpty() && ratio == null) -> {
+            ((loading || loadingPlatforms) && roms.isEmpty()) || (games.isNotEmpty() && ratio == null) -> {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator()
@@ -860,8 +861,9 @@ fun LibraryScreen(state: DesktopAppState) {
 @Composable
 private fun LibraryEmptyState(state: DesktopAppState, search: String, filter: LibraryFilter, connected: Boolean) {
     val loadError by state.romsError.collectAsState()
-    if (connected && loadError != null) {
-        // Error de carga (RomM caído, red…): mismo EmptyState con "Reintentar".
+    if (loadError != null) {
+        // Error de carga (RomM caído, red…): mismo EmptyState con "Reintentar". No depende
+        // de `connected`: un reintento fallido lo pone a false, pero el servidor sigue configurado.
         EmptyState(
             icon = AppIcons.Public,
             title = tr("library.error.title"),

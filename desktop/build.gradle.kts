@@ -28,6 +28,13 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
 }
 
+tasks.withType<Test>().configureEach {
+    // DesktopConfig usa Preferences y user.home: los tests no deben tocar la configuración real.
+    val isolatedHome = layout.buildDirectory.dir("test-home").get().asFile
+    systemProperty("user.home", isolatedHome.absolutePath)
+    systemProperty("java.util.prefs.userRoot", isolatedHome.absolutePath)
+}
+
 compose.desktop {
     application {
         mainClass = "com.davidadrianrg.atril.desktop.MainKt"
