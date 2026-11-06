@@ -799,6 +799,7 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
         ) {
             RomDetailSheet(
                 rom = rom,
+                wide = isLandscape,
                 platformName = platform?.name,
                 isDownloaded = isDownloaded,
                 isDownloading = isDownloading,
@@ -1349,6 +1350,14 @@ internal fun RomDetailSheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                // En horizontal la acción principal va junto al título: sin esto había que
+                // desplazar la hoja para ver "Descargar".
+                if (wide && !isDownloaded && !isDownloading) {
+                    androidx.compose.material3.Button(onClick = onDownload) {
+                        Icon(Icons.Filled.Download, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Text("  " + tr("common.download"))
+                    }
+                }
                 // En horizontal aprovechamos el ancho: la sinopsis acompaña
                 // a la portada en vez de dejar media pantalla vacía.
                 if (wide) {
@@ -1638,7 +1647,7 @@ internal fun RomDetailSheet(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    androidx.compose.material3.Button(
+                    if (!wide) androidx.compose.material3.Button(
                         onClick = onDownload,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
