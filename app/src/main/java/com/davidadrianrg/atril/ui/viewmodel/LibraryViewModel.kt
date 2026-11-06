@@ -243,6 +243,9 @@ class LibraryViewModel(
     fun selectPlatform(platformId: Int, serverUrl: String, apiKey: String) {
         _selectedPlatformId.value = platformId
         currentSearch = null
+        // Sin vaciar, un fallo de carga dejaría los juegos de la plataforma anterior
+        // bajo la nueva (y "Descargar faltantes" ofrecería esos juegos).
+        _roms.value = emptyList()
         _platformAllRoms.value = emptyList()
         loadRoms(serverUrl, apiKey, reset = true)
     }
@@ -379,16 +382,29 @@ class LibraryViewModel(
     /** Carga todas las páginas de la plataforma seleccionada (para el batch). */
     fun loadAllPlatformRoms() {
         val platformId = _selectedPlatformId.value ?: return
-        if (_allPlatformLoading.value) return
+        // Una carga nueva sustituye a la que esté en curso: si se ignorase la nueva, la
+        // plataforma recién elegida se quedaría con las ROMs de la anterior.
+        val generation = ++allRomsGeneration
         viewModelScope.launch {
             _allPlatformLoading.value = true
-            when (val result = romRepository.fetchAllRomsForPlatform(platformId, currentSearch)) {
-                is ApiResult.Success -> _platformAllRoms.value = result.data
-                is ApiResult.Error -> _events.emit(LibraryEvent.Error(result.kind.toUserMessage()))
-            }
+            val result = romRepository.fetchAllRomsForPlatform(platformId, currentSearch)
+            if (generation != allRomsGeneration) return@launch
             _allPlatformLoading.value = false
+            if (platformId != _selectedPlatformId.value) return@launch
+            when (result) {
+                is ApiResult.Success -> _platformAllRoms.value = result.data
+                is ApiResult.Error -> {
+                    // Solo avisa si la lista principal cargó bien; si no, ese fallo ya se ha notificado.
+                    if (_roms.value.isNotEmpty() && !_isLoading.value && _error.value == null) {
+                        _events.emit(LibraryEvent.Error(result.kind.toUserMessage()))
+                    }
+                }
+            }
         }
     }
+
+    /** Token de la última carga completa de la plataforma (guard anti-respuesta-obsoleta). */
+    private var allRomsGeneration = 0
 
     /** Cards de TODO lo descargado de la plataforma (no solo las páginas cargadas). */
     val platformDownloadedCards: StateFlow<List<RomWithStatus>> =
@@ -435,11 +451,13 @@ class LibraryViewModel(
 
     /**
      * Pull-to-refresh: reloads the first page for the currently selected
-     * platform keeping the active search term (if any).
+     * platform keeping the active search term (if any), and the whole-platform
+     * list behind "Download missing" (it may have failed along with the first page).
      */
     fun refresh(serverUrl: String, apiKey: String) {
         if (_selectedPlatformId.value == null) return
         loadRoms(serverUrl, apiKey, reset = true)
+        loadAllPlatformRoms()
     }
 
     private fun loadRoms(serverUrl: String, apiKey: String, reset: Boolean) {
@@ -487,7 +505,9 @@ class LibraryViewModel(
                     if (generation == loadGeneration) {
                         val userMessage = result.kind.toUserMessage()
                         _error.value = userMessage
-                        _events.emit(LibraryEvent.Error(userMessage))
+                        // Con la lista vacía ya lo cuenta el estado de error; un snackbar
+                        // repetiría el texto y taparía "Reintentar" en horizontal.
+                        if (_roms.value.isNotEmpty()) _events.emit(LibraryEvent.Error(userMessage))
                     }
                 }
             }
