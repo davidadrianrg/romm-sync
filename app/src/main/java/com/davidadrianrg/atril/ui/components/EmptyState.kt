@@ -46,6 +46,9 @@ fun EmptyState(
     title: String,
     description: String,
     modifier: Modifier = Modifier,
+    /** Acción opcional (p. ej. "Reintentar" en un estado de error): mismo componente para vacío y error. */
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "empty_state")
     val iconAlpha by infiniteTransition.animateFloat(
@@ -68,13 +71,13 @@ fun EmptyState(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 32.dp, horizontal = 24.dp),
+                .padding(vertical = 20.dp, horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
             Box(
                 modifier = Modifier
-                    .size(96.dp)
+                    .size(72.dp)
                     .alpha(iconAlpha)
                     .background(
                         Brush.radialGradient(
@@ -91,7 +94,7 @@ fun EmptyState(
                     imageVector = icon,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(52.dp),
+                    modifier = Modifier.size(40.dp),
                 )
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -108,6 +111,10 @@ fun EmptyState(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
             )
+            if (actionLabel != null && onAction != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+                androidx.compose.material3.FilledTonalButton(onClick = onAction) { Text(actionLabel) }
+            }
         }
     }
 }

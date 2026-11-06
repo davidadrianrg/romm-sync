@@ -52,6 +52,7 @@ import androidx.compose.material.icons.outlined.Album
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Casino
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.DownloadDone
 import androidx.compose.material.icons.outlined.Upload
@@ -174,6 +175,7 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
     val saveSyncEnabled by container.settingsRepository.saveSyncEnabled.collectAsState(initial = true)
     val romsWithStatus by viewModel.romsWithStatus.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val loadError by viewModel.error.collectAsState()
     val selectedPlatformId by viewModel.selectedPlatformId.collectAsState()
 
     var searchQuery by remember { mutableStateOf("") }
@@ -676,6 +678,12 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
             // ── Empty state ─────────────────────────────────────────────
             if (filteredRoms.isEmpty() && !isLoading && !isLoadingMore) {
                 val (icon, title, message) = when {
+                    // Error de carga (RomM caído, red…): estado propio con "Reintentar".
+                    loadError != null -> Triple(
+                        Icons.Outlined.CloudOff,
+                        tr("library.error.title"),
+                        loadError!!,
+                    )
                     searchQuery.isNotBlank() -> Triple(
                         Icons.Filled.Search,
                         tr("library.empty.no_results.title"),
@@ -705,6 +713,10 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
                         icon = icon,
                         title = title,
                         description = message,
+                        actionLabel = if (loadError != null) tr("downloads.retry") else null,
+                        onAction = if (loadError != null) {
+                            { viewModel.refresh(settings.serverUrl, settings.apiKey) }
+                        } else null,
                     )
                 }
                 return@Column
