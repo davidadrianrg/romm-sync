@@ -1379,7 +1379,7 @@ fun SavesScreen(state: DesktopAppState) {
                 FilterChip(
                     selected = autoMin == m,
                     onClick = { state.setAutoSyncMinutes(m) },
-                    label = { Text(if (m == 0) tr("saves.auto_sync.off_chip") else "$m m") },
+                    label = { Text(if (m == 0) tr("saves.auto_sync.off_chip") else tr("saves.auto_sync.chip_minutes", m)) },
                 )
             }
         }
