@@ -379,3 +379,38 @@ Diff revisado: `450ffe3..c849a43` (solo `AppNavigationRail` en `DesktopUi.kt`). 
 **Capturas del manifiesto:** revisadas las 16. Son del 2026-11-05 (16:22–16:25), anteriores a este cambio y a varios arreglos ya integrados, y `screens/desktop/` sigue vacío, así que no muestran este diff. Salvo la nota sobre `01`, no aportan hallazgos nuevos. Según esas capturas siguen vigentes P1-1, P1-3, P1-11, P2-1, P2-3, P2-4, P2-5 y P2-10. `02`, `05`, `07`, `08`, `11` y `16` muestran estados ya corregidos. → Repetir el manifiesto con el APK actual y añadir capturas de escritorio; la nota de que `grim` se cuelga ya no aplica.
 
 **Estado del entorno:** la app de escritorio se abrió y se cerró dos veces; solo se navegó entre secciones, sin cambiar ajustes ni iniciar descargas ni sincronizaciones. La ventana volvió a su tamaño en mosaico. El emulador no se ha tocado.
+
+---
+
+## Seguimiento (revisión de `6694965`, "Reintentar" en el error de carga de Plataformas)
+Diff revisado: `365db68..6329f97` (solo `PlatformsScreen.kt`). **Sin cambios de código en esta revisión:** el diff no tiene bugs ni regresiones. `:core:test`, `:desktop:test`, `testDebugUnitTest` y `:app:assembleDebug` terminan bien; Gradle dio las tareas de test por `UP-TO-DATE`, así que no se han vuelto a ejecutar, pero sus entradas no han cambiado desde la última ejecución correcta.
+
+- **P1-11, error de carga de Plataformas en Android: hecho y verificado en vivo.** Sonnet no lo había visto en pantalla. Probado a 2400×1080, en inglés, cortando la red con `svc wifi/data disable` (ya restaurada):
+  - Sale "No connection to the server" con "Retry" a la derecha, sin recortes, con el texto al 100 % y al 130 %.
+  - Sin red, "Retry" vuelve a mostrar el error. Un doble toque no da fallos ni deja el botón bloqueado.
+  - Con red y texto al 130 %, "Retry" hace desaparecer el error.
+  - **Sin verificar:** vertical, español y errores que no sean de red (autenticación, 5xx). Las claves de "Reintentar" y de los cinco errores existen en español.
+- **Tests: no hace falta añadir ninguno para este diff.** Es layout más una llamada a `refreshPlatforms`, que ya usaba "Refresh". **Pendiente (P2):** `PlatformsViewModel` no tiene ningún test.
+- **Sync: sin impacto.** El cambio no la toca.
+- **Pendiente (P2, reproducido, de este diff), detalles visuales; no justifican cambiar código por ahora:**
+  - La aparición del error desplaza la lista 72 px hacia abajo, y vuelve a subir al reintentar.
+  - El mensaje empieza en x=24, en el borde de la tarjeta, mientras el texto de la tarjeta empieza en x=48.
+  - "Retry" queda justo debajo de "Refresh" y hace lo mismo. Se mantiene por coherencia con los demás errores con "Reintentar".
+- **Pendiente (P1, paridad, por lectura de código; escritorio sin ejecutar):** el commit solo cubre Android, y en escritorio Plataformas no ofrece forma de reintentar:
+  - El botón de refrescar se desactiva con `enabled = connected` (`DesktopUi.kt:252`), y un fallo pone `_connected` a `false` (`DesktopAppState.kt:290`).
+  - Sin plataformas en memoria, la pantalla dice "no hay servidor configurado" aunque lo haya (`DesktopUi.kt`, rama `!connected && platforms.isEmpty()`).
+  - `refreshCurrentView` usa `silent = true`, así que ese fallo tampoco muestra snackbar (`DesktopAppState.kt:303`).
+  - → Llevar el mismo estado a escritorio; es trabajo nuevo, así que no se hace en esta revisión.
+
+**Nuevo, anterior a este diff; no se corrige por alcance:**
+- **P2, reproducido dos veces en Android: cambiar el tamaño de texto del sistema devuelve la app a Play** desde Plataformas y se pierde la navegación. `fontScale` no está en `configChanges` (`AndroidManifest.xml:69`), así que la actividad se recrea. Falta buscar por qué no se restaura la pila de navegación, y comprobar si pasa con otras recreaciones.
+- **P2, en vivo: la versión ya no aparece en el menú de Android.** Tras `92649a1` (secciones inmersivas), el cajón solo muestra marca, lema y las cuatro secciones, y Play, Ajustes y Plataformas ya no tienen rail. Hay que revisar el estado de **P1-1 y P1-2**, escritos cuando había rail.
+
+**Cambios sin commitear en el árbol (fuera de `365db68..HEAD`; revisados, no integrados):** `SkeletonGrid.kt`, `LibraryScreen.kt` y `DesktopUi.kt`. Sonnet dice que no son suyos, y por las fechas parecen de las revisiones de Opus que acabaron en `error_max_turns`, aunque no hay prueba directa. Por lectura de código parecen correctos y compilan, pero **no se han visto en pantalla** (ni el esqueleto ni la barra de escritorio) y `SkeletonGrid` no tiene tests. Aportan:
+- Mismo ratio y espaciado que la rejilla real en el esqueleto, para que no salte.
+- Etiqueta de TalkBack y pulso en la capa gráfica.
+- En escritorio, el botón de faltantes ya no se recorta. **Decisión pendiente:** integrarlos o descartarlos.
+
+**Capturas del manifiesto:** revisadas las 16. Son del 2026-11-05, anteriores a este cambio y a `92649a1`: de la `03` a la `17` aún muestran el rail lateral, ya retirado en las pantallas comprobadas en vivo. `screens/desktop/` sigue vacío y ninguna muestra un estado de error. No aportan hallazgos nuevos. Según esas capturas siguen abiertos P1-3, P1-11 (la tarjeta de la cola de `06` va de borde a borde, de x 210 a 2400), P2-3, P2-4, P2-5 y P2-10; falta comprobarlos con el APK actual. → Repetir el manifiesto con el APK actual y añadir capturas de escritorio y de los estados de error. Las capturas en vivo de esta revisión eran temporales, y el emulador las hizo con menos densidad que el manifiesto, así que las medidas en píxeles no son comparables.
+
+**Estado del entorno:** el APK actual, que incluye los cambios sin commitear, quedó instalado en el emulador. Red y tamaño de texto restaurados. Escritorio sin ejecutar: el diff solo afecta a `app`.
