@@ -652,7 +652,10 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
             // ── Grid of games ───────────────────────────────────────────
             if ((isLoading && romsWithStatus.isEmpty()) || ratioPending) {
                 // Estado de carga diseñado: esqueleto de tarjetas en vez de un spinner solitario.
-                com.davidadrianrg.atril.ui.components.SkeletonGrid(minCardSize = minCardSize)
+                com.davidadrianrg.atril.ui.components.SkeletonGrid(
+                    minCardSize = minCardSize,
+                    cardAspectRatio = coverAspectRatio,
+                )
                 return@Column
             }
 

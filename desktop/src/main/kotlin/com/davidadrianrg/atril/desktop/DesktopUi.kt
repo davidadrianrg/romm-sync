@@ -596,46 +596,51 @@ fun LibraryScreen(state: DesktopAppState) {
         var platMenu by remember { mutableStateOf(false) }
         val selSlug by state.selectedPlatformSlug.collectAsState()
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(tr("nav.library"), style = MaterialTheme.typography.headlineSmall)
-            Spacer(Modifier.width(12.dp))
-            Box {
-                OutlinedButton(onClick = { platMenu = true }) {
-                    Text(visiblePlatformsLabel(state, selSlug))
-                }
-                DropdownMenu(expanded = platMenu, onDismissRequest = { platMenu = false }) {
-                    DropdownMenuItem(
-                        text = { Text(tr("library.all_platforms")) },
-                        onClick = { state.selectPlatformBySlug(null); platMenu = false },
-                    )
-                    state.visiblePlatforms().forEach { p ->
+            // Las acciones de la izquierda van en su propia fila: así el botón de faltantes se mide
+            // primero y nunca se recorta su contador.
+            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                Text(tr("nav.library"), style = MaterialTheme.typography.headlineSmall)
+                Spacer(Modifier.width(12.dp))
+                // Lo único que cede espacio: un nombre largo se elide en vez de comerse el resto.
+                Box(Modifier.weight(1f, fill = false)) {
+                    OutlinedButton(onClick = { platMenu = true }) {
+                        Text(visiblePlatformsLabel(state, selSlug), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    DropdownMenu(expanded = platMenu, onDismissRequest = { platMenu = false }) {
                         DropdownMenuItem(
-                            text = { Text("${p.displayName ?: p.name} (${p.romCount})") },
-                            onClick = { state.selectPlatformBySlug(p.slug); platMenu = false },
+                            text = { Text(tr("library.all_platforms")) },
+                            onClick = { state.selectPlatformBySlug(null); platMenu = false },
                         )
+                        state.visiblePlatforms().forEach { p ->
+                            DropdownMenuItem(
+                                text = { Text("${p.displayName ?: p.name} (${p.romCount})") },
+                                onClick = { state.selectPlatformBySlug(p.slug); platMenu = false },
+                            )
+                        }
                     }
                 }
-            }
-            Spacer(Modifier.width(8.dp))
-            IconButton(onClick = { state.navigate(Section.DOWNLOADS) }) {
-                val active = tasks.count { it.active }
-                if (active > 0) {
-                    BadgedBox(badge = { Badge(containerColor = Color(0xFFE8B56A), contentColor = Color(0xFF2A1D08)) { Text("$active") } }) {
+                Spacer(Modifier.width(8.dp))
+                IconButton(onClick = { state.navigate(Section.DOWNLOADS) }) {
+                    val active = tasks.count { it.active }
+                    if (active > 0) {
+                        BadgedBox(badge = { Badge(containerColor = Color(0xFFE8B56A), contentColor = Color(0xFF2A1D08)) { Text("$active") } }) {
+                            Icon(AppIcons.Download, contentDescription = tr("nav.downloads"))
+                        }
+                    } else {
                         Icon(AppIcons.Download, contentDescription = tr("nav.downloads"))
                     }
-                } else {
-                    Icon(AppIcons.Download, contentDescription = tr("nav.downloads"))
+                }
+                Spacer(Modifier.width(8.dp))
+                IconButton(onClick = state::refreshCurrentView, enabled = connected) {
+                    Icon(AppIcons.Refresh, contentDescription = tr("library.refresh"))
+                }
+                Spacer(Modifier.width(8.dp))
+                OutlinedButton(onClick = { showUploadGame = true }, enabled = connected) {
+                    Text(tr("library.upload.title"))
                 }
             }
-            Spacer(Modifier.width(8.dp))
-            IconButton(onClick = state::refreshCurrentView, enabled = connected) {
-                Icon(AppIcons.Refresh, contentDescription = tr("library.refresh"))
-            }
-            Spacer(Modifier.width(8.dp))
-            OutlinedButton(onClick = { showUploadGame = true }, enabled = connected) {
-                Text(tr("library.upload.title"))
-            }
-            Spacer(Modifier.weight(1f))
             if (missingCount > 0) {
+                Spacer(Modifier.width(8.dp))
                 // Ventana estrecha: etiqueta corta en una sola línea + tooltip con el texto completo.
                 val narrow = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize.width /
                     androidx.compose.ui.platform.LocalDensity.current.density < 1000f
