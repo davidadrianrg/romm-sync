@@ -107,6 +107,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -128,6 +129,7 @@ import com.davidadrianrg.atril.RomMSyncApplication
 import com.davidadrianrg.atril.core.i18n.tr
 import androidx.compose.ui.geometry.isSpecified
 import com.davidadrianrg.atril.core.library.CoverRatio
+import com.davidadrianrg.atril.core.library.PlatformAbbreviation
 import com.davidadrianrg.atril.domain.model.DownloadStatus
 import com.davidadrianrg.atril.domain.model.formatBytesForUi
 import com.davidadrianrg.atril.domain.model.Platform
@@ -1121,12 +1123,14 @@ private fun RomCard(
         if (painter.state is coil.compose.AsyncImagePainter.State.Loading ||
             painter.state is coil.compose.AsyncImagePainter.State.Error
         ) {
-            // Placeholder con las iniciales de la plataforma (mismo criterio en todas las tarjetas).
+            // Decorativo: el título de la tarjeta ya identifica el juego.
             Text(
-                text = romWithStatus.rom.platformSlug.uppercase().take(4),
+                text = PlatformAbbreviation.of(romWithStatus.rom.platformSlug),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                maxLines = 1,
+                modifier = Modifier.clearAndSetSemantics {},
             )
         }
         Image(

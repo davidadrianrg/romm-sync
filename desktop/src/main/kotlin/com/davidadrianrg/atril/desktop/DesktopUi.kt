@@ -897,6 +897,7 @@ private fun GameCardItem(card: GameCard, state: DesktopAppState, ratio: Float, t
                 pathCover = card.rep.pathCoverSmall ?: card.rep.pathCoverLarge,
                 serverUrl = state.config.serverUrl,
                 aspectRatio = ratio,
+                placeholderSlug = card.rep.platformSlug,
             )
 
             // Badge multi-disco (arriba-izquierda)

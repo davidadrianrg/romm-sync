@@ -8,15 +8,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import com.davidadrianrg.atril.core.library.CoverRatio
+import com.davidadrianrg.atril.core.library.PlatformAbbreviation
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.loadImageBitmap
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -38,6 +41,8 @@ fun CoverImage(
     contentScale: ContentScale = ContentScale.Crop,
     /** Usa el ratio real del bitmap (sin recortar) en vez de [aspectRatio]. */
     naturalRatio: Boolean = false,
+    /** Plataforma que se muestra abreviada en lugar del icono si no hay portada. */
+    placeholderSlug: String? = null,
 ) {
     val url = resolveMediaUrl(coverUrl, pathCover, serverUrl)
     if (url != null) {
@@ -52,10 +57,10 @@ fun CoverImage(
                 ),
             )
         } else {
-            CoverPlaceholder(aspectRatio)
+            CoverPlaceholder(aspectRatio, placeholderSlug)
         }
     } else {
-        CoverPlaceholder(aspectRatio)
+        CoverPlaceholder(aspectRatio, placeholderSlug)
     }
 }
 
@@ -72,7 +77,8 @@ fun resolveMediaUrl(absoluteUrl: String?, relativePath: String?, serverUrl: Stri
 }
 
 @Composable
-private fun CoverPlaceholder(aspectRatio: Float) {
+private fun CoverPlaceholder(aspectRatio: Float, slug: String?) {
+    val abbreviation = slug?.let(PlatformAbbreviation::of).orEmpty()
     Box(
         Modifier
             .fillMaxWidth()
@@ -80,12 +86,22 @@ private fun CoverPlaceholder(aspectRatio: Float) {
             .background(MaterialTheme.colorScheme.surfaceContainerHigh),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            AppIcons.Gamepad,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-            modifier = Modifier.size(32.dp),
-        )
+        if (abbreviation.isNotEmpty()) {
+            Text(
+                text = abbreviation,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                maxLines = 1,
+            )
+        } else {
+            Icon(
+                AppIcons.Gamepad,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier.size(32.dp),
+            )
+        }
     }
 }
 
