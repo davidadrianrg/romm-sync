@@ -96,6 +96,7 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
                     serverUrl = state.config.serverUrl,
                     aspectRatio = 2f / 3f,
                     naturalRatio = true,
+                    placeholderSlug = rep.platformSlug,
                 )
             }
             Spacer(Modifier.width(36.dp))
