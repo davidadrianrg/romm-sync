@@ -166,7 +166,7 @@ fun SyncScreen() {
             contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 16.dp),
         ) {
             // -- Estado actual
-            item { StatusCard(syncState, lastTimestamp, lastSummary, onCancel = viewModel::cancelSync) }
+            item { StatusCard(syncState, lastTimestamp, lastSummary, onCancel = viewModel::cancelSync, onRetry = viewModel::triggerSync) }
 
             // -- Conflictos pendientes de resolución
             if (conflicts.isNotEmpty()) {
@@ -552,6 +552,7 @@ private fun StatusCard(
     lastTimestamp: Long,
     lastSummary: String,
     onCancel: () -> Unit,
+    onRetry: () -> Unit = {},
 ) {
     val (icon, iconTint, title, subtitle) = when (syncState) {
         SyncState.Idle -> {
@@ -648,6 +649,12 @@ private fun StatusCard(
                     Spacer(modifier = Modifier.size(8.dp))
                     Text(tr("common.cancel"))
                 }
+            }
+
+            // Sync fallida: estado de error con "Reintentar" (misma acción que "Sync now").
+            if (syncState is SyncState.Failed) {
+                Spacer(modifier = Modifier.height(4.dp))
+                androidx.compose.material3.FilledTonalButton(onClick = onRetry) { Text(tr("downloads.retry")) }
             }
 
             if (syncState is SyncState.Idle && lastSummary.isNotBlank() && lastTimestamp > 0) {
