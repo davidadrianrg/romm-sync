@@ -191,7 +191,8 @@ private fun AppNavigationRail(state: DesktopAppState, section: Section) {
             badge = activeDownloads.takeIf { it > 0 },
         )
         RailItem(state, Section.LIBRARY, section, AppIcons.Gamepad, tr("nav.library"))
-        RailItem(state, Section.SAVES, section, AppIcons.Sync, tr("nav.saves"))
+        val saveSyncOn by state.saveSyncEnabled.collectAsState()
+        if (saveSyncOn) RailItem(state, Section.SAVES, section, AppIcons.Sync, tr("nav.saves"))
         RailItem(state, Section.SETTINGS, section, AppIcons.Settings, tr("nav.settings"))
         Spacer(Modifier.weight(1f))
         Text(
@@ -2000,7 +2001,22 @@ fun SettingsScreen(state: DesktopAppState) {
 
         if (settingsCat == SettingsCategory.SYNC) {
         // ── Saves y conflictos ──
-        SettingsSection(icon = AppIcons.Sync, title = tr("settings.saves.title")) {
+        SettingsSection(icon = AppIcons.Sync, title = tr("common.save_sync")) {
+            val saveSyncOn by state.saveSyncEnabled.collectAsState()
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(tr("window.tray.sync_saves"), style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        tr("android.config.sync_saves_hint"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Switch(checked = saveSyncOn, onCheckedChange = { state.setSaveSyncEnabled(it) })
+            }
+            if (saveSyncOn) {
+            Spacer(Modifier.height(12.dp))
             Text(
                 tr("settings.saves.conflict_policy_prompt"),
                 style = MaterialTheme.typography.bodySmall,
@@ -2022,6 +2038,7 @@ fun SettingsScreen(state: DesktopAppState) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            }
         }
         }
 

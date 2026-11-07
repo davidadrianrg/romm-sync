@@ -312,6 +312,7 @@ fun DesktopPlayScreen(
                 onOpenDownloads = onOpenDownloads,
                 onNavigate = onNavigate,
                 onAddLocal = { scope.launch { pickLocalGameFile()?.let { pendingAddPath = it } } },
+                showSaves = state.saveSyncEnabled.collectAsState().value,
             )
 
             if (platforms.size > 1) {
@@ -681,6 +682,7 @@ private fun PlayHeader(
     onOpenDownloads: () -> Unit,
     onNavigate: (Section) -> Unit,
     onAddLocal: () -> Unit,
+    showSaves: Boolean = true,
 ) {
     Row(
         Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 10.dp),
@@ -693,7 +695,7 @@ private fun PlayHeader(
                     text = { Text(tr("nav.library")) },
                     onClick = { onMenuDismiss(); onNavigate(Section.LIBRARY) },
                 )
-                DropdownMenuItem(
+                if (showSaves) DropdownMenuItem(
                     text = { Text(tr("nav.saves")) },
                     onClick = { onMenuDismiss(); onNavigate(Section.SAVES) },
                 )
