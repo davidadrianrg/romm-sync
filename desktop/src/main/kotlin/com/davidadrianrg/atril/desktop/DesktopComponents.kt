@@ -120,7 +120,8 @@ fun ScreenHeader(
     onBack: (() -> Unit)? = null,
     actions: @Composable () -> Unit = {},
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+    // Altura fija de 56 dp: la misma línea base en todas las páginas, con o sin subtítulo.
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height(56.dp)) {
         if (onBack != null) {
             IconButton(onClick = onBack) {
                 Icon(AppIcons.ArrowBack, contentDescription = tr("common.back"))

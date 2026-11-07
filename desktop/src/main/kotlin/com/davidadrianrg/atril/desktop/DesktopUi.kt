@@ -1213,8 +1213,7 @@ fun SavesScreen(state: DesktopAppState) {
     val syncError by state.syncError.collectAsState()
 
     Column(Modifier.fillMaxHeight().widthIn(max = SettingsMaxWidth).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
-        Text(tr("nav.saves"), style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.height(12.dp))
+        ScreenHeader(title = tr("nav.saves"))
         SyncStatusCard(syncing, syncStatus, lastSync, syncError, onRetry = state::syncSaves)
         Spacer(Modifier.height(12.dp))
 
@@ -1533,8 +1532,7 @@ fun SettingsScreen(state: DesktopAppState) {
     Column(
         Modifier.fillMaxHeight().widthIn(max = SettingsMaxWidth).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
     ) {
-        Text(tr("nav.settings"), style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.height(12.dp))
+        ScreenHeader(title = tr("nav.settings"))
 
         SettingsCategoryBar(settingsCat) { settingsCat = it }
         Spacer(Modifier.height(12.dp))
