@@ -87,7 +87,7 @@ fun main() {
         DisposableEffect(state) {
             val dispatcher = KeyEventDispatcher { e ->
                 if (e.id == KeyEvent.KEY_PRESSED) {
-                    val sections = listOf(Section.PLAY, Section.LIBRARY, Section.SAVES, Section.SETTINGS)
+                    val sections = listOfNotNull(Section.PLAY, Section.LIBRARY, Section.SAVES.takeIf { state.saveSyncEnabled.value }, Section.SETTINGS)
                     when {
                         (e.keyCode == KeyEvent.VK_1 || e.keyCode == KeyEvent.VK_2 ||
                             e.keyCode == KeyEvent.VK_3 || e.keyCode == KeyEvent.VK_4) && e.isControlDown -> {

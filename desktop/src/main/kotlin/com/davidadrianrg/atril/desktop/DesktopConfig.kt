@@ -82,6 +82,11 @@ object DesktopConfig {
         get() = prefs.get("card_media_ids", "")
         set(v) = prefs.put("card_media_ids", v)
 
+    /** Interruptor general de sincronización de saves (igual que Android; activado por defecto). */
+    var saveSyncEnabled: Boolean
+        get() = prefs.getBoolean("save_sync_enabled", true)
+        set(v) = prefs.putBoolean("save_sync_enabled", v)
+
     /** Pedir a RomM el medio físico al descargar un juego que no lo tenga. */
     var autoPhysicalMedia: Boolean
         get() = prefs.getBoolean("auto_physical_media", false)

@@ -1265,6 +1265,17 @@ class DesktopAppState(private val scope: CoroutineScope) {
     private val _autoSyncMinutes = MutableStateFlow(DesktopConfig.autoSyncMinutes)
     val autoSyncMinutes: StateFlow<Int> = _autoSyncMinutes
 
+    private val _saveSyncEnabled = MutableStateFlow(DesktopConfig.saveSyncEnabled)
+    val saveSyncEnabled: StateFlow<Boolean> = _saveSyncEnabled
+
+    /** Apagado: se oculta la sección Saves, sus ajustes y el sync en segundo plano. */
+    fun setSaveSyncEnabled(on: Boolean) {
+        _saveSyncEnabled.value = on
+        DesktopConfig.saveSyncEnabled = on
+        restartAutoSync()
+        if (!on && section.value == Section.SAVES) navigate(Section.SETTINGS)
+    }
+
     fun setAutoSyncMinutes(minutes: Int) {
         _autoSyncMinutes.value = minutes
         DesktopConfig.autoSyncMinutes = minutes
@@ -1274,7 +1285,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
     private fun restartAutoSync() {
         autoSyncJob?.cancel()
         val minutes = _autoSyncMinutes.value
-        if (minutes <= 0) return
+        if (minutes <= 0 || !_saveSyncEnabled.value) return
         autoSyncJob = scope.launch {
             while (true) {
                 kotlinx.coroutines.delay(minutes * 60_000L)
