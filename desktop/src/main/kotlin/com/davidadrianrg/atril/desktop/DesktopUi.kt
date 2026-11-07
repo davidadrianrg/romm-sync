@@ -1795,8 +1795,10 @@ fun SettingsScreen(state: DesktopAppState) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.secondary,
                     )
+                    // `connected` también es false con servidor guardado pero caído (o aún cargando):
+                    // entonces no hay que pedir que se configure, sino que se conecte.
                     DesktopAppState.ScanState.Idle -> if (!connected) Text(
-                        tr("settings.scan.needs_server"),
+                        if (hasCredentials) tr("connection.required") else tr("settings.scan.needs_server"),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
