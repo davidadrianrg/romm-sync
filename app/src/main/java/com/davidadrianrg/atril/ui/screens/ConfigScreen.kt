@@ -422,7 +422,7 @@ fun ConfigScreen(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 val isScanning = scanState is LibraryScanState.Scanning
-                FilledTonalButton(
+                androidx.compose.material3.Button(
                     onClick = { viewModel.scanLibrary(serverUrl, apiKey) },
                     modifier = if (portraitPhone) Modifier.fillMaxWidth() else Modifier,
                     enabled = settings.isConfigured && !isScanning,
