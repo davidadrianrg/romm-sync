@@ -2081,6 +2081,12 @@ fun SettingsScreen(state: DesktopAppState) {
         SettingsSection(icon = AppIcons.Refresh, title = tr("settings.updates.title")) {
             val updState by state.updateState.collectAsState()
             val upd = updState
+            Text(
+                tr("android.config.installed_version", DesktopConfig.appVersion),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedButton(onClick = state::checkUpdate, enabled = !upd.checking && !upd.downloading) {
                     if (upd.checking) {

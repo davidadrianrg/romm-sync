@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.DownloadForOffline
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SportsEsports
@@ -1130,6 +1131,18 @@ fun ConfigScreen(
             }
 
             Spacer(modifier = Modifier.height(4.dp))
+            }
+
+            if (settingsCat == SettingsCategory.ABOUT) {
+            SettingsSection(
+                icon = Icons.Outlined.Info,
+                title = tr("settings.about.title"),
+            ) {
+                Text(
+                    tr("settings.about.version", viewModel.currentVersion),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
             }
 
             if (settingsCat == SettingsCategory.CONNECTION) {
