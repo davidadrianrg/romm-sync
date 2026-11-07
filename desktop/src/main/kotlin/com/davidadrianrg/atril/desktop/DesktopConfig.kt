@@ -72,6 +72,16 @@ object DesktopConfig {
         get() = prefs.getBoolean("esde_export_enabled", prefs.get("esde_data_dir", null) != null)
         set(v) = prefs.putBoolean("esde_export_enabled", v)
 
+    /** Mostrar el medio físico por defecto (igual que en Android); la elección por juego manda. */
+    var launcherDefaultPhysical: Boolean
+        get() = prefs.getBoolean("launcher_default_physical", false)
+        set(v) = prefs.putBoolean("launcher_default_physical", v)
+
+    /** Juegos con carta elegida a mano aunque el valor por defecto sea medio físico. */
+    var cardMediaIds: String
+        get() = prefs.get("card_media_ids", "")
+        set(v) = prefs.put("card_media_ids", v)
+
     /** Pedir a RomM el medio físico al descargar un juego que no lo tenga. */
     var autoPhysicalMedia: Boolean
         get() = prefs.getBoolean("auto_physical_media", false)

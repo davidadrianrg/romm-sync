@@ -1554,22 +1554,41 @@ fun SettingsScreen(state: DesktopAppState) {
         if (settingsCat == SettingsCategory.APPEARANCE) {
         // ── Launcher: medio físico automático (opcional, con RomM conectado) ──
         SettingsSection(icon = AppIcons.Gamepad, title = tr("settings.launcher.title")) {
+            var defaultPhysical by remember { mutableStateOf(state.config.launcherDefaultPhysical) }
             var autoOn by remember { mutableStateOf(state.config.autoPhysicalMedia) }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(tr("settings.launcher.auto_physical"), style = MaterialTheme.typography.bodyLarge)
+                    Text(tr("settings.launcher.physical_default"), style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        tr("settings.launcher.auto_physical_desc"),
+                        tr("settings.launcher.physical_default_desc"),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Spacer(Modifier.width(12.dp))
                 Switch(
-                    checked = autoOn && hasCredentials,
-                    enabled = hasCredentials,
-                    onCheckedChange = { autoOn = it; state.config.autoPhysicalMedia = it },
+                    checked = defaultPhysical,
+                    onCheckedChange = { defaultPhysical = it; state.setLauncherDefaultPhysical(it) },
                 )
+            }
+            // Medio físico automático: solo con el modo físico por defecto y RomM conectado (como en Android).
+            if (defaultPhysical && hasCredentials) {
+                Spacer(Modifier.height(16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(tr("settings.launcher.auto_physical"), style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            tr("settings.launcher.auto_physical_desc"),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Switch(
+                        checked = autoOn,
+                        onCheckedChange = { autoOn = it; state.config.autoPhysicalMedia = it },
+                    )
+                }
             }
         }
 

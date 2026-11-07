@@ -663,12 +663,33 @@ class DesktopAppState(private val scope: CoroutineScope) {
             .forEach { add(it) }
     }
 
-    fun isPhysicalMedia(romId: Int): Boolean = romId in physicalIds
+    private val cardIds: MutableSet<Int> = ConcurrentHashMap.newKeySet<Int>().apply {
+        DesktopConfig.cardMediaIds.split(',')
+            .mapNotNull { it.trim().toIntOrNull() }
+            .forEach { add(it) }
+    }
+
+    /** La elección por juego (físico o carta) manda sobre el valor por defecto global. */
+    fun isPhysicalMedia(romId: Int): Boolean = when {
+        romId in physicalIds -> true
+        romId in cardIds -> false
+        else -> DesktopConfig.launcherDefaultPhysical
+    }
 
     /** Alterna carta ↔ medio físico persistido por ROM. */
     fun togglePhysicalMedia(romId: Int) {
-        if (!physicalIds.remove(romId)) physicalIds.add(romId)
+        if (isPhysicalMedia(romId)) {
+            physicalIds.remove(romId); cardIds.add(romId)
+        } else {
+            cardIds.remove(romId); physicalIds.add(romId)
+        }
         DesktopConfig.physicalMediaIds = physicalIds.joinToString(",")
+        DesktopConfig.cardMediaIds = cardIds.joinToString(",")
+        _downloadedVersion.value = _downloadedVersion.value + 1
+    }
+
+    fun setLauncherDefaultPhysical(on: Boolean) {
+        DesktopConfig.launcherDefaultPhysical = on
         _downloadedVersion.value = _downloadedVersion.value + 1
     }
 
@@ -902,7 +923,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
                         refreshLocalStats()
                         fetchGameMedia(rom)
                         if (com.davidadrianrg.atril.core.scrape.AutoPhysicalMedia.shouldRequest(
-                                enabled = config.autoPhysicalMedia,
+                                enabled = config.autoPhysicalMedia && config.launcherDefaultPhysical,
                                 romMConnected = config.serverUrl.isNotBlank() && config.apiKey.isNotBlank(),
                                 isLocalGame = false,
                                 alreadyHasPhysicalMedia = !rom.physicalMediaPath.isNullOrBlank(),
