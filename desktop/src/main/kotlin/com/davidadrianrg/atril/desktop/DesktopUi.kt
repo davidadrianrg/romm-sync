@@ -590,7 +590,8 @@ fun LibraryScreen(state: DesktopAppState) {
     val sort by state.sort.collectAsState()
     val regionFilter by state.regionFilter.collectAsState()
     val games = remember(roms, search, filter, version, sort, regionFilter) { state.games() }
-    val ratio = rememberMedianCoverRatio(remember(roms) { state.games() }, state.config.serverUrl)
+    // Rejilla uniforme 3:4 con portadas Fit (igual que Android): sin esperar a medir portadas.
+    val ratio = UNIFORM_CARD_RATIO
 
     var showBatchDialog by remember { mutableStateOf(false) }
     var showUploadGame by remember { mutableStateOf(false) }
@@ -764,9 +765,9 @@ fun LibraryScreen(state: DesktopAppState) {
         val g = selectedGame
         when {
             g != null -> GameDetailPanel(g, state)
-            ((loading || loadingPlatforms) && roms.isEmpty()) || (games.isNotEmpty() && ratio == null) -> {
+            ((loading || loadingPlatforms) && roms.isEmpty()) -> {
                 // Estado de carga diseñado: esqueleto con las mismas medidas que la rejilla real.
-                LibrarySkeleton(ratio ?: (2f / 3f), Modifier.weight(1f).fillMaxWidth())
+                LibrarySkeleton(ratio, Modifier.weight(1f).fillMaxWidth())
             }
             games.isEmpty() -> {
                 Box(Modifier.weight(1f)) {
@@ -799,7 +800,7 @@ fun LibraryScreen(state: DesktopAppState) {
                         modifier = Modifier.fillMaxSize(),
                     ) {
                         gridItems(games.take(visibleCount), key = { it.rep.id }) { card ->
-                            GameCardItem(card, state, ratio ?: (2f / 3f), tasks)
+                            GameCardItem(card, state, ratio, tasks)
                         }
                         if (visibleCount < games.size) {
                             item(span = { GridItemSpan(maxLineSpan) }) {
@@ -923,6 +924,7 @@ private fun GameCardItem(card: GameCard, state: DesktopAppState, ratio: Float, t
                 pathCover = card.rep.pathCoverSmall ?: card.rep.pathCoverLarge,
                 serverUrl = state.config.serverUrl,
                 aspectRatio = ratio,
+                contentScale = androidx.compose.ui.layout.ContentScale.Fit,
                 placeholderSlug = card.rep.platformSlug,
             )
 
@@ -2231,3 +2233,6 @@ private fun LibrarySkeleton(ratio: Float, modifier: Modifier = Modifier) {
         }
     }
 }
+
+/** Proporción única (ancho/alto) de las tarjetas de la rejilla de Biblioteca; igual que Android. */
+private const val UNIFORM_CARD_RATIO = 0.75f
