@@ -477,9 +477,9 @@ fun ConfigScreen(
                 if (!settings.isConfigured) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        tr("android.config.scan_needs_server"),
+                        tr("settings.scan.needs_server"),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
