@@ -78,6 +78,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.davidadrianrg.atril.core.i18n.tr
@@ -760,17 +764,8 @@ fun LibraryScreen(state: DesktopAppState) {
         when {
             g != null -> GameDetailPanel(g, state)
             ((loading || loadingPlatforms) && roms.isEmpty()) || (games.isNotEmpty() && ratio == null) -> {
-                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator()
-                        Spacer(Modifier.height(12.dp))
-                        Text(
-                            tr("library.loading"),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
+                // Estado de carga diseñado: esqueleto con las mismas medidas que la rejilla real.
+                LibrarySkeleton(ratio ?: (2f / 3f), Modifier.weight(1f).fillMaxWidth())
             }
             games.isEmpty() -> {
                 Box(Modifier.weight(1f)) {
@@ -2103,6 +2098,40 @@ private fun SettingsCategoryBar(selected: SettingsCategory, onSelect: (SettingsC
                 selected = c == selected,
                 onClick = { onSelect(c) },
                 label = { Text(tr(c.labelKey)) },
+            )
+        }
+    }
+}
+
+
+/** Esqueleto de carga de la Biblioteca: tarjetas que "respiran" con el mismo tamaño/hueco que la rejilla real. */
+@Composable
+private fun LibrarySkeleton(ratio: Float, modifier: Modifier = Modifier) {
+    val transition = androidx.compose.animation.core.rememberInfiniteTransition(label = "skeleton")
+    val pulse by transition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.8f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            androidx.compose.animation.core.tween(900),
+            androidx.compose.animation.core.RepeatMode.Reverse,
+        ),
+        label = "skeletonAlpha",
+    )
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(150.dp),
+        contentPadding = PaddingValues(vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        userScrollEnabled = false,
+        modifier = modifier.semantics { contentDescription = tr("library.loading") },
+    ) {
+        items(60) {
+            Box(
+                Modifier
+                    .aspectRatio(ratio)
+                    .graphicsLayer { alpha = pulse }
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
             )
         }
     }
