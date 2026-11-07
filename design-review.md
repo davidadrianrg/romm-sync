@@ -543,3 +543,48 @@ Diff revisado: `1f80346..2676679` (solo `LibraryScreen.kt`). **Corregido en `fea
 - El emulador tiene instalado el APK de `feat/opus-review-4`, y se ha visitado DOS, MSX, Amiga, Atari 2600 y Commodore C64.
 - Escritorio no se ha ejecutado, porque el diff y el arreglo solo tocan `app`.
 - `feat/opus-review-4` ya existía en local, ya integrada y sin commits propios (`365db68`): se borró con `git branch -d` para recrearla. `feat/opus-review-1` sigue ahí en el mismo estado (`55b5143`), sin tocar.
+
+---
+
+## Seguimiento (revisión de `bc196a8`, orden de las secciones de Ajustes en escritorio, P1-10)
+Diff revisado: `881f82b..e3aa2b2` (solo `SettingsScreen` en `DesktopUi.kt`). **Sin cambios de código en esta revisión:** el diff no tiene bugs ni regresiones. Comparando las líneas sin sangría, solo se mueven bloques: desaparecen dos `if (settingsCat == …)` con sus llaves, al unir bloques contiguos de la misma categoría, y sobra una línea en blanco.
+
+**P1-10, orden de las secciones: hecho y verificado en vivo en Linux** (854×1380, en español, con un `user.home` y unas `Preferences` temporales, sin servidor). El orden se comparó con el código de `ConfigScreen.kt`:
+
+| Categoría | Android | Escritorio |
+|---|---|---|
+| Apariencia | Launcher, Idioma, Tema | Igual |
+| Juegos locales | Directorio de ROMs, Escanear, Carátulas | Igual |
+| Descargas | Media de juegos, Descargas simultáneas | Igual |
+| Acerca de | Controles, Actualizaciones | Igual, más "Acerca de" al final (solo escritorio) |
+| Avanzado | ES-DE | Igual, más "Sistema" al final (solo escritorio) |
+
+**Tests:** ninguno nuevo; solo cambia el orden y `desktop` no tiene `compose-ui-test`. Nada impide que el orden vuelva a divergir, porque cada plataforma lo define en su propio archivo. `:desktop:test` se ha vuelto a ejecutar con `--rerun`: 37 tests, sin fallos. `:core:test` y `testDebugUnitTest` terminan bien, aunque Gradle los da por `UP-TO-DATE`: este diff no toca sus fuentes.
+
+**Sync y Android horizontal: sin impacto.** El diff solo reordena la vista de Ajustes de escritorio. Android no se ha ejecutado.
+
+**P1-10, resto: pendiente.** El punto pedía las mismas secciones con el mismo nombre y texto, no solo el mismo orden. Ninguno de estos puntos es una regresión; cerrarlos requiere decidir el comportamiento y, en algunos casos, trabajo nuevo.
+- **Launcher, interruptores distintos.** Android tiene "Mostrar medio físico por defecto" y solo enseña "Obtener el medio físico automáticamente" si ese modo está activo y RomM configurado (`ConfigScreen.kt:695`). Escritorio no tiene el primero, y siempre enseña el segundo, deshabilitado sin credenciales. En escritorio el medio físico se elige por juego (`physicalIds`, `DesktopAppState.kt:660`). → Decidir si escritorio tiene un valor global.
+- **Sync, nombre y contenido.** "Sincronización de partidas" con interruptor general, Wi-Fi y carga en Android, frente a "Saves y conflictos" solo con la política de conflictos en escritorio. No hay interruptor general en escritorio. → Unificar el título y decidir sobre el interruptor; Wi-Fi y carga son exclusivos de Android.
+- **Nuevo, ES-DE en Avanzado.** Android tiene el interruptor "Usar ES-DE", que oculta esos ajustes (`13`). Escritorio no lo tiene y enseña siempre la carpeta y "Exportar metadata a ES-DE" en ámbar. → Decidir uno de los dos.
+- **Nuevo (P2), versión instalada.** Android la muestra en Actualizaciones (`ConfigScreen.kt:950`), y escritorio en "Acerca de", no en Actualizaciones.
+
+**Nuevo (P2, en vivo en Linux), pendiente; no justifica cambiar código por ahora:**
+- **Iconos que no coinciden.** Biblioteca usa en el rail el mismo mando que Launcher, Sistema, Controles y Acerca de, mientras que Android usa una rejilla para Biblioteca y el mando para Jugar. Idioma y Tema siguen con el icono de lista genérico (P2-2). Media de juegos y ES-DE usan una imagen en escritorio y una carpeta en Android (`12`, `13`). Los iconos se ven como un rectángulo con una cruz, sin llegar al rectángulo en blanco de P0-1, aunque a este tamaño apenas se reconoce el mando.
+- **"Guardar" sin cambios.** En Juegos locales, "Guardar" está activo y en ámbar sin haber cambiado la carpeta, mientras que "Guardar claves", en la misma pestaña, se deshabilita hasta que hay cambios.
+- **"Escanear ahora" deshabilitado sin explicación.** Sin servidor aparece gris y no dice por qué. No se ha mirado la condición.
+- **Ventana sin rellenar si falta el entorno de sway (reproducido).** Sin `SWAYSOCK` ni `XDG_CURRENT_DESKTOP`, `TilingWmWorkaround.needsRelaunch` no detecta sway: el contenido se queda en unos 800 px de alto y recortado por la derecha, con el resto de la ventana en negro y una línea blanca. Con esas variables se ve bien. Solo pasa con un entorno incompleto, como el de esta sesión; no se ha probado desde un lanzador real.
+
+**Estado de otros puntos:**
+- **Última pestaña de Ajustes cortada (de la revisión de `08de4ce`): comprobado.** La fila se desplaza al pulsar y "Acerca de" queda entera. Sigue sin haber más indicador que la pestaña cortada ("A").
+- **"Ctrl+1…4" (P1-2): verificado en vivo** en "Acerca de".
+- **P2-10 (sangría del enlace): sigue igual en escritorio.** "Avanzado: pegar un token de API" empieza en x≈126 y el resto de la tarjeta en x≈114.
+- **Texto `romm.local_only_hint`: sigue fuera de lugar.** Dice "desde Ajustes" estando ya en Ajustes.
+- **Sin verificar:** con credenciales y con RomM conectado, a pantalla completa (ancho máximo de P0-2) y en inglés.
+
+**Capturas del manifiesto:** revisadas las 16 (Android, 2400×1080, 2026-11-05). Son anteriores a este cambio y `screens/desktop/` sigue vacío, así que **no muestran este diff**. Sirven de referencia del orden de Android (`09`, `10`, `12`, `14`), que coincide con el código en lo que se ve. Hallazgos nuevos a partir de ellas: solo el interruptor de ES-DE (`13`) y los iconos de `12` y `13`. Según esas capturas siguen abiertos P1-3, P2-1, P2-3, P2-4, P2-5 y P2-10, y la tarjeta de la cola de borde a borde de P1-11 (`06`); falta comprobarlos con el APK actual. `08` sigue mostrando la URL real del servidor. → Repetir el manifiesto con el APK actual y añadir capturas de escritorio. Las capturas en vivo de esta revisión eran temporales, se han borrado y no se han añadido al manifiesto.
+
+**Estado del entorno:**
+- La app de escritorio se abrió dos veces, siempre con configuración temporal (ya borrada), así que no se tocó la configuración real ni el servidor RomM. Se cerró matando sus JVM, por lo que `:desktop:run` terminó con `BUILD FAILED`; no es un fallo de la app. Solo se cambió de pestaña, sin modificar ajustes. El cursor de sway se movió para pulsar en la ventana.
+- Al limpiar se ejecutó por error `pkill -P 0`, que no hacía falta. Solo apuntaba a `systemd` y `kthreadd`, procesos de root que un usuario normal no puede señalar. Después se comprobó que `systemd`, sway, Hermes y el emulador seguían activos.
+- El emulador no se ha usado en esta revisión.
