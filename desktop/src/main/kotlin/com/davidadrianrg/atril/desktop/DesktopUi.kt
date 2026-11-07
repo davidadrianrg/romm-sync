@@ -1209,11 +1209,12 @@ fun SavesScreen(state: DesktopAppState) {
     val syncStatus by state.syncStatus.collectAsState()
     val lastSync by state.lastSync.collectAsState()
     val failed by state.lastFailed.collectAsState()
+    val syncError by state.syncError.collectAsState()
 
     Column(Modifier.fillMaxHeight().widthIn(max = SettingsMaxWidth).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Text(tr("nav.saves"), style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(12.dp))
-        SyncStatusCard(syncing, syncStatus, lastSync)
+        SyncStatusCard(syncing, syncStatus, lastSync, syncError, onRetry = state::syncSaves)
         Spacer(Modifier.height(12.dp))
 
         Button(
@@ -1270,7 +1271,7 @@ fun SavesScreen(state: DesktopAppState) {
                             color = MaterialTheme.colorScheme.onErrorContainer,
                         )
                     }
-                    // Sync fallida: "Reintentar" (misma acción que "Sync now"), como en Android.
+                    // Fallos por archivo: "Reintentar" (misma acción que "Sync now"). El fallo total va en SyncStatusCard.
                     Spacer(Modifier.height(8.dp))
                     FilledTonalButton(onClick = state::syncSaves, enabled = !syncing) {
                         Text(tr("downloads.retry"))
@@ -1421,6 +1422,8 @@ private fun SyncStatusCard(
     syncing: Boolean,
     syncStatus: String?,
     lastSync: LastSyncInfo,
+    syncError: String?,
+    onRetry: () -> Unit,
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
@@ -1439,6 +1442,26 @@ private fun SyncStatusCard(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+                }
+                // Sync fallida entera: error con "Reintentar", como StatusCard en Android.
+                syncError != null -> {
+                    Icon(
+                        AppIcons.ErrorOutline,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(40.dp),
+                    )
+                    Spacer(Modifier.width(16.dp))
+                    Column {
+                        Text(tr("common.error"), style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            syncError,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        FilledTonalButton(onClick = onRetry) { Text(tr("downloads.retry")) }
                     }
                 }
                 lastSync.exists -> {

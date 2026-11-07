@@ -414,3 +414,61 @@ Diff revisado: `365db68..6329f97` (solo `PlatformsScreen.kt`). **Sin cambios de 
 **Capturas del manifiesto:** revisadas las 16. Son del 2026-11-05, anteriores a este cambio y a `92649a1`: de la `03` a la `17` aún muestran el rail lateral, ya retirado en las pantallas comprobadas en vivo. `screens/desktop/` sigue vacío y ninguna muestra un estado de error. No aportan hallazgos nuevos. Según esas capturas siguen abiertos P1-3, P1-11 (la tarjeta de la cola de `06` va de borde a borde, de x 210 a 2400), P2-3, P2-4, P2-5 y P2-10; falta comprobarlos con el APK actual. → Repetir el manifiesto con el APK actual y añadir capturas de escritorio y de los estados de error. Las capturas en vivo de esta revisión eran temporales, y el emulador las hizo con menos densidad que el manifiesto, así que las medidas en píxeles no son comparables.
 
 **Estado del entorno:** el APK actual, que incluye los cambios sin commitear, quedó instalado en el emulador. Red y tamaño de texto restaurados. Escritorio sin ejecutar: el diff solo afecta a `app`.
+
+---
+
+## Seguimiento (revisión de `4df422b`, esqueleto de carga en la Biblioteca de escritorio)
+Diff revisado: `ec8cb4f..0127bc7` (solo `DesktopUi.kt`). **Sin cambios de código en esta revisión:** el diff no tiene bugs ni regresiones. `:desktop:test` se ha vuelto a ejecutar (35 tests, 0 fallos). `:core:test` y `testDebugUnitTest` terminan bien, pero Gradle los da por `UP-TO-DATE`: no se han vuelto a ejecutar, y este diff no toca sus fuentes.
+
+- **P1-11, esqueleto de carga de la Biblioteca en escritorio: hecho y verificado en vivo.** Probado en español, entrando en la Biblioteca y pulsando refrescar, a 854×1380 (4 columnas) y a pantalla completa 2560×1440 (9 columnas): sustituye al spinner, la barra sigue visible y la rejilla deja paso a las tarjetas reales sin quedarse atascada. Las columnas, los huecos y los radios coinciden con la rejilla real. Las 60 tarjetas sobran en ambos tamaños (se ven unas 36 a pantalla completa). Android ya lo tenía, así que hay paridad. **Sin verificar:** el anuncio de `contentDescription` con un lector de pantalla y la carga con el servidor caído.
+- **P1-11, resto: pendiente.** Faltan el esqueleto de los cartuchos de Play, la sync fallida y la descarga fallida.
+- **Decisión pendiente de la revisión de `6694965` ("cambios sin commitear"): cerrada.** Se integraron en `3345c51`.
+- **Tests: no hace falta añadir ninguno.** Es solo layout, y `desktop` no tiene `compose-ui-test`. `I18nTest` ya cubre la clave `library.loading`.
+- **Sync y Android horizontal: sin impacto.** El diff solo toca la Biblioteca de escritorio. Android no se ha ejecutado porque no cambia.
+
+**Pendiente (P1, reproducido, anterior a este diff; no se corrige por alcance): las tarjetas cambian de tamaño varias veces justo después del esqueleto.**
+- **Medidas** (altura de la primera tarjeta en "Todas las plataformas", en la ventana de 854×1380; se repite igual al refrescar): 260 px (esqueleto) → 254 → 145 → 214 → 218, todo en unos 1,5 s. Antes de refrescar, tras varios segundos más, ya medía 231. A pantalla completa se ve lo mismo: 368 → 359 → 205 → unos 319.
+- **Causa, por lectura de código** (`rememberMedianCoverRatio`, `Covers.kt:131`; no se ha comprobado con un arreglo):
+  - Con `roms` vacío no hay URLs y el ratio pasa de `null` a `DEFAULT` antes de que llegue ningún juego. Por eso la rama `games.isNotEmpty() && ratio == null` (`DesktopUi.kt:766`) casi nunca se cumple y las tarjetas se pintan con 2:3, justo lo que el comentario de `Covers.kt:132` dice querer evitar.
+  - Cada página nueva cambia `roms` y lanza otra medición sobre las 24 primeras tarjetas, que cambian al reordenarse. Las primeras pueden ser apaisadas (145 px).
+- **Impacto:** la rejilla salta y se reordena mientras el usuario empieza a mirarla. El esqueleto no lo causa, pero lo hace más evidente, porque promete unas medidas que luego cambian.
+- → Mantener el esqueleto hasta tener un ratio medido y no volver a medir hasta que acabe la carga, con el tope de 4 s que ya existe. Android ya sigue este criterio, según su código: mide una vez por plataforma y espera con `ratioPending` y un tope de 4 s (`LibraryScreen.kt:376-394`), así que también es un problema de paridad. **Pendiente.**
+
+**Nuevo (P2), pendiente; no justifica cambiar código por ahora:**
+- **Contraste del pulso:** en su punto más tenue, la tarjeta es (19, 17, 14) sobre un fondo (11, 10, 9), medido en la captura, y cuesta verla en un monitor con poco brillo. Android usa los mismos valores, así que cualquier ajuste debe hacerse en los dos lados.
+- **Inset de 2 dp:** `GameCardItem` lleva `padding(2.dp)` y el esqueleto no, así que el borde de la tarjeta se mueve unos 2 dp al cargar (y=213 frente a 215). El comentario "mismas medidas" es cierto para la rejilla, no para la tarjeta.
+- **Barra que cambia al cargar:** aparecen el dado, el globo y "Faltantes", y esto último recorta "Todas las plataformas" a "Todas las plataform…" en la ventana estrecha. Ya no hay salto vertical, pero el selector cambia de ancho.
+- **Cantidad fija de 60 tarjetas:** por cálculo, una ventana muy ancha y baja (3840×1080, unas 22 columnas × 4 filas) mostraría filas incompletas durante la carga. No se ha probado y es un caso raro.
+
+**Capturas del manifiesto:** revisadas las 16 (Android, 2400×1080, 2026-11-05). Son anteriores a este cambio y a varios arreglos ya integrados, y `screens/desktop/` sigue vacío, así que **no muestran este diff**. No aportan hallazgos nuevos. Según esas capturas siguen abiertos P1-3, P2-3, P2-4, P2-5 y P2-10, y la tarjeta de la cola de borde a borde de P1-11 (`06`); falta comprobarlos con el APK actual. `02`, `05`, `07`, `08`, `11` y `16` muestran estados ya corregidos, y de la `03` a la `17` aún se ve el rail retirado en `92649a1`. → Repetir el manifiesto con el APK actual y añadir capturas de escritorio, incluido este esqueleto. Las capturas en vivo de esta revisión eran temporales y no se han añadido al manifiesto.
+
+**Estado del entorno:** la app de escritorio se abrió una vez y se cerró matando sus dos JVM, por lo que `:desktop:run` terminó con `BUILD FAILED`; no es un fallo de la app. Solo se navegó a la Biblioteca y se pulsó refrescar, sin cambiar ajustes ni iniciar descargas ni sincronizaciones. La ventana salió de pantalla completa antes de cerrarse. El emulador no se ha tocado.
+
+---
+
+## Seguimiento (revisión de `20e9f89`, "Reintentar" en la tarjeta de fallos de Saves en escritorio)
+Diff revisado: `0127bc7..00abb6b` (solo `SavesScreen` en `DesktopUi.kt`). **Corregido en `feat/opus-review-2`** (`DesktopAppState.kt`, `DesktopUi.kt`, con 2 tests nuevos en `SyncFailureStateTest`; los 2 fallan sin el arreglo). Pasan `:core:test` (236), `:desktop:test` (37), `testDebugUnitTest` y `:app:assembleDebug`. Gradle dio `:core:test`, `testDebugUnitTest` y `assembleDebug` por `UP-TO-DATE`: este arreglo no toca sus fuentes.
+
+- **Bug (P1, de este diff), "Reintentar" no aparecía cuando falla toda la sync: corregido.** El botón solo estaba en la tarjeta de fallos por archivo (`failed.isNotEmpty()`). Si falla la sync entera (servidor caído, registro del dispositivo, negociación), `failedDetails` viene vacío y no había ni tarjeta ni botón. Además, `SyncStatusCard` lo pintaba con el check verde de "Última sincronización", y si saltaba una excepción el error no se mostraba en ningún sitio. El comentario "como en Android" era inexacto: Android ofrece "Reintentar" justo en el fallo total (`SyncState.Failed`), y un fallo parcial cuenta allí como éxito con avisos. Ahora `syncError` lleva a `SyncStatusCard` un estado de error con "Reintentar", igual que `StatusCard` en Android. La excepción también limpia la lista de fallos anterior.
+- **P1-11, sync fallida: hecho y verificado en vivo en Linux** (854×1380, en español, con un HOME temporal). Sin servidor configurado, "Sincronizar ahora" muestra "Error / Servidor no configurado / Reintentar", y "Reintentar" repite el ciclo sin bloquear nada. **Sin verificar:**
+  - en pantalla, un servidor caído real (cubierto por test, que comprueba el error del registro del dispositivo con un puerto sin servicio);
+  - la rama de excepción (sin test: no se ha encontrado cómo provocarla sin cambiar código);
+  - la tarjeta de fallos por archivo, que necesita un save real y un fallo parcial.
+- **Android: no se ha ejecutado,** porque el diff y el arreglo solo tocan escritorio. La sync y Android horizontal no cambian.
+- **P1-11, resto: pendiente.** Faltan el esqueleto de los cartuchos de Play y la descarga fallida, y siguen las diferencias entre estados vacíos.
+
+**Pendiente (no se corrige por alcance):**
+- **P1, reproducido en Linux, por lectura de código en Android: tras reiniciar, una sync fallida parece correcta.** El error se guarda como última sincronización. Al reabrir la app sale el check verde con "Última sincronización · Resultado: Servidor no configurado", sin "Reintentar", y se pierde la fecha de la última sync buena. `syncError` solo vive en memoria. Android guarda igual el fallo (`setLastSync`, `SyncScreen.kt:148`) y en `Idle` pinta `CheckCircle`. → Guardar si el último ciclo falló, en los dos lados.
+- **P2, por lectura de código, cancelar y reintentar enseguida:** `cancelSync` pone `_syncing` a `false` antes de que termine el trabajo anterior. Si se relanza entonces, el `finally` del trabajo cancelado pone `_syncing = false` y `syncJob = null` sobre el nuevo: el botón se reactiva con una sync en marcha y esa sync ya no se puede cancelar. Es anterior a este diff ("Sincronizar ahora" ya lo permitía). → Comprobar en el `finally` que el trabajo sigue siendo el actual.
+- **P2, por lectura de código, aviso de fallo total:** escritorio solo notifica conflictos y fallos por archivo, así que una sync automática que falla entera no avisa si la ventana no está en Saves.
+- **P2, paridad, fallo parcial:** escritorio tiene ahora "Reintentar" en la tarjeta de fallos y Android no (`FailedOpsSection`), aunque su texto dice "Try again". → Decidir uno de los dos.
+
+**Nuevo (P2, en vivo en Linux), pendiente; no justifica cambiar código por ahora:**
+- **Error repetido con dos estilos:** sin servidor, "Servidor no configurado" sale en la tarjeta (`bodySmall`, neutro) y otra vez bajo "Cambios pendientes" (texto grande en rojo).
+- **Dos botones para lo mismo:** "Reintentar" queda justo encima de "Sincronizar ahora". Se mantiene por coherencia con Android.
+- **"Reintentar" sin salida:** sin servidor configurado no puede funcionar. Sería más útil llevar a Ajustes › RomM.
+- **Saves sin tarjetas (P1-12):** sigue igual, también con el nuevo estado de error.
+
+**Capturas del manifiesto:** revisadas las 16 (Android, 2400×1080, 2026-11-05). Son anteriores a este cambio y solo muestran Android, y `screens/desktop/` sigue vacío, así que **no muestran este diff**. No aportan hallazgos nuevos. Según esas capturas siguen abiertos P1-3, P2-1, P2-3, P2-4, P2-5 y P2-10, y la tarjeta de la cola de borde a borde de P1-11 (`06`); falta comprobarlos con el APK actual. `02`, `05`, `07`, `08`, `11` y `16` muestran estados ya corregidos, y de la `03` a la `17` aún se ve el rail retirado en `92649a1`. `08` sigue mostrando la URL real del servidor. → Repetir el manifiesto con el APK actual y añadir capturas de escritorio, incluido este estado de error. Las capturas en vivo de esta revisión eran temporales y no se han añadido al manifiesto.
+
+**Estado del entorno:** la app de escritorio se abrió dos veces con un HOME y unas `Preferences` temporales, ya borrados, así que no se tocó la configuración real ni el servidor. Se cerró matando sus JVM, por lo que `:desktop:run` terminó con `BUILD FAILED`; no es un fallo de la app. El cursor de sway se movió para pulsar en la ventana. El emulador no se ha tocado.

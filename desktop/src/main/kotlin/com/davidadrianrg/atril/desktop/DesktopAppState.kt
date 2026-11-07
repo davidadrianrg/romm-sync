@@ -1275,11 +1275,16 @@ class DesktopAppState(private val scope: CoroutineScope) {
     private val _lastFailed = MutableStateFlow<List<FailedOpInfo>>(emptyList())
     val lastFailed: StateFlow<List<FailedOpInfo>> = _lastFailed
 
+    /** Motivo si el último ciclo falló entero (sin fallos por archivo), p. ej. servidor caído. */
+    private val _syncError = MutableStateFlow<String?>(null)
+    val syncError: StateFlow<String?> = _syncError
+
     /** Sincroniza saves con el servidor. */
     fun syncSaves() {
         if (_syncing.value) return
         _syncing.value = true
         _syncStatus.value = tr("sync.in_progress")
+        _syncError.value = null
         syncJob = scope.launch {
             try {
                 val coordinator = makeSyncCoordinator()
@@ -1294,6 +1299,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
                 }
                 _syncStatus.value = summary
                 _lastFailed.value = result.failedDetails
+                _syncError.value = result.error
                 config.lastSyncAt = System.currentTimeMillis()
                 config.lastSyncSummary = summary
                 _lastSync.value = LastSyncInfo(config.lastSyncAt, summary)
@@ -1308,6 +1314,8 @@ class DesktopAppState(private val scope: CoroutineScope) {
                 throw e
             } catch (e: Exception) {
                 _syncStatus.value = tr("common.error_detail", e.message)
+                _lastFailed.value = emptyList()
+                _syncError.value = e.message ?: tr("common.error")
             } finally {
                 _syncing.value = false
                 syncJob = null
