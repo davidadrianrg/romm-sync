@@ -187,10 +187,10 @@ private fun AppNavigationRail(state: DesktopAppState, section: Section) {
     ) {
         Spacer(Modifier.height(12.dp))
         RailItem(
-            state, Section.PLAY, section, AppIcons.PlayArrow, tr("nav.play"),
+            state, Section.PLAY, section, AppIcons.Gamepad, tr("nav.play"),
             badge = activeDownloads.takeIf { it > 0 },
         )
-        RailItem(state, Section.LIBRARY, section, AppIcons.Gamepad, tr("nav.library"))
+        RailItem(state, Section.LIBRARY, section, AppIcons.Shelf, tr("nav.library"))
         val saveSyncOn by state.saveSyncEnabled.collectAsState()
         if (saveSyncOn) RailItem(state, Section.SAVES, section, AppIcons.Sync, tr("nav.saves"))
         RailItem(state, Section.SETTINGS, section, AppIcons.Settings, tr("nav.settings"))
