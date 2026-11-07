@@ -26,6 +26,12 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.DownloadForOffline
+import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material.icons.outlined.CloudDownload
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Language
@@ -202,7 +208,7 @@ fun ConfigScreen(
             if (settingsCat == SettingsCategory.CONNECTION) {
             // ── Servidor ────────────────────────────────────────────────
             SettingsSection(
-                icon = Icons.Outlined.Dns,
+                icon = Icons.Outlined.CloudDownload,
                 title = tr("settings.server.title"),
             ) {
                 OutlinedTextField(
@@ -489,7 +495,7 @@ fun ConfigScreen(
             if (settingsCat == SettingsCategory.ADVANCED) {
             // ── ES-DE Data Dir ───────────────────────────────────────────
             SettingsSection(
-                icon = Icons.Outlined.Folder,
+                icon = Icons.Outlined.Image,
                 title = tr("settings.esde.title"),
             ) {
                 // Toggle maestro: oculta la función de exportación a ES-DE
@@ -553,7 +559,7 @@ fun ConfigScreen(
             if (settingsCat == SettingsCategory.DOWNLOADS) {
             // ── Media del juego al descargar (genérica) ───────────────────
             SettingsSection(
-                icon = Icons.Outlined.Folder,
+                icon = Icons.Outlined.Image,
                 title = tr("media.download.title"),
             ) {
                 // Toggle maestro: sin RomM no tiene sentido (la media viene de RomM).
@@ -618,7 +624,7 @@ fun ConfigScreen(
             if (settingsCat == SettingsCategory.DOWNLOADS) {
             // ── Descargas ───────────────────────────────────────────────
             SettingsSection(
-                icon = Icons.Outlined.DownloadForOffline,
+                icon = Icons.Outlined.Download,
                 title = tr("settings.downloads.title"),
             ) {
                 Text(
@@ -825,7 +831,7 @@ fun ConfigScreen(
             if (settingsCat == SettingsCategory.APPEARANCE) {
             // ── Idioma ─────────────────────────────────────────────────
             SettingsSection(
-                icon = Icons.Outlined.Language,
+                icon = Icons.Outlined.Public,
                 title = tr("config.language.title"),
             ) {
                 val languageTag by viewModel.language.collectAsState(initial = "")
@@ -854,7 +860,7 @@ fun ConfigScreen(
             if (settingsCat == SettingsCategory.LOCAL) {
             // ── Carátulas de juegos locales (SteamGridDB / ScreenScraper) ──
             SettingsSection(
-                icon = Icons.Outlined.Language,
+                icon = Icons.Outlined.Image,
                 title = tr("config.localmeta.title"),
             ) {
                 val saved by viewModel.scraperCredentials.collectAsState(
@@ -901,7 +907,7 @@ fun ConfigScreen(
             if (settingsCat == SettingsCategory.APPEARANCE) {
             // ── Temas ──────────────────────────────────────────────────
             SettingsSection(
-                icon = Icons.Outlined.Language,
+                icon = Icons.Outlined.Star,
                 title = tr("config.theme.title"),
             ) {
                 val themeId by viewModel.theme.collectAsState(initial = "")
@@ -945,7 +951,7 @@ fun ConfigScreen(
             if (settingsCat == SettingsCategory.ABOUT) {
             // ── Actualizaciones ────────────────────────────────────────
             SettingsSection(
-                icon = Icons.Outlined.SystemUpdateAlt,
+                icon = Icons.Outlined.Refresh,
                 title = tr("settings.updates.title"),
             ) {
                 Text(
