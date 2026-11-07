@@ -701,3 +701,13 @@ Diff revisado: `75593c3..af76182` (solo `DesktopUi.kt`, +9/−4). **Sin cambios 
 - **Sin verificar en vivo:** no se ha abierto la app de escritorio, así que no se ha visto la rejilla nueva ni el aspecto de las franjas con carátulas anchas.
 
 **Capturas del manifiesto:** revisadas (`05` como referencia de la Biblioteca de Android). Siguen siendo las 16 de Android del 2026-11-05, anteriores a `bdd664d` y a este cambio: `05` todavía muestra la mampostería, y `screens/desktop/` sigue vacío (el manifiesto dice que `grim` se colgó), así que **no muestran este diff**. No hay hallazgos visuales nuevos. Siguen pendientes P1-1, P1-3 (Android), P2-1, P2-3, P2-4, P2-5 y P2-10. → Repetir el manifiesto con el APK actual y añadir capturas de la Biblioteca de escritorio para comprobar las franjas de `Fit`.
+
+## Seguimiento (revisión de `eb93106`, limpieza de imports y del KDoc de `CoverImage`)
+Diff revisado: `b6dc673..bf09d62` (`ConfigScreen.kt` −2, `Covers.kt` +2/−3). **Sin cambios de código en esta revisión:** no hay bugs ni regresiones. `:app:compileDebugKotlin` y `:desktop:compileKotlin` compilan bien.
+
+- **Imports de Android: hecho.** `Icons.Outlined.Dns` y `Icons.Outlined.Language` ya no se usaban en `ConfigScreen.kt`. La única coincidencia que queda es `viewModel.setLanguage`, que no tiene relación.
+- **P3 de la revisión de `fcdaf0a`: hecho en parte.** El KDoc de `CoverImage` ya describe la rejilla uniforme 3:4 con `Fit`. **Pendiente:** `rememberMedianCoverRatio` (`Covers.kt:130`) sigue sin llamadas, y el KDoc solo dice que no se usa en vez de borrarlo. En Android sigue el código sin uso de la mediana (`CoverAspectRatioCalculator`, `updatePlatformMeasuredAspectRatio` y la columna `measuredAspectRatio`, que necesita migración). → Mantener la tarea de limpieza aparte.
+- **Tests:** no hacen falta; no hay cambios de comportamiento.
+- **Sync y Android horizontal: sin impacto.** Solo cambian imports y un comentario.
+
+**Capturas del manifiesto:** siguen siendo las mismas 16 de Android del 2026-11-05 (no hay capturas nuevas) y `screens/desktop/` sigue vacío. Hay un `check-settings.png` en la raíz de `screens/` que no está en el manifiesto, así que no se ha tenido en cuenta. **No muestran este diff** (que no tiene efecto visual) y no hay hallazgos visuales nuevos. Siguen pendientes P1-1, P1-3 (Android), P2-1, P2-3, P2-4, P2-5 y P2-10.
