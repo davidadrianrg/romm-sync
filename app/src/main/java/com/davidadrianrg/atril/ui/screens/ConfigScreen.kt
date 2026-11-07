@@ -113,6 +113,7 @@ fun ConfigScreen(
     val isChecking by viewModel.isCheckingUpdate.collectAsState()
     val installFeedback by viewModel.installFeedback.collectAsState()
     val compact = com.davidadrianrg.atril.ui.components.rememberWindowInfo().isCompact
+    val portraitPhone = com.davidadrianrg.atril.ui.components.rememberWindowInfo().isCompactPortrait
     rememberNotificationPermissionState()
 
     var serverUrl by remember { mutableStateOf("") }
@@ -310,7 +311,7 @@ fun ConfigScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 FilledTonalButton(
                     onClick = { showRomsPicker = true },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = if (portraitPhone) Modifier.fillMaxWidth() else Modifier,
                 ) {
                     Icon(
                         Icons.Filled.Folder,
@@ -361,7 +362,7 @@ fun ConfigScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     FilledTonalButton(
                         onClick = { showSecondaryRomsPicker = true },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = if (portraitPhone) Modifier.fillMaxWidth() else Modifier,
                     ) {
                         Icon(
                             Icons.Filled.Folder,
@@ -389,7 +390,7 @@ fun ConfigScreen(
                 Spacer(modifier = Modifier.height(12.dp))
                 FilledTonalButton(
                     onClick = onOpenPlatforms,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = if (portraitPhone) Modifier.fillMaxWidth() else Modifier,
                 ) {
                     Icon(
                         Icons.Outlined.Storage,
@@ -418,7 +419,7 @@ fun ConfigScreen(
                 val isScanning = scanState is LibraryScanState.Scanning
                 FilledTonalButton(
                     onClick = { viewModel.scanLibrary(serverUrl, apiKey) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = if (portraitPhone) Modifier.fillMaxWidth() else Modifier,
                     enabled = settings.isConfigured && !isScanning,
                 ) {
                     if (isScanning) {
@@ -528,7 +529,7 @@ fun ConfigScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 FilledTonalButton(
                     onClick = { showEsdePicker = true },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = if (portraitPhone) Modifier.fillMaxWidth() else Modifier,
                 ) {
                     Icon(
                         Icons.Filled.Folder,
@@ -593,7 +594,7 @@ fun ConfigScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 FilledTonalButton(
                     onClick = { showMediaPicker = true },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = if (portraitPhone) Modifier.fillMaxWidth() else Modifier,
                 ) {
                     Icon(
                         Icons.Filled.Folder,
@@ -955,7 +956,7 @@ fun ConfigScreen(
 
                 FilledTonalButton(
                     onClick = { viewModel.checkForUpdates() },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = if (portraitPhone) Modifier.fillMaxWidth() else Modifier,
                     enabled = !isChecking,
                 ) {
                     if (isChecking) {
@@ -1025,7 +1026,7 @@ fun ConfigScreen(
                             )
                             FilledTonalButton(
                                 onClick = { viewModel.recheckSkippedVersion() },
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = if (portraitPhone) Modifier.fillMaxWidth() else Modifier,
                             ) { Text(tr("android.config.reoffer_version")) }
                         } else {
                             TextButton(onClick = { viewModel.skipCurrentVersion() }) {
@@ -1078,7 +1079,7 @@ fun ConfigScreen(
                                 Spacer(modifier = Modifier.height(4.dp))
                                 FilledTonalButton(
                                     onClick = { viewModel.downloadUpdate() },
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = if (portraitPhone) Modifier.fillMaxWidth() else Modifier,
                                 ) {
                                     Text(tr("android.config.update_retry_download"))
                                 }
@@ -1086,7 +1087,7 @@ fun ConfigScreen(
                             UpdateDownloadState.Idle -> {
                                 FilledTonalButton(
                                     onClick = { viewModel.downloadUpdate() },
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = if (portraitPhone) Modifier.fillMaxWidth() else Modifier,
                                 ) {
                                     Icon(
                                         Icons.Outlined.DownloadForOffline,
