@@ -63,9 +63,13 @@ object DesktopConfig {
         get() = prefs.get("save_download_dir", "")
         set(v) = prefs.put("save_download_dir", v)
 
-    /** Interruptor maestro de la exportación a ES-DE (igual que en Android; apagado por defecto). */
+    /**
+     * Interruptor maestro de la exportación a ES-DE (igual que en Android; apagado por defecto).
+     * Antes no existía y la exportación se mostraba siempre: si ya se exportó alguna vez
+     * (`esde_data_dir` guardado al pulsar "Exportar"), se parte de encendido para no ocultarla.
+     */
     var esdeExportEnabled: Boolean
-        get() = prefs.getBoolean("esde_export_enabled", false)
+        get() = prefs.getBoolean("esde_export_enabled", prefs.get("esde_data_dir", null) != null)
         set(v) = prefs.putBoolean("esde_export_enabled", v)
 
     /** Pedir a RomM el medio físico al descargar un juego que no lo tenga. */
