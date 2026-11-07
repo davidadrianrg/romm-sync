@@ -27,11 +27,11 @@ import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
-import androidx.compose.foundation.lazy.staggeredgrid.items
-import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -101,7 +101,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -160,10 +159,6 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
                 LibraryViewModel(
                     romRepository = container.romRepository,
                     downloadManager = container.downloadManager,
-                    aspectRatioCalculator = com.davidadrianrg.atril.util.CoverAspectRatioCalculator(
-                        context = context.applicationContext,
-                        imageLoader = coil.Coil.imageLoader(context.applicationContext),
-                    ),
                 )
             }
         }
@@ -366,37 +361,8 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
 
     val isLandscape = windowInfo.isLandscape
 
-    // Aspect ratio de los covers segun la plataforma seleccionada
-    val coverAspectRatio = remember(selectedPlatformId, platforms) {
-        val platform = platforms.find { it.id == selectedPlatformId }
-        platform?.measuredAspectRatio ?: parseAspectRatio(platform?.aspectRatio)
-    }
-
-    // Mide el aspect ratio real de los covers una vez por plataforma, reusando
-    // las carátulas ya cargadas en la rejilla.
-    LaunchedEffect(selectedPlatformId, romsWithStatus, platforms) {
-        val platformId = selectedPlatformId ?: return@LaunchedEffect
-        val platform = platforms.find { it.id == platformId } ?: return@LaunchedEffect
-        val coverUrls = romsWithStatus.mapNotNull {
-            it.rom.coverUrlLarge ?: it.rom.coverUrlSmall
-        }
-        viewModel.ensureAspectRatioMeasured(
-            platformId = platformId,
-            alreadyMeasured = platform.measuredAspectRatio != null,
-            coverUrls = coverUrls,
-        )
-    }
-
-    // No pintar la rejilla hasta tener el ratio real medido (si no, las portadas
-    // aparecen con 2:3 y saltan al reajustarse). Con tope de 4 s para no bloquear.
-    var ratioTimedOut by remember(selectedPlatformId) { mutableStateOf(false) }
-    LaunchedEffect(selectedPlatformId) { kotlinx.coroutines.delay(4_000); ratioTimedOut = true }
-    val ratioPending = !ratioTimedOut && selectedPlatformId != null &&
-        platforms.find { it.id == selectedPlatformId }?.measuredAspectRatio == null &&
-        romsWithStatus.any { (it.rom.coverUrlLarge ?: it.rom.coverUrlSmall) != null }
-
     // ── Infinite scroll state ──────────────────────────────────────────
-    val gridState = rememberLazyStaggeredGridState()
+    val gridState = rememberLazyGridState()
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
     val hasMore by viewModel.hasMore.collectAsState()
 
@@ -650,7 +616,7 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
             }
 
             // ── Grid of games ───────────────────────────────────────────
-            if ((isLoading && romsWithStatus.isEmpty()) || ratioPending) {
+            if (isLoading && romsWithStatus.isEmpty()) {
                 // Estado de carga diseñado: esqueleto de tarjetas en vez de un spinner solitario.
                 com.davidadrianrg.atril.ui.components.SkeletonGrid(
                     minCardSize = minCardSize,
@@ -729,27 +695,27 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
                 },
                 modifier = Modifier.fillMaxSize(),
             ) {
-                // Mampostería real: cada carátula conserva su ratio y las columnas se rellenan sin
-                // huecos (la rejilla uniforme dejaba filas altas con tarjetas cortas arriba).
-                LazyVerticalStaggeredGrid(
-                    columns = StaggeredGridCells.Adaptive(minSize = minCardSize),
+                // Rejilla por filas, no escalonada: el ancho de las columnas difiere en 1 px por
+                // redondeo y una escalonada colocaría cada tarjeta en la columna más corta,
+                // desordenando la fila siguiente.
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = minCardSize),
                     state = gridState,
                     modifier = Modifier.fillMaxSize(),
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    verticalItemSpacing = 14.dp,
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
                     contentPadding = PaddingValues(vertical = 12.dp),
                 ) {
                     items(filteredRoms, key = { it.rom.id }) { romStatus ->
                         RomCard(
                             romWithStatus = romStatus,
-                            coverAspectRatio = coverAspectRatio,
                             onDownload = { startDownload(romStatus.rom) },
                             onLongPress = { selectedRom = romStatus.rom },
                         )
                     }
                     // Loading more footer
                     if (isLoadingMore) {
-                        item(span = StaggeredGridItemSpan.FullLine) {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -1068,30 +1034,25 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
 @Composable
 private fun RomCard(
     romWithStatus: RomWithStatus,
-    coverAspectRatio: Float,
     onDownload: (RomWithStatus) -> Unit,
     onLongPress: (RomWithStatus) -> Unit,
 ) {
     val context = LocalContext.current
     val coverUrl = romWithStatus.rom.coverUrlLarge ?: romWithStatus.rom.coverUrlSmall
 
-    // El painter expone el tamaño intrínseco de la imagen una vez decodificada:
-    // cada card adopta la proporción REAL de su cover (masonry), con la mediana
-    // de la plataforma como placeholder mientras carga o si la decodificación falla.
     val painter = rememberAsyncImagePainter(
         model = ImageRequest.Builder(context)
             .data(coverUrl)
             .crossfade(true)
             .build(),
     )
-    // Rejilla uniforme 3:4: la carátula se ajusta (Fit) con franjas laterales en vez de recortarse
-    // o cambiar la altura de la tarjeta; todas las celdas miden lo mismo (mejor para D-pad).
-    val cardAspectRatio = UNIFORM_CARD_RATIO
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(cardAspectRatio)
+            // Rejilla uniforme 3:4: la carátula se ajusta (Fit) con franjas en vez de recortarse o
+            // cambiar la altura de la tarjeta (mejor para D-pad).
+            .aspectRatio(UNIFORM_CARD_RATIO)
             .clip(RoundedCornerShape(12.dp))
             .background(
                 Brush.verticalGradient(
@@ -1244,23 +1205,6 @@ private fun RomCard(
             }
         }
     }
-}
-
-/** Aspect ratio por defecto (2:3) cuando la plataforma no lo especifica. */
-private const val DEFAULT_COVER_ASPECT_RATIO = 0.667f
-
-/**
- * Parsea un string de aspect ratio como "2 / 3" o "3 / 4" a un Float.
- * Devuelve el ratio por defecto (2:3) si no se puede parsear.
- */
-private fun parseAspectRatio(ratioStr: String?): Float {
-    if (ratioStr.isNullOrBlank()) return DEFAULT_COVER_ASPECT_RATIO
-    val parts = ratioStr.split("/").map { it.trim() }
-    if (parts.size != 2) return DEFAULT_COVER_ASPECT_RATIO
-    val w = parts[0].toFloatOrNull() ?: return DEFAULT_COVER_ASPECT_RATIO
-    val h = parts[1].toFloatOrNull() ?: return DEFAULT_COVER_ASPECT_RATIO
-    if (h <= 0f) return DEFAULT_COVER_ASPECT_RATIO
-    return w / h
 }
 
 // ── Bottom sheet: game detail ──────────────────────────────────────────
