@@ -1551,73 +1551,28 @@ fun SettingsScreen(state: DesktopAppState) {
             }
         }
 
-        if (settingsCat == SettingsCategory.LOCAL) {
-        // ── Carátulas de juegos locales (SteamGridDB / ScreenScraper) ──
-        SettingsSection(icon = AppIcons.Image, title = tr("config.localmeta.title")) {
-            val saved = remember { DesktopConfig.scraperCredentials() }
-            var draft by remember { mutableStateOf(saved) }
-            var current by remember { mutableStateOf(saved) }
-            var justSaved by remember { mutableStateOf(false) }
-            Text(
-                tr("config.localmeta.hint"),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            @Composable
-            fun field(label: String, value: String, secret: Boolean, onChange: (String) -> Unit) {
-                OutlinedTextField(
-                    value = value,
-                    onValueChange = { onChange(it); justSaved = false },
-                    label = { Text(label) },
-                    singleLine = true,
-                    visualTransformation = if (secret) {
-                        androidx.compose.ui.text.input.PasswordVisualTransformation()
-                    } else {
-                        androidx.compose.ui.text.input.VisualTransformation.None
-                    },
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                )
-            }
-            field(tr("config.localmeta.sgdb"), draft.steamGridDbKey, true) { draft = draft.copy(steamGridDbKey = it) }
-            field(tr("config.localmeta.ss_user"), draft.ssUser, false) { draft = draft.copy(ssUser = it) }
-            field(tr("config.localmeta.ss_pw"), draft.ssPassword, true) { draft = draft.copy(ssPassword = it) }
-            Spacer(Modifier.height(10.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Button(
-                    onClick = { DesktopConfig.saveScraperCredentials(draft); current = draft; justSaved = true },
-                    enabled = draft != current,
-                ) { Text(tr("config.localmeta.save")) }
-                if (justSaved) {
-                    Spacer(Modifier.width(12.dp))
-                    Text(tr("config.localmeta.saved"), style = MaterialTheme.typography.bodySmall)
-                }
-            }
-        }
-        }
-
         if (settingsCat == SettingsCategory.APPEARANCE) {
-        // ── Temas ──
-        SettingsSection(icon = AppIcons.Storage, title = tr("config.theme.title")) {
-            val current by state.theme.collectAsState()
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                com.davidadrianrg.atril.core.theme.AppTheme.entries.forEach { t ->
-                    FilterChip(
-                        selected = current == t,
-                        onClick = { state.setTheme(t) },
-                        label = { Text(tr("config.theme.${t.id}"), style = MaterialTheme.typography.labelMedium) },
+        // ── Launcher: medio físico automático (opcional, con RomM conectado) ──
+        SettingsSection(icon = AppIcons.Gamepad, title = tr("settings.launcher.title")) {
+            var autoOn by remember { mutableStateOf(state.config.autoPhysicalMedia) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(tr("settings.launcher.auto_physical"), style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        tr("settings.launcher.auto_physical_desc"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                Spacer(Modifier.width(12.dp))
+                Switch(
+                    checked = autoOn && hasCredentials,
+                    enabled = hasCredentials,
+                    onCheckedChange = { autoOn = it; state.config.autoPhysicalMedia = it },
+                )
             }
-            Spacer(Modifier.height(6.dp))
-            Text(
-                tr("config.theme.hint"),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
         }
 
-        if (settingsCat == SettingsCategory.APPEARANCE) {
         // ── Idioma ──
         SettingsSection(icon = AppIcons.Storage, title = tr("config.language.title")) {
             val langTag by state.language.collectAsState()
@@ -1641,25 +1596,25 @@ fun SettingsScreen(state: DesktopAppState) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        // ── Launcher: medio físico automático (opcional, con RomM conectado) ──
-        SettingsSection(icon = AppIcons.Gamepad, title = tr("settings.launcher.title")) {
-            var autoOn by remember { mutableStateOf(state.config.autoPhysicalMedia) }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(tr("settings.launcher.auto_physical"), style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        tr("settings.launcher.auto_physical_desc"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+        // ── Temas ──
+        SettingsSection(icon = AppIcons.Storage, title = tr("config.theme.title")) {
+            val current by state.theme.collectAsState()
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                com.davidadrianrg.atril.core.theme.AppTheme.entries.forEach { t ->
+                    FilterChip(
+                        selected = current == t,
+                        onClick = { state.setTheme(t) },
+                        label = { Text(tr("config.theme.${t.id}"), style = MaterialTheme.typography.labelMedium) },
                     )
                 }
-                Spacer(Modifier.width(12.dp))
-                Switch(
-                    checked = autoOn && hasCredentials,
-                    enabled = hasCredentials,
-                    onCheckedChange = { autoOn = it; state.config.autoPhysicalMedia = it },
-                )
             }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                tr("config.theme.hint"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         }
 
@@ -1846,22 +1801,51 @@ fun SettingsScreen(state: DesktopAppState) {
         }
         }
 
-        if (settingsCat == SettingsCategory.DOWNLOADS) {
-        // ── Descargas simultáneas ──
-        val maxDowns by state.maxConcurrentDownloads.collectAsState()
-        SettingsSection(icon = AppIcons.Download, title = tr("settings.downloads.title")) {
+        if (settingsCat == SettingsCategory.LOCAL) {
+        // ── Carátulas de juegos locales (SteamGridDB / ScreenScraper) ──
+        SettingsSection(icon = AppIcons.Image, title = tr("config.localmeta.title")) {
+            val saved = remember { DesktopConfig.scraperCredentials() }
+            var draft by remember { mutableStateOf(saved) }
+            var current by remember { mutableStateOf(saved) }
+            var justSaved by remember { mutableStateOf(false) }
             Text(
-                tr("settings.downloads.parallel", maxDowns),
-                style = MaterialTheme.typography.bodyMedium,
+                tr("config.localmeta.hint"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Slider(
-                value = maxDowns.toFloat(),
-                onValueChange = { state.setMaxConcurrentDownloads(it.toInt()) },
-                valueRange = 1f..5f,
-                steps = 3,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            @Composable
+            fun field(label: String, value: String, secret: Boolean, onChange: (String) -> Unit) {
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = { onChange(it); justSaved = false },
+                    label = { Text(label) },
+                    singleLine = true,
+                    visualTransformation = if (secret) {
+                        androidx.compose.ui.text.input.PasswordVisualTransformation()
+                    } else {
+                        androidx.compose.ui.text.input.VisualTransformation.None
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
+            }
+            field(tr("config.localmeta.sgdb"), draft.steamGridDbKey, true) { draft = draft.copy(steamGridDbKey = it) }
+            field(tr("config.localmeta.ss_user"), draft.ssUser, false) { draft = draft.copy(ssUser = it) }
+            field(tr("config.localmeta.ss_pw"), draft.ssPassword, true) { draft = draft.copy(ssPassword = it) }
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Button(
+                    onClick = { DesktopConfig.saveScraperCredentials(draft); current = draft; justSaved = true },
+                    enabled = draft != current,
+                ) { Text(tr("config.localmeta.save")) }
+                if (justSaved) {
+                    Spacer(Modifier.width(12.dp))
+                    Text(tr("config.localmeta.saved"), style = MaterialTheme.typography.bodySmall)
+                }
+            }
         }
+        }
+
+        if (settingsCat == SettingsCategory.DOWNLOADS) {
         // ── Media genérica al descargar ──
         SettingsSection(icon = AppIcons.Image, title = tr("media.download.title")) {
             var mediaOn by remember { mutableStateOf(state.config.mediaDownloadEnabled) }
@@ -1902,6 +1886,21 @@ fun SettingsScreen(state: DesktopAppState) {
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
+        }
+        // ── Descargas simultáneas ──
+        val maxDowns by state.maxConcurrentDownloads.collectAsState()
+        SettingsSection(icon = AppIcons.Download, title = tr("settings.downloads.title")) {
+            Text(
+                tr("settings.downloads.parallel", maxDowns),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Slider(
+                value = maxDowns.toFloat(),
+                onValueChange = { state.setMaxConcurrentDownloads(it.toInt()) },
+                valueRange = 1f..5f,
+                steps = 3,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
         }
 
@@ -2007,6 +2006,19 @@ fun SettingsScreen(state: DesktopAppState) {
         }
 
         if (settingsCat == SettingsCategory.ABOUT) {
+        // ── Controles (mando / teclado) ──
+        SettingsSection(icon = AppIcons.Gamepad, title = tr("controls.title")) {
+            listOf("controls.dpad", "controls.select", "controls.details", "controls.shoulders", "controls.back", "controls.menu").forEach { k ->
+                Text(tr(k), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 2.dp))
+            }
+            Text(
+                tr("controls.note"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
+
         // ── Actualizaciones ──
         SettingsSection(icon = AppIcons.Refresh, title = tr("settings.updates.title")) {
             val updState by state.updateState.collectAsState()
@@ -2090,21 +2102,6 @@ fun SettingsScreen(state: DesktopAppState) {
                 Spacer(Modifier.height(6.dp))
                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        }
-        }
-
-        if (settingsCat == SettingsCategory.ABOUT) {
-        // ── Controles (mando / teclado) ──
-        SettingsSection(icon = AppIcons.Gamepad, title = tr("controls.title")) {
-            listOf("controls.dpad", "controls.select", "controls.details", "controls.shoulders", "controls.back", "controls.menu").forEach { k ->
-                Text(tr(k), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 2.dp))
-            }
-            Text(
-                tr("controls.note"),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 8.dp),
-            )
         }
 
         // ── Acerca de ──
