@@ -511,3 +511,35 @@ Diff revisado: `852a419..51c0efd` (solo `SettingsScreen` en `DesktopUi.kt`). **S
 **El manifiesto ya no es exacto sobre `grim`:** dice que se cuelga, pero en esta revisión ha funcionado en seis capturas con `WAYLAND_DISPLAY=wayland-1` y `XDG_RUNTIME_DIR=/run/user/1000`. `swaymsg` funciona pasándole el socket con `-s /run/user/1000/sway-ipc.*.sock`. Así que las capturas de escritorio se pueden hacer.
 
 **Estado del entorno:** la app de escritorio se abrió cuatro veces, siempre con un HOME y unas `Preferences` temporales, ya borrados, así que no se tocó la configuración real ni el servidor RomM. Se cerró matando su JVM y también se cerró el servidor falso. El cursor de sway se movió para pulsar en la ventana.
+
+---
+
+## Seguimiento (revisión de `bdd664d`, rejilla uniforme 3:4 en la Biblioteca de Android, P1-9)
+Diff revisado: `1f80346..2676679` (solo `LibraryScreen.kt`). **Corregido en `feat/opus-review-4`** (`LibraryScreen.kt` y `LibraryViewModel.kt`). Pasan `:core:test`, `:desktop:test`, `testDebugUnitTest` y `:app:assembleDebug`; Gradle dio `:core:test` y `:desktop:test` por `UP-TO-DATE`, porque el arreglo no toca sus fuentes.
+
+**Corregido:**
+- **Filas desordenadas (P1, de este diff, reproducido).** El commit fijaba la proporción, pero seguía usando `LazyVerticalStaggeredGrid`. A 2400×1080 las columnas miden 260 o 259 px por redondeo, y sus tarjetas 347 o 345 px de alto. La escalonada coloca cada tarjeta en la columna más corta, así que la segunda fila de Amstrad CPC se pintaba como "Archon, Arkanoid, … Auf Wiedersehen, After Burner, After the War, Angel Nieto": las tres últimas columnas reciben las tarjetas que van primero. Además, las columnas quedaban desalineadas 2 px (y=785 frente a y=783). Ahora es un `LazyVerticalGrid`, igual que `SkeletonGrid` y que escritorio. Verificado en DOS: orden correcto y todas las filas en y=785.
+- **Espera inútil de hasta 4 s (P1, de este diff, reproducido).** `ratioPending` seguía reteniendo la rejilla hasta medir el ratio de la plataforma, y ese ratio ya no se usa para pintar. Además se descargaban hasta 12 carátulas para medirlo. Se han quitado la espera, la medición y su código sin uso. En la primera visita, el esqueleto seguía visible en la última muestra, a los 2,4 s (Commodore C64, con el código anterior); con el arreglo, las tarjetas aparecen a los 0,96 s (DOS). Es una sola muestra por caso y en plataformas distintas, así que es orientativo.
+- **Comentarios falsos.** Dos seguían describiendo la mampostería y otro hablaba solo de franjas laterales, cuando las carátulas anchas las llevan arriba y abajo.
+
+**Verificado en vivo con el arreglo (Android):** a 2400×1080, DOS y MSX. El scroll infinito llega al final de MSX (209 juegos, de "Undeadline" a "Zombie Incident") y "Back to top" funciona. En vertical (1080×2400, restaurado después), 2 columnas con filas alineadas. **P1-9 en Android: hecho.**
+
+**Tests:** ninguno nuevo. Es un cambio de layout y `app` no tiene tests de UI de Compose. Sin cambios en la sync ni en las descargas.
+
+**Pendiente:**
+- **P1-9, paridad con escritorio (por lectura de código; escritorio no ejecutado).** Android usa ahora 3:4 con `Fit`. Escritorio usa la mediana de la vista con `Crop` (`DesktopUi.kt:801`, `Covers.kt:41`), así que recorta lo que Android muestra entero y las tarjetas tienen otra proporción. P1-9 pedía un único comportamiento. → Decidirlo y aplicarlo en los dos lados.
+- **P1, D-pad en la rejilla (reproducido con `adb shell input keyevent`, sin mando real).** El comentario del commit decía que la rejilla uniforme era mejor para D-pad, pero bajar a una fila fuera de la vista no conserva la columna. Con el arreglo, Abajo desde la columna 3 va a la columna 1 ("Another World" → "Army Moves"). En `develop` ya fallaba, y salta a columnas más alejadas (de la 3 a la 6). El arreglo no lo empeora, pero tampoco lo resuelve.
+- **P1, D-pad atrapado en el desplegable: sigue igual.** Reproducido de nuevo en Amiga: tras elegir plataforma, las flechas no salen del desplegable. Para llegar a la rejilla hizo falta usar Tab.
+- **P2, código sin uso.** `CoverAspectRatioCalculator` con su test, `updatePlatformMeasuredAspectRatio` y la columna `measuredAspectRatio` ya no se usan. Se han dejado porque harían falta si la paridad se resuelve llevando Android a la mediana. → Borrarlos cuando se decida. La columna requiere migración de Room.
+- **P2, carátulas anchas (en vivo).** Dejan una franja oscura arriba y abajo, y la insignia de descarga queda medio sobre la franja y medio sobre la imagen ("Archon", "Arkanoid"). Es el efecto esperado de `Fit`; no justifica cambiar código.
+
+**Capturas del manifiesto:** revisadas las 16 (Android, 2400×1080, 2026-11-05). Son anteriores a este cambio y `screens/desktop/` sigue vacío, así que **no muestran este diff** ni aportan hallazgos nuevos. Según esas capturas siguen abiertos P1-3, P2-1, P2-3, P2-4, P2-5 y P2-10, y la tarjeta de la cola de borde a borde de P1-11 (`06`); falta comprobarlos con el APK actual. `05` aún muestra la mampostería con huecos. → Repetir el manifiesto con el APK actual y añadir capturas de escritorio. Las capturas en vivo de esta revisión eran temporales y no se han añadido al manifiesto.
+
+**Verificado de paso en vivo:** dado de contorno (P1-6), pastilla ámbar con icono de descarga en el botón batch (P1-7) e insignias de tarjeta translúcidas (P1-8).
+
+**Estado del entorno:**
+- El emulador se reinició solo a mitad de la revisión (hacia las 05:32). No se ha averiguado la causa. Esa pasada se descartó y se repitió.
+- La pantalla se puso en 1080×2400 para probar el modo vertical y se restauró a 2400×1080.
+- El emulador tiene instalado el APK de `feat/opus-review-4`, y se ha visitado DOS, MSX, Amiga, Atari 2600 y Commodore C64.
+- Escritorio no se ha ejecutado, porque el diff y el arreglo solo tocan `app`.
+- `feat/opus-review-4` ya existía en local, ya integrada y sin commits propios (`365db68`): se borró con `git branch -d` para recrearla. `feat/opus-review-1` sigue ahí en el mismo estado (`55b5143`), sin tocar.
