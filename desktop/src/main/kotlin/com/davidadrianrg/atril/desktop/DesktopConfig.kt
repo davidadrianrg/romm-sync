@@ -63,6 +63,11 @@ object DesktopConfig {
         get() = prefs.get("save_download_dir", "")
         set(v) = prefs.put("save_download_dir", v)
 
+    /** Interruptor maestro de la exportación a ES-DE (igual que en Android; apagado por defecto). */
+    var esdeExportEnabled: Boolean
+        get() = prefs.getBoolean("esde_export_enabled", false)
+        set(v) = prefs.putBoolean("esde_export_enabled", v)
+
     /** Pedir a RomM el medio físico al descargar un juego que no lo tenga. */
     var autoPhysicalMedia: Boolean
         get() = prefs.getBoolean("auto_physical_media", false)

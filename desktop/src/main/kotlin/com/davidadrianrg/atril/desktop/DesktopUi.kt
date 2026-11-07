@@ -1914,6 +1914,21 @@ fun SettingsScreen(state: DesktopAppState) {
         // ── ES-DE ──
         SettingsSection(icon = AppIcons.Image, title = tr("settings.esde.title")) {
             var esdeDir by remember { mutableStateOf(state.config.esdeDataDir) }
+            var esdeOn by remember { mutableStateOf(state.config.esdeExportEnabled) }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(tr("settings.esde.use"), style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        tr("settings.esde.use_hint"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Switch(checked = esdeOn, onCheckedChange = { esdeOn = it; state.config.esdeExportEnabled = it })
+            }
+            if (esdeOn) {
+            Spacer(Modifier.height(8.dp))
             OutlinedTextField(
                 esdeDir,
                 { esdeDir = it },
@@ -1960,6 +1975,7 @@ fun SettingsScreen(state: DesktopAppState) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            }
         }
         }
 
