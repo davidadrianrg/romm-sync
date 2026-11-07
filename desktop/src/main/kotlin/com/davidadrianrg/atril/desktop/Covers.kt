@@ -28,9 +28,8 @@ import java.io.FileInputStream
 
 /**
  * Portada con caché de disco (CoverCache) y decodificación en IO.
- * El ratio se recibe como parámetro: la biblioteca usa la MEDIANA de las
- * portadas de la vista para un grid uniforme (igual que Android; ver
- * references/compose-ui-notes.md — nunca sizing por card).
+ * El ratio se recibe como parámetro: la rejilla de Biblioteca usa un 3:4 uniforme con Fit
+ * (igual que Android); [rememberMedianCoverRatio] ya no se usa en la rejilla.
  */
 @Composable
 fun CoverImage(
