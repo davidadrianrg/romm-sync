@@ -900,7 +900,7 @@ private fun LibraryEmptyState(state: DesktopAppState, search: String, filter: Li
             tr("library.empty.all_downloaded.title") to tr("library.empty.all_downloaded.description")
         else -> tr("library.empty.no_games.title") to tr("library.empty.no_games.description")
     }
-    EmptyState(icon = AppIcons.Gamepad, title = title, description = desc)
+    EmptyState(icon = AppIcons.Shelf, title = title, description = desc)
 }
 
 /** Card de juego estilo Android: portada con scrim, título sobre la imagen y badges. */
@@ -1594,7 +1594,7 @@ fun SettingsScreen(state: DesktopAppState) {
         }
 
         // ── Idioma ──
-        SettingsSection(icon = AppIcons.Storage, title = tr("config.language.title")) {
+        SettingsSection(icon = AppIcons.Public, title = tr("config.language.title")) {
             val langTag by state.language.collectAsState()
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(
@@ -1618,7 +1618,7 @@ fun SettingsScreen(state: DesktopAppState) {
         }
 
         // ── Temas ──
-        SettingsSection(icon = AppIcons.Storage, title = tr("config.theme.title")) {
+        SettingsSection(icon = AppIcons.Star, title = tr("config.theme.title")) {
             val current by state.theme.collectAsState()
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 com.davidadrianrg.atril.core.theme.AppTheme.entries.forEach { t ->
@@ -1653,7 +1653,7 @@ fun SettingsScreen(state: DesktopAppState) {
 
         if (settingsCat == SettingsCategory.CONNECTION) {
         // ── Servidor ──
-        SettingsSection(icon = AppIcons.Storage, title = tr("settings.server.title")) {
+        SettingsSection(icon = AppIcons.CloudDownload, title = tr("settings.server.title")) {
             OutlinedTextField(
                 serverUrl.value,
                 { serverUrl.value = it },
@@ -1787,7 +1787,7 @@ fun SettingsScreen(state: DesktopAppState) {
 
         if (settingsCat == SettingsCategory.LOCAL) {
         // ── Escanear biblioteca ──
-        SettingsSection(icon = AppIcons.Storage, title = tr("common.scan_library")) {
+        SettingsSection(icon = AppIcons.Search, title = tr("common.scan_library")) {
             Text(
                 tr("settings.scan.description"),
                 style = MaterialTheme.typography.bodySmall,
@@ -2169,7 +2169,7 @@ fun SettingsScreen(state: DesktopAppState) {
         }
 
         // ── Acerca de ──
-        SettingsSection(icon = AppIcons.Gamepad, title = tr("settings.about.title")) {
+        SettingsSection(icon = AppIcons.Info, title = tr("settings.about.title")) {
             Text(
                 tr("settings.about.version", DesktopConfig.appVersion),
                 style = MaterialTheme.typography.bodyMedium,

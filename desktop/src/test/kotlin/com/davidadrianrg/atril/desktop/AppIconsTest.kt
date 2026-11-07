@@ -10,7 +10,7 @@ class AppIconsTest {
     /** Regresión: el "+" del mando se pintaba relleno y el icono salía como un rectángulo sólido. */
     @Test
     fun iconsWithHolesUseSingleEvenOddPath() {
-        for (icon in listOf(AppIcons.Gamepad, AppIcons.Settings, AppIcons.Casino)) {
+        for (icon in listOf(AppIcons.Gamepad, AppIcons.Settings, AppIcons.Casino, AppIcons.Info)) {
             val paths = icon.root.filterIsInstance<VectorPath>()
             assertEquals("${icon.name} debe ser un único path", 1, paths.size)
             assertEquals(icon.name, PathFillType.EvenOdd, paths[0].pathFillType)
