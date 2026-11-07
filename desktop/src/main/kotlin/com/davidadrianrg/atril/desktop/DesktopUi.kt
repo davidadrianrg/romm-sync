@@ -1270,6 +1270,11 @@ fun SavesScreen(state: DesktopAppState) {
                             color = MaterialTheme.colorScheme.onErrorContainer,
                         )
                     }
+                    // Sync fallida: "Reintentar" (misma acción que "Sync now"), como en Android.
+                    Spacer(Modifier.height(8.dp))
+                    FilledTonalButton(onClick = state::syncSaves, enabled = !syncing) {
+                        Text(tr("downloads.retry"))
+                    }
                 }
             }
             Spacer(Modifier.height(16.dp))
