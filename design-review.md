@@ -711,3 +711,21 @@ Diff revisado: `b6dc673..bf09d62` (`ConfigScreen.kt` −2, `Covers.kt` +2/−3).
 - **Sync y Android horizontal: sin impacto.** Solo cambian imports y un comentario.
 
 **Capturas del manifiesto:** siguen siendo las mismas 16 de Android del 2026-11-05 (no hay capturas nuevas) y `screens/desktop/` sigue vacío. Hay un `check-settings.png` en la raíz de `screens/` que no está en el manifiesto, así que no se ha tenido en cuenta. **No muestran este diff** (que no tiene efecto visual) y no hay hallazgos visuales nuevos. Siguen pendientes P1-1, P1-3 (Android), P2-1, P2-3, P2-4, P2-5 y P2-10.
+
+## Seguimiento (revisión de `931309c`, "Scan now" como acción principal en Android)
+Diff revisado: `012f110..fc47cba` (`ConfigScreen.kt` +1/−1). **Sin cambios de código en esta revisión:** no hay bugs ni regresiones.
+
+- **P1-5 (jerarquía de botones), "Escanear ahora": hecho (por lectura de código).** En Android pasa de `FilledTonalButton` a `Button` (ámbar, `primary`), igual que en escritorio (`DesktopUi.kt:1799`, que ya era ámbar en `desktop/06-settings-local.png`). Queda como única acción principal de su tarjeta, por encima de "Select folder" (tonal). Durante el escaneo el botón se deshabilita, así que el `CircularProgressIndicator` (color `primary`) se dibuja sobre el contenedor deshabilitado gris y no ámbar sobre ámbar: se sigue viendo. El estado deshabilitado sin RomM configurado no cambia.
+- **Etiqueta del commit:** dice "P1-4", pero corresponde a **P1-5** (jerarquía de botones), igual que pasó en `a97ff95`.
+- **P3, estilo, sin cambio:** usa `androidx.compose.material3.Button` con el nombre completo aunque `Button` ya está importado (`ConfigScreen.kt:42`). No tiene efecto.
+- **P3, paridad menor, pendiente:** escritorio no pone icono en "Escanear ahora" y Android sí (lupa); "Seleccionar carpeta" es de contorno en escritorio (`desktop/06`) y tonal verde en Android (`android-2026-11-07/08`). → Igualarlo cuando se lleven los estilos de botón a `core`.
+- **Tests:** no hacen falta; es solo el estilo del botón. No se han ejecutado tests en esta revisión porque no hay cambios de código.
+- **Sync y Android horizontal: sin impacto.** El modificador del botón (`fillMaxWidth` solo en móvil vertical) no cambia, así que en horizontal sigue con su ancho natural.
+
+**Capturas:** el `manifest.md` de la raíz sigue siendo el de Android del 2026-11-05, pero en el mismo directorio hay dos juegos nuevos con su propio manifiesto: `android-2026-11-07/` (12 capturas, APK tras `bf09d62`) y `desktop/` (9 capturas a 854×1380, sobre `012f110`). Los dos son **anteriores a este cambio**: `android-2026-11-07/08` corta la pantalla antes de la tarjeta de escaneo, así que el botón ámbar nuevo **queda sin verificar visualmente**. Hallazgos:
+- **Hecho (confirmado en escritorio):** "Desconectar RomM" en contorno con el color de error, en línea junto a "Conectar con QR" (`desktop/04`, P1-5). El escritorio ya tiene capturas, así que deja de estar pendiente el "`screens/desktop/` vacío".
+- **Pendiente (P1-5), Android:** "Sync now" sigue siendo ámbar en `android-2026-11-07/05`, aunque ya no ocupa todo el ancho.
+- **Pendiente (P1-3), Android:** en Ajustes sigue habiendo unos 130 px vacíos entre el título (y≈95) y las pestañas (y≈295) (`android-2026-11-07/08`). Además, la hamburguesa (centro en y≈127) no se alinea con la línea del título.
+- **Nuevo (P3), escritorio:** a 854 px de ancho, la fila de pestañas de Ajustes se corta en "A…" (Acerca de) sin ningún indicio de que se puede desplazar. Sí se puede, con `horizontalScroll` (`DesktopUi.kt:2190`). → Añadir un degradado en el borde o dejar que las pestañas pasen a una segunda línea.
+- **Privacidad:** `desktop/04` muestra la URL real del servidor y `desktop/06` una ruta personal. Hay que ocultarlas antes de publicarlas.
+- Siguen pendientes P1-1, P1-3 (Android), P2-1, P2-3, P2-4, P2-5 y P2-10. → Repetir `android/08` (Juegos locales, desplazando hasta "Scan now") con el APK actual.
