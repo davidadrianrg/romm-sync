@@ -2088,7 +2088,7 @@ fun SettingsScreen(state: DesktopAppState) {
             )
             Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(onClick = state::checkUpdate, enabled = !upd.checking && !upd.downloading) {
+                androidx.compose.material3.FilledTonalButton(onClick = state::checkUpdate, enabled = !upd.checking && !upd.downloading) {
                     if (upd.checking) {
                         CircularProgressIndicator(Modifier.size(14.dp))
                         Spacer(Modifier.width(6.dp))
