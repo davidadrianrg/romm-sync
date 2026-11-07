@@ -649,3 +649,15 @@ Diff revisado: `c6e8958..aa85de2`. Cambia `ConfigScreen.kt`, `DesktopUi.kt` y la
 - **Sin verificar en vivo:** no se han abierto ni la app de escritorio ni el emulador.
 
 **Capturas del manifiesto:** revisadas. Son las mismas 16 de Android del 2026-11-05, anteriores a este cambio. `14-settings-About.png` solo muestra Controles: la tarjeta nueva y Actualizaciones quedan fuera de la captura, así que el resultado no se ve. `screens/desktop/` sigue vacío. Hallazgo que sigue abierto en `14`: la nota de Controles menciona "/dev/input" en Android (P2 de la revisión de `6b36ee2`, **pendiente**). No hay hallazgos visuales nuevos. Siguen pendientes P1-1, P1-3, P2-1, P2-3, P2-4, P2-5, P2-10 y el nombre y contenido de Sync (P1-10). → Repetir el manifiesto con el APK actual, con `14` desplazada hasta el final, y añadir capturas de escritorio.
+
+## Seguimiento (revisión de `64c2399`, iconos del rail en escritorio, P1-10)
+Diff revisado: `e8ae0e3..1990484` (dos líneas en `DesktopUi.kt`). **Sin cambios de código en esta revisión:** no hay bugs ni regresiones.
+
+- **P1-10, iconos de navegación (punto "Iconos que no coinciden" de la revisión de `bc196a8`): hecho para el rail.** Jugar usa ahora el mando (`AppIcons.Gamepad`) y Biblioteca la cuadrícula de 2×2 (`AppIcons.Shelf`). Es lo mismo que Android: `SportsEsports` y `GridView` en `Screen.kt`, como se ve en el rail (`03`) y en el cajón (`02`). `AppIcons.PlayArrow` se sigue usando en los botones "Jugar" de `DesktopLauncher.kt:985` y `GameDetail.kt:216`, así que no queda código muerto.
+- **P3, pendiente (sin cambio): el estado vacío de Biblioteca en escritorio sigue con el mando.** `LibraryEmptyState` (`DesktopUi.kt:903`) usa `AppIcons.Gamepad`; Android muestra la cuadrícula (`03`). → Cambiarlo a `AppIcons.Shelf` si se retoma la paridad de iconos.
+- **Siguen pendientes los demás iconos de ese punto:** el mando en Launcher, Sistema, Controles y Acerca de (`Info` en Android); Idioma y Tema (P2-2); Media de juegos y ES-DE (imagen en escritorio, carpeta en Android).
+- **Tests:** ninguno nuevo; es un cambio de icono y `desktop` no tiene `compose-ui-test`. `AppIconsTest` no incluye `Shelf`, pero el cambio no lo justifica. `:desktop:test` pasa.
+- **Sync y Android horizontal: sin impacto.** No toca la sync ni `app`.
+- **Sin verificar en vivo:** no se ha abierto la app de escritorio.
+
+**Capturas del manifiesto:** revisadas. Son las mismas 16 de Android del 2026-11-05 y `screens/desktop/` sigue vacío, así que no se ve el rail nuevo de escritorio. `02` y `03` confirman la referencia de Android: mando para Jugar y cuadrícula para Biblioteca, en el rail y en el cajón. No hay hallazgos visuales nuevos aparte del estado vacío de arriba. Siguen pendientes P1-1, P1-3, P2-1, P2-3, P2-4, P2-5, P2-10 y el nombre y contenido de Sync (P1-10). → Repetir el manifiesto con capturas de escritorio.
