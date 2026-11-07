@@ -500,9 +500,9 @@ fun ConfigScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(tr("android.config.use_esde"), style = MaterialTheme.typography.bodyLarge)
+                        Text(tr("settings.esde.use"), style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            tr("android.config.use_esde_hint"),
+                            tr("settings.esde.use_hint"),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
