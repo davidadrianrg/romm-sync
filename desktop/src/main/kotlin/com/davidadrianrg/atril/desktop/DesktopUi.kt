@@ -1689,10 +1689,18 @@ fun SettingsScreen(state: DesktopAppState) {
             )
             Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Button(
-                    onClick = { showQr = true; state.startQrLogin(serverUrl.value) },
-                    enabled = serverUrl.value.isNotBlank(),
-                ) { Text(tr("romm.connect_qr")) }
+                // Ya conectado: "Conectar con QR" es secundaria (tonal); sin conexión es la acción principal.
+                if (hasCredentials) {
+                    FilledTonalButton(
+                        onClick = { showQr = true; state.startQrLogin(serverUrl.value) },
+                        enabled = serverUrl.value.isNotBlank(),
+                    ) { Text(tr("romm.connect_qr")) }
+                } else {
+                    Button(
+                        onClick = { showQr = true; state.startQrLogin(serverUrl.value) },
+                        enabled = serverUrl.value.isNotBlank(),
+                    ) { Text(tr("romm.connect_qr")) }
+                }
                 Spacer(Modifier.width(12.dp))
                 if (hasCredentials) {
                     OutlinedButton(
