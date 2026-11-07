@@ -654,7 +654,7 @@ fun LibraryScreen(onOpenDownloads: () -> Unit = {}) {
                 // Estado de carga diseñado: esqueleto de tarjetas en vez de un spinner solitario.
                 com.davidadrianrg.atril.ui.components.SkeletonGrid(
                     minCardSize = minCardSize,
-                    cardAspectRatio = coverAspectRatio,
+                    cardAspectRatio = UNIFORM_CARD_RATIO,
                 )
                 return@Column
             }
@@ -1084,12 +1084,9 @@ private fun RomCard(
             .crossfade(true)
             .build(),
     )
-    val intrinsic = painter.intrinsicSize
-    val cardAspectRatio = if (intrinsic != Size.Unspecified && intrinsic.width > 0f && intrinsic.height > 0f) {
-        intrinsic.width / intrinsic.height
-    } else {
-        coverAspectRatio
-    }
+    // Rejilla uniforme 3:4: la carátula se ajusta (Fit) con franjas laterales en vez de recortarse
+    // o cambiar la altura de la tarjeta; todas las celdas miden lo mismo (mejor para D-pad).
+    val cardAspectRatio = UNIFORM_CARD_RATIO
 
     Box(
         modifier = Modifier
@@ -1132,7 +1129,7 @@ private fun RomCard(
         Image(
             painter = painter,
             contentDescription = romWithStatus.rom.name,
-            contentScale = ContentScale.Crop,
+            contentScale = ContentScale.Fit,
             modifier = Modifier.fillMaxSize(),
         )
 
@@ -2045,3 +2042,6 @@ private fun LibrarySearchField(
         modifier = modifier.height(56.dp),
     )
 }
+
+/** Proporción de las tarjetas de la rejilla de Biblioteca (3:4, ancho/alto). */
+private const val UNIFORM_CARD_RATIO = 0.75f
