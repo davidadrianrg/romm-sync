@@ -1795,7 +1795,11 @@ fun SettingsScreen(state: DesktopAppState) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.secondary,
                     )
-                    DesktopAppState.ScanState.Idle -> Unit
+                    DesktopAppState.ScanState.Idle -> if (!connected) Text(
+                        tr("settings.scan.needs_server"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
