@@ -472,3 +472,42 @@ Diff revisado: `0127bc7..00abb6b` (solo `SavesScreen` en `DesktopUi.kt`). **Corr
 **Capturas del manifiesto:** revisadas las 16 (Android, 2400×1080, 2026-11-05). Son anteriores a este cambio y solo muestran Android, y `screens/desktop/` sigue vacío, así que **no muestran este diff**. No aportan hallazgos nuevos. Según esas capturas siguen abiertos P1-3, P2-1, P2-3, P2-4, P2-5 y P2-10, y la tarjeta de la cola de borde a borde de P1-11 (`06`); falta comprobarlos con el APK actual. `02`, `05`, `07`, `08`, `11` y `16` muestran estados ya corregidos, y de la `03` a la `17` aún se ve el rail retirado en `92649a1`. `08` sigue mostrando la URL real del servidor. → Repetir el manifiesto con el APK actual y añadir capturas de escritorio, incluido este estado de error. Las capturas en vivo de esta revisión eran temporales y no se han añadido al manifiesto.
 
 **Estado del entorno:** la app de escritorio se abrió dos veces con un HOME y unas `Preferences` temporales, ya borrados, así que no se tocó la configuración real ni el servidor. Se cerró matando sus JVM, por lo que `:desktop:run` terminó con `BUILD FAILED`; no es un fallo de la app. El cursor de sway se movió para pulsar en la ventana. El emulador no se ha tocado.
+
+---
+
+## Seguimiento (revisión de `08de4ce`, "Conectar con QR" secundaria con credenciales)
+Diff revisado: `852a419..51c0efd` (solo `SettingsScreen` en `DesktopUi.kt`). **Sin cambios de código en esta revisión:** el diff no tiene bugs ni regresiones.
+
+- **P1-5, "Conectar con QR" en escritorio: hecho y verificado en vivo en Linux** (854×1380, en español, con un HOME y unas `Preferences` temporales y un servidor falso local). El commit lo etiqueta como P1-4, pero corresponde a **P1-5**. Sustituye a lo anotado como pendiente en las revisiones de `6536ba1` y `227e931`.
+
+  | Estado | "Conectar con QR" | Otros |
+  |---|---|---|
+  | Sin URL ni token | Deshabilitado | |
+  | URL sin token | Ámbar | |
+  | Token, servidor caído | Verde tonal | "Desconectar RomM"; sin "Conectado" |
+  | Token, servidor activo | Verde tonal | "Desconectar RomM" y "Conectado" |
+  | Tras pulsar "Desconectar RomM" | Vuelve a ámbar | Se conserva la URL |
+
+- **Sin verificar en vivo:**
+  - Pasar a tonal tras un login por QR real. Por lectura de código es correcto: `runQrLogin` guarda el token antes de emitir `Success`, y el `LaunchedEffect(qrState)` refresca `hasCredentials`.
+  - Pasar a tonal tras pegar un token. Por lectura de código, el formulario también refresca `hasCredentials`.
+- **Tests: no hace falta añadir ninguno.** Solo cambia el estilo del botón, y `desktop` no tiene `compose-ui-test`. `:core:test` (236), `:desktop:test` (37) y `testDebugUnitTest` terminan bien, aunque Gradle los da por `UP-TO-DATE`: no se han vuelto a ejecutar, pero las fuentes no han cambiado desde su última ejecución correcta.
+- **Sync y Android horizontal: sin impacto.** El diff solo toca Ajustes de escritorio. Android no se ha ejecutado y el emulador no se ha tocado.
+
+**Nuevo (P2), pendiente; no justifica cambiar código por ahora:**
+- **Credenciales frente a conexión.** La condición es `hasCredentials`, aunque el comentario dice "Ya conectado". Con el servidor caído, la tarjeta no tiene acción principal y no dice que no hay conexión; solo falta "Conectado". No se ha probado con un token caducado, que es el caso en el que el QR sería la salida. → Decidir si el QR vuelve a ámbar cuando hay credenciales sin conexión, y mostrar un estado "Sin conexión".
+- **Paridad con Android, QR con credenciales.** Android oculta el QR si ya está configurado (`ConfigScreen.kt`, rama `!settings.isConfigured`), y escritorio lo mantiene. → Decidir uno de los dos.
+- **Paridad con Android, URL al desconectar.** Android vacía la URL (`serverUrl = ""`), y escritorio la conserva (verificado en vivo). → Decidir uno de los dos.
+- **Texto fuera de lugar en escritorio (en vivo).** Sin credenciales se muestra `romm.local_only_hint`: "No hace falta servidor. Puedes conectar RomM más tarde desde Ajustes". Ya se está en Ajustes, y escritorio no tiene el botón `romm.local_only` que ese texto acompaña en Android. → Usar otro texto u ofrecer el botón.
+- **Última pestaña de Ajustes cortada (en vivo, a 854 px).** "Acerca de" se ve como "A", sin indicar que hay más. No se ha comprobado si la fila se desplaza. → Comprobarlo y, si hace falta, añadir un indicador o repartir las pestañas en dos filas.
+- **Dos acciones ámbar (por lectura de código, no abierto en vivo).** Sin credenciales y con el formulario de token abierto, el QR y el botón del formulario son ambos `Button`. → Dejar una sola acción principal.
+
+**Estado de otros puntos:**
+- **P1-5, "Disconnect RomM" en Android: el texto de las revisiones anteriores está desactualizado.** El código ya usa `widthIn(min = 240.dp)`, no todo el ancho. Falta verificarlo visualmente, porque `08` es anterior.
+- **P1-5, resto: pendiente.** Según `10`, "Select folder" sigue a todo el ancho; falta comprobarlo con el APK actual.
+
+**Capturas del manifiesto:** revisadas las 16 (Android, 2400×1080, 2026-11-05). Son anteriores a este cambio y solo muestran Android, y `screens/desktop/` sigue vacío, así que **no muestran este diff**. No aportan hallazgos nuevos. Según esas capturas siguen abiertos P1-3, P2-1, P2-3, P2-4, P2-5 y P2-10, y la tarjeta de la cola de borde a borde de P1-11 (`06`); falta comprobarlos con el APK actual. `08` sigue mostrando la URL real del servidor. → Repetir el manifiesto con el APK actual y añadir capturas de escritorio. Las capturas en vivo de esta revisión eran temporales y no se han añadido al manifiesto.
+
+**El manifiesto ya no es exacto sobre `grim`:** dice que se cuelga, pero en esta revisión ha funcionado en seis capturas con `WAYLAND_DISPLAY=wayland-1` y `XDG_RUNTIME_DIR=/run/user/1000`. `swaymsg` funciona pasándole el socket con `-s /run/user/1000/sway-ipc.*.sock`. Así que las capturas de escritorio se pueden hacer.
+
+**Estado del entorno:** la app de escritorio se abrió cuatro veces, siempre con un HOME y unas `Preferences` temporales, ya borrados, así que no se tocó la configuración real ni el servidor RomM. Se cerró matando su JVM y también se cerró el servidor falso. El cursor de sway se movió para pulsar en la ventana.
