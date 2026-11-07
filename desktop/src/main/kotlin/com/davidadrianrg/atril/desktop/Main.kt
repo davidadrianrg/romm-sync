@@ -143,7 +143,9 @@ fun main() {
             icon = painterResource("atril-icon.png"),
             tooltip = "Atril",
         ) {
-            Item(tr("window.tray.sync_saves")) { state.syncSaves() }
+            if (state.saveSyncEnabled.collectAsState().value) {
+                Item(tr("window.tray.sync_saves")) { state.syncSaves() }
+            }
             Item(tr("window.tray.show")) {
                 appWindow?.isVisible = true
                 appWindow?.toFront()

@@ -221,12 +221,7 @@ fun GameDetailPanel(card: GameCard, state: DesktopAppState) {
         }
 
         // ── Config de sync por juego ──
-        if (card.downloaded) {
-            Spacer(Modifier.height(32.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(20.dp))
-            RomSyncConfigSection(card, state, romsVersion)
-        }
+        if (card.downloaded) RomSyncConfigSection(card, state, romsVersion)
 
         // ── Archivos de la entrada (multi-disc = varios files en una ROM) ──
         if (rep.multi || rep.hasMultipleFiles || rep.files.size > 1) {
@@ -315,7 +310,17 @@ private fun RomSyncConfigSection(card: GameCard, state: DesktopAppState, romsVer
     val entry = remember(card, romsVersion) { state.romEntry(card.rep.id) } ?: return
     var excluded by remember(card, romsVersion) { mutableStateOf(entry.excludedFromSync) }
     var savesPath by remember(card, romsVersion) { mutableStateOf(entry.savesPathOverride ?: "") }
+    // Con la sync general apagada se ocultan exclusión y ruta (como Android); las copias locales siguen.
+    val saveSyncOn by state.saveSyncEnabled.collectAsState()
+    val versions = remember(card, romsVersion, state.downloadedVersion.collectAsState().value) {
+        state.saveBackupVersions(card.rep.id)
+    }
+    if (!saveSyncOn && versions.isEmpty()) return
 
+    Spacer(Modifier.height(32.dp))
+    HorizontalDivider()
+    Spacer(Modifier.height(20.dp))
+    if (saveSyncOn) {
     Text(tr("common.save_sync"), style = MaterialTheme.typography.titleMedium)
     Spacer(Modifier.height(14.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -366,15 +371,15 @@ private fun RomSyncConfigSection(card: GameCard, state: DesktopAppState, romsVer
             }) { Text(tr("game.sync.reset")) }
         }
     }
+    }
 
     // ── Historial de copias de seguridad (versionado de saves) ──
-    val versions = remember(card, romsVersion, state.downloadedVersion.collectAsState().value) {
-        state.saveBackupVersions(card.rep.id)
-    }
     if (versions.isNotEmpty()) {
-        Spacer(Modifier.height(12.dp))
-        HorizontalDivider()
-        Spacer(Modifier.height(12.dp))
+        if (saveSyncOn) {
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(12.dp))
+        }
         Text(tr("game.backups.title", versions.size), style = MaterialTheme.typography.titleSmall)
         Text(
             tr("game.backups.hint"),

@@ -1313,7 +1313,7 @@ class DesktopAppState(private val scope: CoroutineScope) {
 
     /** Sincroniza saves con el servidor. */
     fun syncSaves() {
-        if (_syncing.value) return
+        if (_syncing.value || !_saveSyncEnabled.value) return
         _syncing.value = true
         _syncStatus.value = tr("sync.in_progress")
         _syncError.value = null
